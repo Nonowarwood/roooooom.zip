@@ -853,28 +853,44 @@ const Z_FOND = 0.02;
 const baseZ = {}; // z de la base de chaque objet, pour poser les petits objets devant les grands
 for (const o of objetsVitrine) {
   if (o.baton) {
-    // light stick : corps fuselé (surface de révolution) argenté-bleuté, tête ajourée au logo qui s'illumine
+    // light stick : un cône (large en haut, la tête, qui s'affine vers le manche), dont la matière est
+    // percée du logo (face) et de « FEARNOT » (côté). Un cœur lumineux dedans se voit par les ajours.
     const { longueur: L, z, angle } = o.baton;
-    const profil = [[0, 0], [0.011, 0], [0.0125, 0.006], [0.0125, 0.07], [0.0155, 0.09], [0.0195, 0.11], [0.0215, 0.13], [0.0225, 0.2], [0.0215, 0.25], [0.017, 0.258], [0.01, 0.262], [0, 0.263]]
-      .map(([r, y]) => new THREE.Vector2(r, (y / 0.263) * L));
+    const RH = 0.0255; // rayon en haut
+    const RB = 0.0175; // rayon en bas
+    const rayonA = (t) => RB + (RH - RB) * Math.pow(t, 0.9); // t = 0 en bas, 1 en haut
+    const pts = [];
+    const N = 48;
+    pts.push(new THREE.Vector2(0, 0));
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      pts.push(new THREE.Vector2(rayonA(t) * (i === 0 ? 0.92 : 1), t * L));
+    }
+    pts.push(new THREE.Vector2(0, L));
+    const { couleur, alpha } = textures.lightStickTextures();
     const corps = new THREE.Mesh(
-      new THREE.LatheGeometry(profil, 40),
-      new THREE.MeshStandardMaterial({ color: '#8e9bb0', metalness: 0.55, roughness: 0.4 }),
+      new THREE.LatheGeometry(pts, 96, -Math.PI, Math.PI * 2),
+      new THREE.MeshStandardMaterial({ map: couleur, alphaMap: alpha, alphaTest: 0.5, side: THREE.DoubleSide, color: '#ffffff', metalness: 0.4, roughness: 0.38 }),
     );
     corps.castShadow = true;
     corps.receiveShadow = true;
-    const bague = new THREE.Mesh(new THREE.TorusGeometry(0.0128, 0.002, 8, 32), new THREE.MeshStandardMaterial({ color: '#c8d0dc', metalness: 0.6, roughness: 0.35 }));
-    bague.rotation.x = Math.PI / 2;
-    bague.position.y = 0.075 * (L / 0.263);
-    const fenetre = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.0227, 0.0227, 0.14 * (L / 0.263), 32, 1, true, -0.62, 1.24),
-      new THREE.MeshStandardMaterial({ color: '#0b0f14', emissive: '#ffffff', emissiveMap: textures.logoLightStick(), emissiveIntensity: 0.9, roughness: 0.3, side: THREE.DoubleSide }),
-    );
-    fenetre.position.y = 0.185 * (L / 0.263);
+    // cœur lumineux « Fearless Blue » : visible uniquement à travers les ajours
+    const cPts = [new THREE.Vector2(0, L * 0.1)];
+    for (let i = 4; i <= N - 1; i++) {
+      const t = i / N;
+      cPts.push(new THREE.Vector2(rayonA(t) - 0.004, t * L));
+    }
+    cPts.push(new THREE.Vector2(0, L * 0.98));
+    const coeur = new THREE.Mesh(new THREE.LatheGeometry(cPts, 40), new THREE.MeshBasicMaterial({ color: '#86b6f2' }));
     const bras = new THREE.Group();
-    bras.add(corps, bague, fenetre);
-    bras.rotation.z = -Math.PI / 2; // couché, tête vers +x
-    bras.position.set(-L / 2, 0.0225, 0);
+    corps.rotation.y = 0;
+    coeur.rotation.y = 0;
+    const tourne = new THREE.Group(); // le logo regarde la porte vitrée et un peu vers le haut
+    tourne.rotation.y = 0.5;
+    tourne.add(corps, coeur);
+    bras.add(tourne);
+    bras.rotation.z = Math.PI / 2; // couché, tête vers -x ; le côté FEARNOT se retrouve sur le dessus
+    bras.position.set(L / 2, RH - 0.001, 0);
     const g = new THREE.Group();
     g.name = o.nom;
     g.position.set(o.pos[0], o.pos[1], z);

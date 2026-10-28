@@ -157,36 +157,99 @@ export function pureflowTranche(haut, bas, graine = 1) {
   });
 }
 
-// Logo LE SSERAFIM de la tête du light stick : un éclat de traits blancs qui partent d'un centre, sur
-// fond noir (la texture sert d'« émission » : seul le logo s'illumine). Le texte est lisible à plat.
-export function logoLightStick() {
-  return creer(
-    256,
-    512,
-    (g, w, h) => {
-      g.fillStyle = '#000';
-      g.fillRect(0, 0, w, h);
-      const r = aleatoire(23);
-      g.fillStyle = '#fff';
-      g.strokeStyle = '#fff';
-      g.lineCap = 'round';
-      const cx = w / 2;
-      const cy = h / 2;
-      // l'éclat : des pointes effilées, plus longues à l'horizontale
-      for (let i = 0; i < 18; i++) {
-        const a = (i / 18) * Math.PI * 2 + (r() - 0.5) * 0.2;
-        const long = 55 + r() * 70;
-        const lx = Math.cos(a) * long * 1.0;
-        const ly = Math.sin(a) * long * 2.1;
-        g.beginPath();
-        g.moveTo(cx + Math.cos(a + 1.57) * 5, cy + Math.sin(a + 1.57) * 5);
-        g.lineTo(cx + lx, cy + ly);
-        g.lineTo(cx + Math.cos(a - 1.57) * 5, cy + Math.sin(a - 1.57) * 5);
-        g.closePath();
-        g.fill();
-      }
-      g.fillRect(cx - 70, cy - 5, 140, 10);
-    },
-    false,
-  );
+// Light stick LE SSERAFIM : deux textures qui font le tour du corps (u = angle, 0,5 = face avant) et
+// vont de haut en bas (le haut de l'image = le haut du bâton).
+//  - couleur : face avant argentée, côté droit plus sombre, coutures, joints du bas, et un liseré
+//    clair tout autour des ajours (les tranches lumineuses de l'acrylique) ;
+//  - alpha : blanc = matière, noir = ajour. Face : le logo en zigzag (deux éclats reliés par un col) ;
+//    côté (à 90°) : « FEARNOT » découpé, lu de bas en haut. On voit le cœur lumineux à travers.
+export function lightStickTextures() {
+  const W = 1024;
+  const H = 2048;
+  const faire = (dessiner) => {
+    const c = document.createElement('canvas');
+    c.width = W;
+    c.height = H;
+    dessiner(c.getContext('2d'));
+    const tex = new THREE.CanvasTexture(c);
+    tex.anisotropy = 8;
+    return tex;
+  };
+  const tri = (x) => Math.abs((((x % 1) + 1) % 1) - 0.5) * 2; // onde triangulaire 0..1
+
+  // trace tous les ajours : `mode` = 'remplir' (alpha) ou 'contour' (liseré de la couleur)
+  const ajours = (g, mode) => {
+    const cx = W * 0.5;
+    const y0 = 110;
+    const y1 = 1230;
+    const demi = (u, dephase) => {
+      if (u > 0.43 && u < 0.56) return 18 + 10 * tri(u * 9 + dephase);
+      const k = u <= 0.43 ? u * 7 : (u - 0.56) * 6.6;
+      return 46 + 52 * tri(k + dephase);
+    };
+    const gauche = [];
+    const droite = [];
+    for (let i = 0; i <= 120; i++) {
+      const u = i / 120;
+      const y = y0 + u * (y1 - y0);
+      gauche.push([cx - demi(u, 0), y]);
+      droite.push([cx + demi(u, 0.5), y]);
+    }
+    g.beginPath();
+    gauche.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    droite.reverse().forEach(([x, y]) => g.lineTo(x, y));
+    g.closePath();
+    mode === 'remplir' ? g.fill() : g.stroke();
+    // FEARNOT, lu de bas en haut, avec sa barre en haut
+    g.save();
+    g.translate(W * 0.8, 700);
+    g.rotate(-Math.PI / 2);
+    g.font = '700 118px "Arial Narrow", Impact, "Helvetica Neue", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    if ('letterSpacing' in g) g.letterSpacing = '10px';
+    mode === 'remplir' ? g.fillText('FEARNOT', 0, 0) : g.strokeText('FEARNOT', 0, 0);
+    g.restore();
+    const barres = [[W * 0.8 - 62, 140, 124, 14], [W * 0.8 - 7, 110, 14, 70]];
+    for (const b of barres) (mode === 'remplir' ? g.fillRect : g.strokeRect).call(g, ...b);
+  };
+
+  const couleur = faire((g) => {
+    g.fillStyle = '#a3aec4';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#6f788d';
+    g.fillRect(W * 0.64, 0, W * 0.32, H);
+    const v = g.createLinearGradient(0, 0, W, 0);
+    v.addColorStop(0, 'rgba(255,255,255,0.10)');
+    v.addColorStop(0.5, 'rgba(255,255,255,0)');
+    v.addColorStop(1, 'rgba(0,0,0,0.12)');
+    g.fillStyle = v;
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#2b303b';
+    g.fillRect(W * 0.64 - 2, 0, 4, H);
+    g.fillRect(W * 0.96 - 2, 0, 4, H);
+    g.fillStyle = '#d3dae6';
+    g.fillRect(0, 0, W, 46);
+    g.fillStyle = '#2b303b';
+    g.fillRect(0, 46, W, 4);
+    g.fillRect(0, H * 0.86, W, 5);
+    g.fillRect(0, H * 0.965, W, 4);
+    g.strokeStyle = '#2b303b';
+    g.lineWidth = 3;
+    for (const x of [0.42, 0.5]) g.strokeRect(W * x, H * 0.885, W * 0.08, 70);
+    // le liseré lumineux autour des ajours (la moitié intérieure est coupée par l'alpha)
+    g.strokeStyle = '#f4f8ff';
+    g.lineWidth = 16;
+    g.lineJoin = 'miter';
+    ajours(g, 'contour');
+  });
+
+  const alpha = faire((g) => {
+    g.fillStyle = '#fff';
+    g.fillRect(0, 0, W, H);
+    g.fillStyle = '#000';
+    ajours(g, 'remplir');
+  });
+
+  return { couleur, alpha };
 }
