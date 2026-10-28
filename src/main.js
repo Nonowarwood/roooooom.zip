@@ -45,10 +45,18 @@ camera.position.set(-4.6, 7.6, -6.2); // depuis le nord-ouest : on voit le mur e
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 0.9, 0);
+// Réglages repris de la référence : pas de déplacement latéral (le clic droit ne fait plus rien), une
+// inertie un peu plus longue (0,08), le zoom borné, et la caméra qui peut aller jusqu'à la verticale
+// du dessus mais pas passer sous le sol (82° max depuis le haut).
+const LIMITE_POLAIRE = Math.PI / 2.2;
+controls.enablePan = false;
 controls.enableDamping = true;
+controls.dampingFactor = 0.08;
 controls.minDistance = 1.2;
 controls.maxDistance = 16;
-controls.maxPolarAngle = Math.PI / 2 - 0.05; // pas de vue par en dessous
+controls.minPolarAngle = 0;
+controls.maxPolarAngle = LIMITE_POLAIRE;
+const reglages = { murs: 'auto' }; // 'auto' | 'up' (tous levés) | 'down' (tous baissés) : boutons en haut à gauche
 controls.update();
 
 const mat =(couleur, extra = {}) =>
@@ -375,6 +383,8 @@ function animerMurs(dt) {
     if (d > SEUIL_CAMERA) cible = HAUTEUR_BORDURE;
     else if (d < -SEUIL_CAMERA) cible = HAUTEUR_MUR;
     if (mur.regle?.(cam)) cible = HAUTEUR_BORDURE;
+    if (reglages.murs === 'up') cible = HAUTEUR_MUR;
+    else if (reglages.murs === 'down') cible = HAUTEUR_BORDURE;
 
     if (!mur.init) {
       // au chargement : pas d'animation, les murs prennent directement leur place
@@ -570,7 +580,13 @@ function facteurToit(dt) {
   return toit.visible;
 }
 accrocher('sud', pente, { ecraser: false, fondu: FONDU_PERMANENT, large: true, facteur: facteurToit });
-accrocher(['nord', 'est', 'ouest', 'sud'], plafond, { ecraser: false, fondu: FONDU_PERMANENT, large: true });
+// Le plafond disparaît aussi dès que la caméra passe au-dessus : sinon la vue de dessus ne verrait que lui.
+const ciel = { visible: 1 };
+function facteurPlafond(dt) {
+  ciel.visible += ((cam.y > H + 0.05 ? 0 : 1) - ciel.visible) * Math.min(1, dt * 8);
+  return ciel.visible;
+}
+accrocher(['nord', 'est', 'ouest', 'sud'], plafond, { ecraser: false, fondu: FONDU_PERMANENT, large: true, facteur: facteurPlafond });
 
 // --- Décors plaqués sur les murs (affiches, porte) ---
 const texturesNommees = {
@@ -1314,6 +1330,8 @@ const interactions = initialiserInteractions({
   estAllume,
   basculer,
   toutAuto,
+  reglages,
+  limitePolaire: LIMITE_POLAIRE,
 });
 const horloge = new THREE.Clock();
 let dernierEcran = -1;

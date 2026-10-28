@@ -15,6 +15,8 @@ export function initialiserInteractions({
   estAllume,
   basculer,
   toutAuto,
+  reglages,
+  limitePolaire,
 }) {
   const raycaster = new THREE.Raycaster();
   const pointeur = new THREE.Vector2();
@@ -29,31 +31,65 @@ export function initialiserInteractions({
   const capitaliser = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
-  // --- Caméra : transition douce vers une position et une cible ---
-  let transition = null;
-  function allerA(position, cible, duree = 1.1, fov = camera.fov) {
-    transition = {
-      t: 0,
-      duree,
-      p0: camera.position.clone(),
-      c0: controls.target.clone(),
-      p1: position.clone(),
-      c1: cible.clone(),
-      f0: camera.fov,
-      f1: fov,
-      // la caméra décrit un petit arc plutôt que de traverser la pièce en ligne droite
-      arc: 0.25 * camera.position.distanceTo(position),
-    };
+  // --- Caméra : le même système de mouvement que la référence ---
+  //  focusTo : déplacement entre deux vues, en arc (courbe de Bézier dont le milieu est relevé de 30 %
+  //            de la distance), 1,15 s, accélération/décélération « cubique » ;
+  //  goTo    : pivot doux, la caméra rattrape sa cible en coordonnées sphériques (angle par le plus court
+  //            chemin), lissage exponentiel de 4 par seconde ;
+  //  zoomBy  : le zoom des boutons, lissé à 6 par seconde et borné par la distance min / max.
+  const LIBRE = Math.PI * 0.62; // pendant une vue intérieure, la caméra a le droit d'être plus bas
+  const PAS_HORIZONTAL = Math.PI / 9; // 20° par clic sur ◀ ▶
+  const PAS_VERTICAL = Math.PI / 14; // ≈ 13° par clic sur ▲ ▼
+  const FACTEUR_ZOOM = 0.85;
+  let focus = null;
+  let vers = null;
+  let zoomCible = null;
+  const sph0 = new THREE.Spherical();
+  const sph1 = new THREE.Spherical();
+  const tmp = new THREE.Vector3();
+
+  const annuler = () => {
+    focus = null;
+    vers = null;
+    zoomCible = null;
+  };
+  function focusTo(position, cible, fov = camera.fov, duree = 1.15) {
+    vers = null;
+    zoomCible = null;
+    const p0 = camera.position.clone();
+    const milieu = p0.clone().add(position).multiplyScalar(0.5).add(new THREE.Vector3(0, p0.distanceTo(position) * 0.3, 0));
+    focus = { t: 0, duree, p0, p1: milieu, p2: position.clone(), s0: controls.target.clone(), s2: cible.clone(), f0: camera.fov, f1: fov };
   }
-  // dès que la personne reprend la main, on abandonne la transition et la vue active
+  function goTo(position, cible, fov = camera.fov) {
+    focus = null;
+    zoomCible = null;
+    vers = { position: position.clone(), cible: cible.clone(), fov };
+  }
+  function zoomBy(facteur) {
+    focus = null;
+    vers = null;
+    zoomCible = THREE.MathUtils.clamp((zoomCible ?? camera.position.distanceTo(controls.target)) * facteur, controls.minDistance, controls.maxDistance);
+  }
+  // compatibilité : les vues d'objets et de meubles utilisent allerA
+  function allerA(position, cible, duree = 1.15, fov = camera.fov) {
+    controls.maxPolarAngle = LIBRE;
+    focusTo(position, cible, fov, duree);
+  }
+
+  // dès que la personne reprend la main, tout mouvement automatique s'arrête
   controls.addEventListener('start', () => {
-    transition = null;
+    annuler();
     vueActive = null;
+    vueGenerale = null;
     majVues();
+    majMenu();
+    // on garde la caméra là où elle est même si elle est plus basse que la limite normale
+    controls.maxPolarAngle = Math.max(limitePolaire, controls.getPolarAngle());
   });
 
   // --- Vues prédéfinies ---
   let vueActive = 'ensemble';
+  let vueGenerale = null; // 'dessus' | 'gauche' | 'droite' (menu de vues)
   const boutonsVues = new Map();
   for (const v of vues) {
     const b = document.createElement('button');
@@ -63,7 +99,10 @@ export function initialiserInteractions({
       deselectionner();
       vueActive = v.id;
       majVues();
-      allerA(versScene(v.camera), versScene(v.cible), 1.3, v.fov ?? 35);
+      vueGenerale = null;
+      majMenu();
+      allerA(versScene(v.camera), versScene(v.cible), 1.15, v.fov ?? 35);
+      if (v.id === 'ensemble') controls.maxPolarAngle = limitePolaire;
     });
     elVues.append(b);
     boutonsVues.set(v.id, b);
@@ -72,6 +111,116 @@ export function initialiserInteractions({
     for (const [id, b] of boutonsVues) b.classList.toggle('actif', id === vueActive);
   }
   majVues();
+
+  // --- Boutons de caméra (croix, zoom, menu de vues) et des murs ---
+  const icone = (d) =>
+    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICONES = {
+    haut: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+    bas: '<path d="M12 5v14M5 12l7 7 7-7"/>',
+    gauche: '<path d="M19 12H5M12 5l-7 7 7 7"/>',
+    droite: '<path d="M5 12h14M12 5l7 7-7 7"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    moins: '<path d="M5 12h14"/>',
+    menu: '<circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>',
+    dessus: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 12h16M12 4v16"/>',
+    cotegauche: '<path d="M4 20h16M7 20V8l5-4 5 4v12"/><path d="M3 12l-1 0"/>',
+    coteDroit: '<path d="M4 20h16M7 20V8l5-4 5 4v12"/>',
+    maison: '<path d="M3 11l9-7 9 7M5 10v9h14v-9"/>',
+    mursHauts: '<path d="M4 21V9h16v12M4 9l8-6 8 6"/>',
+    mursBas: '<path d="M4 21v-5h16v5M12 3v8M8 8l4 4 4-4"/>',
+  };
+  const bouton = (parent, nom, icn, libelle, action, classe = '') => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `ctrl ${classe}`.trim();
+    b.setAttribute('aria-label', libelle);
+    b.title = libelle;
+    b.innerHTML = icone(icn);
+    b.addEventListener('click', action);
+    parent.append(b);
+    return b;
+  };
+
+  // pivote d'un pas autour de la cible
+  function pivoter(dTheta, dPhi) {
+    deselectionner();
+    const rayon = tmp.subVectors(camera.position, controls.target);
+    sph0.setFromVector3(rayon);
+    sph0.theta += dTheta;
+    sph0.phi = Math.min(controls.maxPolarAngle, Math.max(controls.minPolarAngle, sph0.phi + dPhi));
+    goTo(new THREE.Vector3().setFromSpherical(sph0).add(controls.target), controls.target);
+    vueActive = null;
+    vueGenerale = null;
+    majVues();
+    majMenu();
+  }
+  const croix = document.getElementById('croix');
+  bouton(croix, 'haut', ICONES.haut, 'Pivoter vers le haut', () => pivoter(0, -PAS_VERTICAL), 'haut');
+  bouton(croix, 'gauche', ICONES.gauche, 'Pivoter à gauche', () => pivoter(-PAS_HORIZONTAL, 0), 'gauche');
+  bouton(croix, 'bas', ICONES.bas, 'Pivoter vers le bas', () => pivoter(0, PAS_VERTICAL), 'bas');
+  bouton(croix, 'droite', ICONES.droite, 'Pivoter à droite', () => pivoter(PAS_HORIZONTAL, 0), 'droite');
+
+  // vues générales : de dessus, de côté (gauche, droite) et la vue libre (la vue d'ensemble)
+  const CENTRE = new THREE.Vector3(0, 0.9, 0);
+  const VUES_GENERALES = {
+    dessus: { position: [0, 10.5, 0.001], libelle: 'Vue de dessus', icone: ICONES.dessus, polaire: limitePolaire },
+    gauche: { position: [0.001, 0.8, -8.5], libelle: 'Vue de côté gauche', icone: ICONES.cotegauche, polaire: Math.PI / 2 },
+    droite: { position: [0.001, 0.8, 8.5], libelle: 'Vue de côté droit', icone: ICONES.coteDroit, polaire: Math.PI / 2 },
+  };
+  const droite = document.getElementById('cmd-droite');
+  const menu = document.createElement('div');
+  menu.className = 'menu-vues';
+  menu.hidden = true;
+  droite.append(menu);
+  const boutonsMenu = {};
+  const choisirVueGenerale = (nom) => {
+    deselectionner();
+    if (vueGenerale === nom) nom = 'libre'; // un second clic revient à la vue libre
+    if (nom === 'libre') {
+      vueGenerale = null;
+      vueActive = 'ensemble';
+      majVues();
+      majMenu();
+      const ens = vues.find((v) => v.id === 'ensemble');
+      controls.maxPolarAngle = limitePolaire;
+      focusTo(versScene(ens.camera), versScene(ens.cible), ens.fov ?? 35);
+      return;
+    }
+    const v = VUES_GENERALES[nom];
+    vueGenerale = nom;
+    vueActive = null;
+    majVues();
+    majMenu();
+    controls.maxPolarAngle = v.polaire;
+    goTo(new THREE.Vector3(...v.position), CENTRE, 35);
+  };
+  for (const nom of ['dessus', 'gauche', 'droite']) {
+    boutonsMenu[nom] = bouton(menu, nom, VUES_GENERALES[nom].icone, VUES_GENERALES[nom].libelle, () => choisirVueGenerale(nom));
+  }
+  boutonsMenu.libre = bouton(menu, 'libre', ICONES.maison, 'Vue libre', () => choisirVueGenerale('libre'));
+  const boutonMenu = bouton(droite, 'menu', ICONES.menu, 'Changer de vue', () => {
+    menu.hidden = !menu.hidden;
+    majMenu();
+  });
+  bouton(droite, 'plus', ICONES.plus, 'Zoom avant', () => zoomBy(FACTEUR_ZOOM));
+  bouton(droite, 'moins', ICONES.moins, 'Zoom arrière', () => zoomBy(1 / FACTEUR_ZOOM));
+  function majMenu() {
+    for (const nom of ['dessus', 'gauche', 'droite']) boutonsMenu[nom].classList.toggle('actif', vueGenerale === nom);
+    boutonsMenu.libre.classList.toggle('actif', vueGenerale === null && vueActive === 'ensemble');
+    boutonMenu.classList.toggle('actif', vueGenerale !== null || !menu.hidden);
+  }
+  majMenu();
+
+  // murs : tous levés ou tous baissés (un second clic revient à l'automatique)
+  const cmdMurs = document.getElementById('cmd-murs');
+  const bMonter = bouton(cmdMurs, 'monter', ICONES.mursHauts, 'Monter tous les murs', () => regler('up'));
+  const bBaisser = bouton(cmdMurs, 'baisser', ICONES.mursBas, 'Baisser tous les murs', () => regler('down'));
+  function regler(mode) {
+    reglages.murs = reglages.murs === mode ? 'auto' : mode;
+    bMonter.classList.toggle('actif', reglages.murs === 'up');
+    bBaisser.classList.toggle('actif', reglages.murs === 'down');
+  }
 
   // --- Interrupteurs (barre du bas) ---
   const boutonsLumieres = new Map();
@@ -257,15 +406,49 @@ export function initialiserInteractions({
   function maj(dt) {
     temps += dt;
 
-    if (transition) {
-      transition.t += dt;
-      const k = ease(Math.min(1, transition.t / transition.duree));
-      camera.position.lerpVectors(transition.p0, transition.p1, k);
-      camera.position.y += Math.sin(Math.PI * k) * transition.arc;
-      controls.target.lerpVectors(transition.c0, transition.c1, k);
-      camera.fov = THREE.MathUtils.lerp(transition.f0, transition.f1, k);
+    if (focus) {
+      focus.t = Math.min(focus.duree, focus.t + dt);
+      const e = ease(focus.t / focus.duree);
+      const u = 1 - e;
+      camera.position.copy(focus.p0).multiplyScalar(u * u).addScaledVector(focus.p1, 2 * u * e).addScaledVector(focus.p2, e * e);
+      controls.target.copy(focus.s0).lerp(focus.s2, e);
+      camera.fov = THREE.MathUtils.lerp(focus.f0, focus.f1, e);
       camera.updateProjectionMatrix();
-      if (transition.t >= transition.duree) transition = null;
+      controls.update();
+      if (focus.t >= focus.duree) focus = null;
+    } else if (vers) {
+      const k = 1 - Math.exp(-4 * dt);
+      sph0.setFromVector3(tmp.subVectors(camera.position, controls.target));
+      sph1.setFromVector3(tmp.subVectors(vers.position, vers.cible));
+      const dTheta = THREE.MathUtils.euclideanModulo(sph1.theta - sph0.theta + Math.PI, Math.PI * 2) - Math.PI;
+      sph0.theta += dTheta * k;
+      sph0.phi += (sph1.phi - sph0.phi) * k;
+      sph0.radius += (sph1.radius - sph0.radius) * k;
+      controls.target.set(
+        THREE.MathUtils.damp(controls.target.x, vers.cible.x, 4, dt),
+        THREE.MathUtils.damp(controls.target.y, vers.cible.y, 4, dt),
+        THREE.MathUtils.damp(controls.target.z, vers.cible.z, 4, dt),
+      );
+      camera.position.setFromSpherical(sph0).add(controls.target);
+      if (Math.abs(camera.fov - vers.fov) > 0.01) {
+        camera.fov += (vers.fov - camera.fov) * k;
+        camera.updateProjectionMatrix();
+      }
+      controls.update();
+      if (camera.position.distanceTo(vers.position) < 0.01 && controls.target.distanceTo(vers.cible) < 0.01 && Math.abs(dTheta) < 0.001) {
+        camera.position.copy(vers.position);
+        controls.target.copy(vers.cible);
+        camera.fov = vers.fov;
+        camera.updateProjectionMatrix();
+        controls.update();
+        vers = null;
+      }
+    } else if (zoomCible !== null) {
+      tmp.subVectors(camera.position, controls.target);
+      const d = THREE.MathUtils.damp(tmp.length(), zoomCible, 6, dt);
+      camera.position.copy(controls.target).addScaledVector(tmp.setLength(d), 1);
+      controls.update();
+      if (Math.abs(d - zoomCible) < 0.005) zoomCible = null;
     }
 
     // l'objet sélectionné respire doucement

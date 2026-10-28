@@ -179,9 +179,9 @@ html, body {
 /* --- Carte d'information sur le meuble choisi --- */
 .carte {
   position: absolute;
-  left: 20px;
+  left: 190px;
   bottom: calc(20px + env(safe-area-inset-bottom));
-  width: min(320px, calc(100vw - 40px));
+  width: min(320px, calc(100vw - 420px));
   padding: 16px 18px;
   background: #302139f2;
   border: 1px solid #ffffff30;
@@ -221,4 +221,65 @@ html, body {
     bottom: calc(126px + env(safe-area-inset-bottom));
   }
   .aide { display: none; }
+}
+
+/* --- Mouvement de la caméra : croix directionnelle, zoom, menu de vues, murs (comme la référence) --- */
+.commandes { position: absolute; z-index: 10; display: flex; gap: 8px; }
+.ctrl {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  color: #fff;
+  background: #302139ed;
+  border: 1px solid #ffffff30;
+  border-radius: 50%;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+}
+.ctrl:hover { border-color: #ffffff80; }
+.ctrl:active { transform: scale(0.94); }
+.ctrl.actif { background: var(--prune); border-color: #ffffff60; }
+
+.commandes-gauche {
+  left: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: repeat(3, 42px);
+  grid-template-areas: ". haut ." "gauche bas droite";
+}
+.commandes-gauche .haut { grid-area: haut; }
+.commandes-gauche .gauche { grid-area: gauche; }
+.commandes-gauche .droite { grid-area: droite; }
+.commandes-gauche .bas { grid-area: bas; }
+
+.commandes-droite {
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  align-items: flex-end;
+}
+.menu-vues {
+  position: absolute;
+  right: 50px;
+  bottom: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+.menu-vues[hidden] { display: none; }
+.menu-vues .ctrl { animation: surgir 0.22s both; }
+@keyframes surgir { from { opacity: 0; transform: translateY(10px) scale(0.8); } to { opacity: 1; transform: none; } }
+
+.commandes-murs {
+  top: calc(20px + env(safe-area-inset-top));
+  left: 20px;
+}
+
+/* sur petit écran on garde les gestes (glisser, pincer) : pas de boutons de caméra */
+@media (max-width: 760px) {
+  .commandes-gauche, .commandes-droite { display: none; }
+  .commandes-murs { top: calc(14px + env(safe-area-inset-top)); left: 12px; }
 }
