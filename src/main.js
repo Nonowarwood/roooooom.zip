@@ -449,9 +449,21 @@ formePente.lineTo(W, 0);
 formePente.lineTo(W, LP);
 formePente.lineTo(0, LP);
 formePente.closePath();
+// Géométrie du Velux, dans le repère de la pente (x = est, y = le long de la pente vers le haut,
+// z = vers l'extérieur) : le cadre est dans le plan extérieur (z = T), l'ouverture dans le plâtre
+// (z = 0) est plus haute de T / tan(pente) et un peu plus large (évasement).
+const T = velux.profondeur;
+const penteAngle = Math.atan2(H - K, R);
+const decalage = T / Math.tan(penteAngle);
+const yBas = velux.bas; // bas du cadre
+const yHaut = velux.bas + velux.longueur; // haut du cadre
+const I0 = yBas + decalage; // bas de l'ouverture dans le plâtre
+const I1 = yHaut + decalage; // haut de l'ouverture dans le plâtre
+const demiCadre = velux.largeur / 2;
+const demiOuv = demiCadre + velux.evasement;
 const trou = new THREE.Path();
-const [vx0, vx1] = [velux.x - velux.largeur / 2, velux.x + velux.largeur / 2];
-const [vy0, vy1] = [velux.v - velux.longueur / 2, velux.v + velux.longueur / 2];
+const [vx0, vx1] = [velux.x - demiOuv, velux.x + demiOuv];
+const [vy0, vy1] = [I0, I1];
 trou.moveTo(vx0, vy0);
 trou.lineTo(vx1, vy0);
 trou.lineTo(vx1, vy1);
@@ -468,42 +480,57 @@ const surfacePente = new THREE.Mesh(
 surfacePente.receiveShadow = true;
 pente.add(surfacePente);
 
-// Le Velux est encastré dans l'épaisseur du toit : un tableau (les quatre côtés du trou)
-// en plâtre clair, avec le cadre en bois et la vitre à l'extérieur.
-const PROFONDEUR_TABLEAU = 0.22;
-const veluxObjet = new THREE.Group(); // tableau, cadre, vitre et store : l'objet sur lequel on clique
+// --- Le Velux, d'après tes photos : plâtre d'aplomb, cadre en chêne en gradins, battant blanc ---
+const veluxObjet = new THREE.Group(); // l'objet sur lequel on clique (plâtre, cadre, vitre, store)
 veluxObjet.name = 'Velux';
 pente.add(veluxObjet);
-const platre = new THREE.MeshStandardMaterial({ color: '#fbf2f0', roughness: 0.95, side: THREE.DoubleSide });
-const largV = velux.largeur;
-const longV = velux.longueur;
-const tableau = [
-  [[0.012, longV, PROFONDEUR_TABLEAU], [velux.x - largV / 2, velux.v, PROFONDEUR_TABLEAU / 2]],
-  [[0.012, longV, PROFONDEUR_TABLEAU], [velux.x + largV / 2, velux.v, PROFONDEUR_TABLEAU / 2]],
-  [[largV, 0.012, PROFONDEUR_TABLEAU], [velux.x, velux.v - longV / 2, PROFONDEUR_TABLEAU / 2]],
-  [[largV, 0.012, PROFONDEUR_TABLEAU], [velux.x, velux.v + longV / 2, PROFONDEUR_TABLEAU / 2]],
-];
-for (const [taille, pos] of tableau) {
-  const b = new THREE.Mesh(new THREE.BoxGeometry(...taille), platre);
-  b.position.set(...pos);
-  b.castShadow = true;
-  b.receiveShadow = true;
-  veluxObjet.add(b);
+
+const platre = new THREE.MeshStandardMaterial({ color: '#faf1ea', roughness: 0.95, side: THREE.DoubleSide });
+function quad(a, b, c, d) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...d], 3));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, platre);
+  m.receiveShadow = true;
+  veluxObjet.add(m);
 }
-const boisVelux = new THREE.MeshStandardMaterial({ color: '#c28a58', roughness: 0.85 });
-const e = 0.05;
-const zCadre = PROFONDEUR_TABLEAU;
-for (const [taille, [x, y]] of [
-  [[largV + 2 * e, e], [velux.x, velux.v + longV / 2 - e / 2]],
-  [[largV + 2 * e, e], [velux.x, velux.v - longV / 2 + e / 2]],
-  [[e, longV], [velux.x - largV / 2 + e / 2, velux.v]],
-  [[e, longV], [velux.x + largV / 2 - e / 2, velux.v]],
-]) {
-  const b = new THREE.Mesh(new THREE.BoxGeometry(taille[0], taille[1], 0.04), boisVelux);
-  b.position.set(x, y, zCadre);
-  b.castShadow = true;
-  veluxObjet.add(b);
+const xc = velux.x;
+// rebord (horizontal) et dessus (horizontal) : de l'ouverture du plâtre jusqu'au cadre
+quad([xc - demiOuv, I0, 0], [xc + demiOuv, I0, 0], [xc + demiCadre, yBas, T], [xc - demiCadre, yBas, T]);
+quad([xc - demiOuv, I1, 0], [xc + demiOuv, I1, 0], [xc + demiCadre, yHaut, T], [xc - demiCadre, yHaut, T]);
+// côtés (verticaux) : ils se resserrent de l'ouverture vers le cadre
+quad([xc - demiOuv, I0, 0], [xc - demiOuv, I1, 0], [xc - demiCadre, yHaut, T], [xc - demiCadre, yBas, T]);
+quad([xc + demiOuv, I0, 0], [xc + demiOuv, I1, 0], [xc + demiCadre, yHaut, T], [xc + demiCadre, yBas, T]);
+
+const chene = new THREE.MeshStandardMaterial({ color: '#d4a25e', roughness: 0.7 });
+const blancBattant = new THREE.MeshStandardMaterial({ color: '#f6f2eb', roughness: 0.6 });
+const alu = new THREE.MeshStandardMaterial({ color: '#b6bcc6', roughness: 0.45, metalness: 0.45 });
+function bloc(l, h, d, mat, x, y, z, ombre = false) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(l, h, d), mat);
+  m.position.set(x, y, z);
+  m.castShadow = ombre;
+  m.receiveShadow = true;
+  veluxObjet.add(m);
+  return m;
 }
+const yc = (yBas + yHaut) / 2;
+const FC = 0.05; // largeur du cadre en chêne
+const FB = 0.032; // largeur du battant blanc
+// cadre en chêne (extérieur)
+bloc(velux.largeur, FC, 0.05, chene, xc, yHaut - FC / 2, T - 0.02);
+bloc(velux.largeur, FC, 0.05, chene, xc, yBas + FC / 2, T - 0.02);
+bloc(FC, velux.longueur - 2 * FC, 0.05, chene, xc - demiCadre + FC / 2, yc, T - 0.02);
+bloc(FC, velux.longueur - 2 * FC, 0.05, chene, xc + demiCadre - FC / 2, yc, T - 0.02);
+// battant blanc (un cran plus bas vers la pièce, d'où l'aspect en gradins)
+const wB = velux.largeur - 2 * FC;
+const hB = velux.longueur - 2 * FC;
+bloc(wB, FB, 0.04, blancBattant, xc, yHaut - FC - FB / 2, T - 0.04);
+bloc(wB, FB, 0.04, blancBattant, xc, yBas + FC + FB / 2, T - 0.04);
+bloc(FB, hB - 2 * FB, 0.04, blancBattant, xc - wB / 2 + FB / 2, yc, T - 0.04);
+bloc(FB, hB - 2 * FB, 0.04, blancBattant, xc + wB / 2 - FB / 2, yc, T - 0.04);
+// poignée blanche, au milieu du bas du battant
+bloc(0.07, 0.02, 0.012, blancBattant, xc, yBas + FC + FB / 2, T - 0.068, true);
+bloc(0.05, 0.014, 0.02, blancBattant, xc, yBas + FC + FB / 2 + 0.012, T - 0.058, true);
 
 // --- Charpente contre le mur ouest : chevron + poteau + entrait, comme sur ta photo ---
 const charpente = new THREE.Group();
@@ -567,53 +594,65 @@ const veluxMat = new THREE.MeshStandardMaterial({
   roughness: 0.2,
   side: THREE.BackSide,
 });
-const vitre = new THREE.Mesh(new THREE.PlaneGeometry(velux.largeur, velux.longueur), veluxMat);
-vitre.position.set(velux.x, velux.v, PROFONDEUR_TABLEAU + 0.012);
+// ouverture visible de la vitre : à l'intérieur du battant
+const wV = wB - 2 * FB;
+const hV = hB - 2 * FB;
+const yHautV = yc + hV / 2;
+const vitre = new THREE.Mesh(new THREE.PlaneGeometry(wV, hV), veluxMat);
+vitre.position.set(xc, yc, T);
 veluxObjet.add(vitre);
 veluxMat.userData.sansSurbrillance = true; // son éclat suit le jour et le store, pas la sélection
 
-// --- Store plissé : il descend du haut du Velux, sous la vitre, et se replie vers le haut ---
+// --- Store occultant noir : un caisson gris en haut, deux rails gris sur les côtés, une toile noire
+// plissée qui descend, et une barre en bas ---
 const cPli = document.createElement('canvas');
 cPli.width = 8;
 cPli.height = 32;
 {
   const g = cPli.getContext('2d');
   const d = g.createLinearGradient(0, 0, 0, 32);
-  d.addColorStop(0, '#f3eadf');
-  d.addColorStop(0.55, '#e4d8c8');
-  d.addColorStop(1, '#cdbfac');
+  d.addColorStop(0, '#4a4a54');
+  d.addColorStop(0.6, '#33333b');
+  d.addColorStop(1, '#1e1e24');
   g.fillStyle = d;
   g.fillRect(0, 0, 8, 32);
-  g.fillStyle = 'rgba(90,70,50,0.38)';
-  g.fillRect(0, 31, 8, 1); // l'arête de chaque pli
+  g.fillStyle = 'rgba(255,255,255,0.18)';
+  g.fillRect(0, 0, 8, 2); // l'arête de chaque pli
 }
 const texStore = new THREE.CanvasTexture(cPli);
 texStore.colorSpace = THREE.SRGBColorSpace;
 texStore.wrapT = THREE.RepeatWrapping;
 const NB_PLIS = 22; // nombre de plis quand le store est entièrement fermé
-const matStore = new THREE.MeshStandardMaterial({ map: texStore, emissiveMap: texStore, emissive: '#ffffff', emissiveIntensity: 0, roughness: 0.9, side: THREE.DoubleSide });
+const matStore = new THREE.MeshStandardMaterial({ map: texStore, roughness: 0.95, side: THREE.DoubleSide });
 matStore.userData.sansSurbrillance = true;
-const lStore = largV - 0.03;
-const hStore = longV - 0.04;
-const hautStore = velux.v + longV / 2 - 0.02;
-const zStore = PROFONDEUR_TABLEAU - 0.05;
+const matBarre = new THREE.MeshStandardMaterial({ color: '#3b3c44', roughness: 0.6, metalness: 0.3 });
+const RAIL = 0.014;
+const zStore = T - 0.03; // le store est entre le battant et la vitre, côté pièce de la vitre
+const hCaisson = 0.034;
+const yHautStore = yHautV - hCaisson; // le haut de la toile, sous le caisson
+const hStore = hV - hCaisson;
+const lStore = wV - 2 * RAIL;
+// caisson en haut (toujours visible) et rails le long des côtés
+bloc(wV, hCaisson, 0.034, alu, xc, yHautV - hCaisson / 2, zStore);
+bloc(RAIL, hV - hCaisson, 0.016, alu, xc - wV / 2 + RAIL / 2, yHautV - hCaisson - (hV - hCaisson) / 2, zStore + 0.002);
+bloc(RAIL, hV - hCaisson, 0.016, alu, xc + wV / 2 - RAIL / 2, yHautV - hCaisson - (hV - hCaisson) / 2, zStore + 0.002);
 const geoStore = new THREE.PlaneGeometry(lStore, hStore);
-geoStore.translate(0, -hStore / 2, 0); // le haut du store est l'origine : il s'étire vers le bas
+geoStore.translate(0, -hStore / 2, 0); // le haut de la toile est l'origine : elle s'étire vers le bas
 const store = new THREE.Mesh(geoStore, matStore);
-store.position.set(velux.x, hautStore, zStore);
+store.position.set(xc, yHautStore, zStore);
 store.receiveShadow = true;
-const barreStore = new THREE.Mesh(new THREE.BoxGeometry(lStore + 0.012, 0.018, 0.014), new THREE.MeshStandardMaterial({ color: '#cbbdab', roughness: 0.7 }));
-barreStore.position.set(velux.x, hautStore, zStore);
 store.visible = false;
+const barreStore = new THREE.Mesh(new THREE.BoxGeometry(lStore, 0.016, 0.014), matBarre);
+barreStore.position.set(xc, yHautStore - 0.008, zStore);
 veluxObjet.add(store, barreStore);
 
-const etatStore = { ferme: false, f: 0 }; // f : 0 = ouvert (replié en haut), 1 = fermé
+const etatStore = { ferme: false, f: 0 }; // f : 0 = ouvert (replié dans le caisson), 1 = fermé
 function basculerStore() {
   etatStore.ferme = !etatStore.ferme;
 }
-// la lumière du jour derrière la vitre est cachée par le store
+// la vitre est cachée par le store
 function ajusterVitre() {
-  veluxMat.emissiveIntensity = (veluxMat.userData.base ?? 0.8) * (1 - 0.8 * etatStore.f);
+  veluxMat.emissiveIntensity = (veluxMat.userData.base ?? 0.8) * (1 - 0.95 * etatStore.f);
 }
 function animerStore(dt) {
   const cible = etatStore.ferme ? 1 : 0;
@@ -625,8 +664,10 @@ function animerStore(dt) {
   store.scale.y = Math.max(f, 0.001);
   texStore.repeat.set(1, NB_PLIS * f); // les plis gardent la même taille, seul leur nombre change
   texStore.offset.set(0, -NB_PLIS * f); // et restent alignés sur le haut
-  barreStore.position.y = hautStore - hStore * f;
+  barreStore.position.y = yHautStore - hStore * f - 0.008;
   ajusterVitre();
+  appliquerLumiereJour();
+  appliquerLumiereJour(); // fermer le store coupe la lumière du jour
 }
 
 // Éléments permanents : sans leurs murs ils flottent, donc ils s'effacent avec eux
@@ -1405,6 +1446,16 @@ const elCurseur = document.getElementById('curseur');
 const elLive = document.getElementById('live');
 let manuel = false;
 
+// Lumière du jour qui entre par le Velux : la partie « jour » de l'éclairage (soleil, ambiante, dôme
+// céleste) baisse quand le store se ferme. Fermé en plein jour, il ne reste que 35 % de la lumière.
+const baseLumiere = { f: 0, soleil: 0, ambiante: 0, hemi: 0 };
+function appliquerLumiereJour() {
+  const k = 1 - 0.65 * etatStore.f * baseLumiere.f;
+  soleil.intensity = baseLumiere.soleil * k;
+  ambiante.intensity = baseLumiere.ambiante * k;
+  hemi.intensity = baseLumiere.hemi * k;
+}
+
 // Lever et coucher du soleil RÉELS du jour, pour le lieu choisi dans chambre.js : on les recalcule quand
 // la date change (si la page reste ouverte après minuit).
 const elSoleil = document.getElementById('soleil-heures');
@@ -1437,19 +1488,19 @@ function appliquerHeure(heure) {
   const jourY = Math.sin(elevation) * R;
   const jourZ = Math.sin(azimut) * Math.cos(elevation) * R;
   soleil.position.set(8.8 + (jourX - 8.8) * f, 19.8 + (jourY - 19.8) * f, 6.6 + (jourZ - 6.6) * f);
-  soleil.intensity = 0.65 * (1 - f) + f * (0.7 + 0.8 * d);
+  baseLumiere.f = f;
+  baseLumiere.soleil = 0.65 * (1 - f) + f * (0.7 + 0.8 * d);
   tmp.copy(SOLEIL_BAS).lerp(SOLEIL_MIDI, d);
   soleil.color.copy(SOLEIL_NUIT).lerp(tmp, f);
 
-  ambiante.intensity = (0.65 * (1 - f) + f * (0.45 + 0.2 * d)) * (0.55 + 0.45 * f);
+  baseLumiere.ambiante = (0.65 * (1 - f) + f * (0.45 + 0.2 * d)) * (0.55 + 0.45 * f);
   tmp2.copy(AMBIANT_BAS).lerp(AMBIANT_MIDI, d);
   ambiante.color.copy(AMBIANT_NUIT).lerp(tmp2, f);
   // la nuit, le dôme céleste baisse pour que les lampes se voient, sans jamais noircir la scène
-  hemi.intensity = 0.8 * (0.5 + 0.5 * f);
+  baseLumiere.hemi = 0.8 * (0.5 + 0.5 * f);
   hemi.color.copy(HEMI_CIEL_NUIT).lerp(HEMI_CIEL_JOUR, f);
 
   veluxMat.userData.base = 0.15 + 0.85 * f;
-  matStore.emissiveIntensity = 0.45 * f; // le store laisse passer un peu de jour
   ajusterVitre();
   veluxMat.emissive.set(f > 0.3 ? '#bfe3ff' : '#0b1230');
   veluxMat.color.copy(veluxMat.emissive);
@@ -1546,3 +1597,4 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+

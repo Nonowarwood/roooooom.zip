@@ -44,15 +44,22 @@ export const renfoncement = { retour, pan, P1, P2, P3 };
 // à côté du lampadaire. Collée au mur nord et au mur est.
 export const colonne = { largeur: 0.3, profondeur: 0.2 };
 
-// Velux dans la pente : x = centre sur la largeur, v = distance du mur bas
-// mesurée le long de la pente.
+// Velux dans la pente, d'après tes photos. Le plâtre est taillé d'APLOMB (côtés verticaux, rebord et
+// dessus horizontaux), pas perpendiculairement à la pente : la fenêtre est posée dans le plan extérieur
+// du toit, plus haut et plus au sud que le trou dans le plâtre, d'où le grand rebord horizontal sous la vitre.
+//   x : centre sur la largeur (0 = mur ouest) ; bas : position du bas du cadre, mesurée le long de la
+//   pente depuis le haut du mur bas (négatif = le plan extérieur passe sous ce point) ;
+//   largeur, longueur : le cadre en chêne (78 × 98 cm) ; profondeur : épaisseur du toit, du plâtre au
+//   cadre ; evasement : de combien l'ouverture du plâtre dépasse le cadre de chaque côté.
 export const velux = {
-  x: 2.55,
-  v: 0.95,
-  largeur: 0.8,
-  longueur: 1.05,
+  x: 1.85,
+  bas: -0.1,
+  largeur: 0.78,
+  longueur: 0.98,
+  profondeur: 0.22,
+  evasement: 0.07,
   description:
-    "La fenêtre de toit (Velux) de la chambre, encastrée dans la pente, avec son cadre en bois. Clique dessus pour fermer ou ouvrir son store plissé : fermé, il cache la vitre et la lumière du jour.",
+    "La fenêtre de toit (Velux) de la chambre : cadre en chêne, battant blanc avec sa poignée en bas, et un store occultant noir sur rails gris. Elle est encastrée dans un plâtre taillé d'aplomb, avec un large rebord horizontal. Clique dessus pour fermer ou ouvrir le store : fermé, il cache la vitre et coupe la lumière du jour dans la chambre.",
 };
 
 // Où se trouve la chambre : le lever et le coucher du soleil du site sont ceux de ce lieu, pour la date
@@ -607,5 +614,5 @@ export const vues = [
   { id: 'bureau', label: 'Bureau', cible: [2.2, 0.85, 0.35], camera: [1.0, 1.65, 1.5], fov: 58 },
   { id: 'tv', label: 'TV', cible: [0.25, 0.9, 2.2], camera: [2.4, 1.5, 2.2], fov: 58 },
   { id: 'porte', label: 'Porte', cible: [0.0, 1.0, 0.4], camera: [2.4, 1.7, 2.4], fov: 58 },
-  { id: 'velux', label: 'Velux', cible: [2.55, 1.5, 3.03], camera: [2.3, 1.3, 0.5], fov: 58 },
+  { id: 'velux', label: 'Velux', cible: [1.85, 1.45, 3.35], camera: [1.85, 1.05, 1.5], fov: 58 },
 ];
