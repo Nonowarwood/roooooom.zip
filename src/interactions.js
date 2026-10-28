@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
 // Tout ce qui se fait à la souris ou au doigt : cliquer sur ce qui réagit (calendrier, store du Velux,
-// lampes, télé), les vues prédéfinies et les interrupteurs. Un clic ne sélectionne rien et ne déplace
-// pas la caméra. `maj(dt)` est à appeler à chaque image.
+// lampes, télé) et la caméra qui se place en face, les vues prédéfinies et les interrupteurs. Un clic ne
+// met rien en surbrillance et n'ouvre pas de fiche. `maj(dt)` est à appeler à chaque image.
 export function initialiserInteractions({
   canvas,
   camera,
@@ -242,6 +242,69 @@ export function initialiserInteractions({
   bAuto.addEventListener('click', toutAuto);
   elLumieres.append(bAuto);
 
+  // --- Recentrer sur ce qu'on a cliqué ---
+  // On se place du côté « face » de l'objet : pour un décor, la normale de son mur ; pour un meuble, le
+  // côté opposé au mur le plus proche (un meuble regarde la pièce). Un décor plat est vu de face, un
+  // meuble de trois quarts, du côté où se trouve déjà la caméra. La distance est calculée pour que
+  // l'objet entier remplisse environ les trois quarts de l'écran.
+  const demiX = -racine.position.x;
+  const demiZ = -racine.position.z;
+  const HAUT = new THREE.Vector3(0, 1, 0);
+  let dernierCentrage = null;
+
+  function cotePiece(centre) {
+    const murs4 = [
+      [centre.x + demiX, new THREE.Vector3(1, 0, 0)],
+      [demiX - centre.x, new THREE.Vector3(-1, 0, 0)],
+      [centre.z + demiZ, new THREE.Vector3(0, 0, 1)],
+      [demiZ - centre.z, new THREE.Vector3(0, 0, -1)],
+    ];
+    murs4.sort((a, b) => a[0] - b[0]);
+    return murs4[0][1];
+  }
+
+  function recentrer(info) {
+    if (info.sansRecentrage) return;
+    const boite = new THREE.Box3().setFromObject(info.groupe);
+    if (boite.isEmpty()) return;
+    const centre = boite.getCenter(new THREE.Vector3());
+    if (dernierCentrage === info && !focus && !vers && controls.target.distanceTo(centre) < 0.15) return; // déjà cadré
+
+    const plat = !!info.normale;
+    const face = plat ? new THREE.Vector3(info.normale.x, 0, info.normale.z).normalize() : cotePiece(centre);
+    if (!plat) {
+      // trois quarts, du côté de la caméra actuelle
+      const vers_cam = camera.position.clone().sub(centre).setY(0);
+      const cote = Math.sign(tmp.crossVectors(face, vers_cam).y) || 1;
+      face.applyAxisAngle(HAUT, cote * THREE.MathUtils.degToRad(35));
+    }
+    const elevation = THREE.MathUtils.degToRad(plat ? 6 : 26);
+    const dir = face.clone().multiplyScalar(Math.cos(elevation)).setY(Math.sin(elevation)).normalize();
+
+    // distance qui fait tenir les huit coins de la boîte dans le champ de vision
+    const fov = plat ? 34 : 38;
+    const tanV = Math.tan(THREE.MathUtils.degToRad(fov) / 2);
+    const tanH = tanV * camera.aspect;
+    const droite = new THREE.Vector3().crossVectors(HAUT, dir).normalize();
+    const haut = new THREE.Vector3().crossVectors(dir, droite);
+    let distance = 0;
+    for (let i = 0; i < 8; i++) {
+      const c = new THREE.Vector3(i & 1 ? boite.max.x : boite.min.x, i & 2 ? boite.max.y : boite.min.y, i & 4 ? boite.max.z : boite.min.z).sub(centre);
+      const marge = 0.76;
+      distance = Math.max(distance, c.dot(dir) + Math.max(Math.abs(c.dot(droite)) / (tanH * marge), Math.abs(c.dot(haut)) / (tanV * marge)));
+    }
+    distance = THREE.MathUtils.clamp(distance, 0.9, 7);
+
+    const position = centre.clone().addScaledVector(dir, distance);
+    position.x = THREE.MathUtils.clamp(position.x, -demiX + 0.12, demiX - 0.12);
+    position.z = THREE.MathUtils.clamp(position.z, -demiZ + 0.12, demiZ - 0.12);
+    position.y = THREE.MathUtils.clamp(position.y, 0.45, 2.1);
+    vueActive = null;
+    majVues();
+    dernierCentrage = info;
+    allerA(position, centre, 1.0, fov);
+  }
+
   // --- Clic dans la scène ---
   function visible(objet) {
     for (let o = objet; o; o = o.parent) if (!o.visible) return false;
@@ -293,6 +356,7 @@ export function initialiserInteractions({
     placerPointeur(e);
     const info = viser();
     if (!info) return;
+    recentrer(info);
     if (info.auClic) info.auClic(); // ex. le calendrier tourne sa page, le store du Velux se ferme
     else if (info.interrupteur) basculer(info.interrupteur);
   });

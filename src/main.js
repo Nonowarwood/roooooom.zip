@@ -453,8 +453,7 @@ formePente.closePath();
 // z = vers l'extérieur) : le cadre est dans le plan extérieur (z = T), l'ouverture dans le plâtre
 // (z = 0) est plus haute de T / tan(pente) et un peu plus large (évasement).
 const T = velux.profondeur;
-const penteAngle = Math.atan2(H - K, R);
-const decalage = T / Math.tan(penteAngle);
+const decalage = velux.appui; // de combien le bord avant du rebord est plus haut sur la pente que le bas du cadre
 const yBas = velux.bas; // bas du cadre
 const yHaut = velux.bas + velux.longueur; // haut du cadre
 const I0 = yBas + decalage; // bas de l'ouverture dans le plâtre
@@ -720,6 +719,7 @@ const cliquables = [];
     description: velux.description,
     groupe: veluxObjet,
     auClic: () => basculerStore(),
+    sansRecentrage: true, // on ferme le store sans bouger la caméra
     actions: [{ label: () => (etatStore.ferme ? 'Ouvrir le store' : 'Fermer le store'), fn: () => basculerStore() }],
   };
   veluxObjet.userData.info = infoVelux;
@@ -1597,5 +1597,6 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+
 
 

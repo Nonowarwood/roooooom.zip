@@ -50,13 +50,15 @@ export const colonne = { largeur: 0.3, profondeur: 0.2 };
 //   x : centre sur la largeur (0 = mur ouest) ; bas : position du bas du cadre, mesurée le long de la
 //   pente depuis le haut du mur bas (négatif = le plan extérieur passe sous ce point) ;
 //   largeur, longueur : le cadre en chêne (78 × 98 cm) ; profondeur : épaisseur du toit, du plâtre au
-//   cadre ; evasement : de combien l'ouverture du plâtre dépasse le cadre de chaque côté.
+//   cadre ; appui : de combien le bord avant du rebord est plus haut que le bas du cadre, le long de la pente
+//   (0 = rebord perpendiculaire, égal à la profondeur = rebord horizontal) ; evasement : de combien l'ouverture du plâtre dépasse le cadre de chaque côté.
 export const velux = {
   x: 1.85,
   bas: -0.1,
   largeur: 0.78,
   longueur: 0.98,
-  profondeur: 0.28,
+  profondeur: 0.4,
+  appui: 0.24,
   evasement: 0,
   description:
     "La fenêtre de toit (Velux) de la chambre : cadre en chêne, battant blanc avec sa poignée en bas, et un store occultant noir sur rails gris. Elle est encastrée dans un plâtre taillé d'aplomb, avec un large rebord horizontal. Clique dessus pour fermer ou ouvrir le store : fermé, il cache la vitre et coupe la lumière du jour dans la chambre.",
