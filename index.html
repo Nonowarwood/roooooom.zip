@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#241435" />
+    <title>Ma chambre</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div class="fond" aria-hidden="true"></div>
+    <canvas id="scene"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="titre">Ma chambre</header>
+
+    <nav class="vues" id="vues" aria-label="Choisir une vue"></nav>
+    <p class="aide">Glisse pour tourner · molette pour zoomer · clique sur un meuble</p>
+
+    <section class="carte" id="carte" hidden aria-live="polite">
+      <button class="fermer" id="carte-fermer" type="button" aria-label="Fermer">×</button>
+      <h2 id="carte-titre"></h2>
+      <p id="carte-texte"></p>
+      <div class="carte-actions" id="carte-actions"></div>
+    </section>
+
+    <div class="lumieres" id="lumieres" role="group" aria-label="Lumières et appareils"></div>
+
+    <div class="soleil">
+      <span id="heure">12:00</span>
+      <input id="curseur" type="range" min="0" max="24" step="0.05" value="12" aria-label="Heure du jour" />
+      <button id="live" type="button">Heure réelle</button>
+    </div>
+
+    <div id="chargement" class="chargement">Chargement…</div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
