@@ -134,10 +134,9 @@ html, body {
 }
 .vues::-webkit-scrollbar { display: none; }
 
-/* boutons des vues, des interrupteurs et de la carte : même famille */
+/* boutons des vues et des interrupteurs : même famille */
 .vues button,
-.lumieres button,
-.carte-actions button {
+.lumieres button {
   flex: none;
   color: #fff;
   background: #302139ed;
@@ -150,8 +149,7 @@ html, body {
   transition: background 0.2s, border-color 0.2s;
 }
 .vues button:hover,
-.lumieres button:hover,
-.carte-actions button:hover { border-color: #ffffff80; }
+.lumieres button:hover { border-color: #ffffff80; }
 .vues button.actif { background: var(--prune); border-color: #ffffff60; }
 
 /* --- Interrupteurs, au-dessus de la barre de l'heure --- */
@@ -176,50 +174,7 @@ html, body {
 .lumieres button.auto { opacity: 0.7; }
 .lumieres button.auto.actif { background: var(--prune); opacity: 1; }
 
-/* --- Carte d'information sur le meuble choisi --- */
-.carte {
-  position: absolute;
-  left: 190px;
-  bottom: calc(20px + env(safe-area-inset-bottom));
-  width: min(284px, calc(100vw - 420px)); /* s'arrête avant la rangée des lumières */
-  padding: 16px 18px;
-  background: #302139f2;
-  border: 1px solid #ffffff30;
-  border-radius: 18px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 30px #00000055;
-}
-.carte[hidden] { display: none; }
-.carte h2 { margin: 0 28px 6px 0; font-size: 17px; font-weight: 600; }
-.carte p { margin: 0; font-size: 13px; line-height: 1.5; opacity: 0.85; }
-.carte .fermer {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
-  color: #fff;
-  background: none;
-  border: 0;
-  border-radius: 50%;
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0.7;
-}
-.carte .fermer:hover { opacity: 1; background: #ffffff20; }
-.carte-actions { margin-top: 12px; display: flex; gap: 8px; }
-.carte-actions:empty { display: none; }
-.carte-actions button.actif { background: var(--prune); border-color: #ffffff60; }
-
-/* sur petit écran la carte passe au-dessus des interrupteurs */
 @media (max-width: 760px) {
-  .carte {
-    left: 16px;
-    right: 16px;
-    width: auto;
-    bottom: calc(126px + env(safe-area-inset-bottom));
-  }
   .aide { display: none; }
 }
 

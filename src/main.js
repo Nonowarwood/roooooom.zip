@@ -458,7 +458,7 @@ const decalage = T / Math.tan(penteAngle);
 const yBas = velux.bas; // bas du cadre
 const yHaut = velux.bas + velux.longueur; // haut du cadre
 const I0 = yBas + decalage; // bas de l'ouverture dans le plâtre
-const I1 = yHaut + decalage; // haut de l'ouverture dans le plâtre
+const I1 = yHaut; // haut de l'ouverture : le cadre touche le haut, la coupe du dessus est perpendiculaire à la pente
 const demiCadre = velux.largeur / 2;
 const demiOuv = demiCadre + velux.evasement;
 const trou = new THREE.Path();
@@ -1597,4 +1597,5 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+
 

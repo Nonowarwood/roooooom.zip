@@ -44,9 +44,9 @@ export const renfoncement = { retour, pan, P1, P2, P3 };
 // à côté du lampadaire. Collée au mur nord et au mur est.
 export const colonne = { largeur: 0.3, profondeur: 0.2 };
 
-// Velux dans la pente, d'après tes photos. Le plâtre est taillé d'APLOMB (côtés verticaux, rebord et
-// dessus horizontaux), pas perpendiculairement à la pente : la fenêtre est posée dans le plan extérieur
-// du toit, plus haut et plus au sud que le trou dans le plâtre, d'où le grand rebord horizontal sous la vitre.
+// Velux dans la pente, d'après tes photos. Le cadre est posé dans le plan extérieur du toit, le haut du cadre
+// touche le haut de l'ouverture (coupe perpendiculaire à la pente, invisible de dessous) et le bas est taillé
+// en rebord HORIZONTAL profond : c'est le grand appui pâle sous la vitre.
 //   x : centre sur la largeur (0 = mur ouest) ; bas : position du bas du cadre, mesurée le long de la
 //   pente depuis le haut du mur bas (négatif = le plan extérieur passe sous ce point) ;
 //   largeur, longueur : le cadre en chêne (78 × 98 cm) ; profondeur : épaisseur du toit, du plâtre au
@@ -56,8 +56,8 @@ export const velux = {
   bas: -0.1,
   largeur: 0.78,
   longueur: 0.98,
-  profondeur: 0.22,
-  evasement: 0.07,
+  profondeur: 0.28,
+  evasement: 0,
   description:
     "La fenêtre de toit (Velux) de la chambre : cadre en chêne, battant blanc avec sa poignée en bas, et un store occultant noir sur rails gris. Elle est encastrée dans un plâtre taillé d'aplomb, avec un large rebord horizontal. Clique dessus pour fermer ou ouvrir le store : fermé, il cache la vitre et coupe la lumière du jour dans la chambre.",
 };

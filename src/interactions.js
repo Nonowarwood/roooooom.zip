@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-// Tout ce qui se fait à la souris ou au doigt : cliquer sur un meuble (mise en
-// évidence, carte d'information, caméra qui s'approche), les vues prédéfinies et
-// les interrupteurs. `maj(dt)` est à appeler à chaque image.
+// Tout ce qui se fait à la souris ou au doigt : cliquer sur ce qui réagit (calendrier, store du Velux,
+// lampes, télé), les vues prédéfinies et les interrupteurs. Un clic ne sélectionne rien et ne déplace
+// pas la caméra. `maj(dt)` est à appeler à chaque image.
 export function initialiserInteractions({
   canvas,
   camera,
@@ -22,13 +22,8 @@ export function initialiserInteractions({
   const pointeur = new THREE.Vector2();
   const elVues = document.getElementById('vues');
   const elLumieres = document.getElementById('lumieres');
-  const elCarte = document.getElementById('carte');
-  const elTitre = document.getElementById('carte-titre');
-  const elTexte = document.getElementById('carte-texte');
-  const elActions = document.getElementById('carte-actions');
 
   const versScene = ([x, y, z]) => new THREE.Vector3(x, y, z).add(racine.position);
-  const capitaliser = (t) => t.charAt(0).toUpperCase() + t.slice(1);
   const ease = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
   // --- Caméra : le même système de mouvement que la référence ---
@@ -106,7 +101,6 @@ export function initialiserInteractions({
     b.type = 'button';
     b.textContent = v.label;
     b.addEventListener('click', () => {
-      deselectionner();
       vueActive = v.id;
       majVues();
       vueGenerale = null;
@@ -154,7 +148,6 @@ export function initialiserInteractions({
 
   // pivote d'un pas autour de la cible
   function pivoter(dTheta, dPhi) {
-    deselectionner();
     const rayon = tmp.subVectors(camera.position, controls.target);
     sph0.setFromVector3(rayon);
     sph0.theta += dTheta;
@@ -185,7 +178,6 @@ export function initialiserInteractions({
   droite.append(menu);
   const boutonsMenu = {};
   const choisirVueGenerale = (nom) => {
-    deselectionner();
     if (vueGenerale === nom) nom = 'libre'; // un second clic revient à la vue libre
     if (nom === 'libre') {
       vueGenerale = null;
@@ -250,109 +242,6 @@ export function initialiserInteractions({
   bAuto.addEventListener('click', toutAuto);
   elLumieres.append(bAuto);
 
-  // --- Sélection d'un meuble ---
-  let selection = null;
-  const MEMOIRE = Symbol('surbrillance');
-
-  function materiauxDe(objet) {
-    const liste = [];
-    objet.traverse((o) => {
-      if (!o.isMesh) return;
-      for (const m of [].concat(o.material)) {
-        if (m.emissive && !m.userData.sansSurbrillance && !liste.includes(m)) liste.push(m);
-      }
-    });
-    return liste;
-  }
-
-  function surbrillance(groupe, actif) {
-    for (const m of materiauxDe(groupe)) {
-      if (actif) {
-        m[MEMOIRE] = { couleur: m.emissive.clone(), intensite: m.emissiveIntensity };
-        m.emissive.set('#ffb347');
-        m.emissiveIntensity = 0.3;
-      } else if (m[MEMOIRE]) {
-        m.emissive.copy(m[MEMOIRE].couleur);
-        m.emissiveIntensity = m[MEMOIRE].intensite;
-        delete m[MEMOIRE];
-      }
-    }
-  }
-
-  function selectionner(info) {
-    deselectionner();
-    selection = info;
-    surbrillance(info.groupe, true);
-    afficherCarte(info);
-    vueActive = null;
-    majVues();
-
-    const boite = new THREE.Box3().setFromObject(info.groupe);
-    const centre = boite.getCenter(new THREE.Vector3());
-    const taille = boite.getSize(new THREE.Vector3());
-    const distance = THREE.MathUtils.clamp(Math.max(taille.x, taille.y, taille.z) * 1.7 + 1.5, 2.2, 5);
-
-    let direction;
-    if (info.normale) {
-      // décor plaqué sur un mur : on se place face à lui, côté pièce
-      direction = info.normale.clone();
-      direction.y = 0.15;
-    } else {
-      // meuble : on garde l'angle actuel, sans vue trop rasante ni trop plongeante
-      direction = camera.position.clone().sub(controls.target);
-      direction.y = THREE.MathUtils.clamp(direction.y / (direction.length() || 1), 0.3, 0.75) * direction.length();
-    }
-    direction.normalize();
-    const position = centre.clone().addScaledVector(direction, distance);
-    position.y = Math.max(position.y, 0.5);
-    allerA(position, centre, 1.0, 42);
-  }
-
-  function deselectionner() {
-    if (!selection) return;
-    surbrillance(selection.groupe, false);
-    selection = null;
-    elCarte.hidden = true;
-  }
-
-  // --- Carte d'information ---
-  let boutonCarte = null;
-  function afficherCarte(info) {
-    elTitre.textContent = capitaliser(info.nom);
-    elTexte.textContent = info.description ?? '';
-    elActions.replaceChildren();
-    boutonCarte = null;
-    if (info.interrupteur) {
-      boutonCarte = document.createElement('button');
-      boutonCarte.type = 'button';
-      boutonCarte.addEventListener('click', () => basculer(info.interrupteur));
-      elActions.append(boutonCarte);
-      majBoutonCarte();
-    }
-    for (const a of info.actions ?? []) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      const libelle = () => (typeof a.label === 'function' ? a.label() : a.label);
-      b.textContent = libelle();
-      b.addEventListener('click', () => {
-        a.fn();
-        b.textContent = libelle();
-      });
-      elActions.append(b);
-    }
-    elCarte.hidden = false;
-  }
-  function majBoutonCarte() {
-    if (!boutonCarte || !selection?.interrupteur) return;
-    const c = commandes[selection.interrupteur];
-    boutonCarte.textContent = `${estAllume(c.id) ? 'Éteindre' : 'Allumer'} · ${c.label}`;
-    boutonCarte.classList.toggle('actif', estAllume(c.id));
-  }
-  document.getElementById('carte-fermer').addEventListener('click', deselectionner);
-  addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') deselectionner();
-  });
-
   // --- Clic dans la scène ---
   function visible(objet) {
     for (let o = objet; o; o = o.parent) if (!o.visible) return false;
@@ -362,6 +251,9 @@ export function initialiserInteractions({
     for (let o = objet; o; o = o.parent) if (o.userData.info) return o.userData.info;
     return null;
   }
+
+  // Ce qui réagit au clic : une action propre (calendrier, store…) ou une lumière à allumer/éteindre.
+  const reagit = (info) => !!(info.auClic || info.interrupteur);
 
   // Renvoie ce que le pointeur vise : un meuble ou un décor, ou rien. Un mur
   // debout bloque la vue ; un mur abaissé laisse passer.
@@ -400,10 +292,9 @@ export function initialiserInteractions({
     if (!court || !immobile) return; // c'était un glissement : on tournait la caméra
     placerPointeur(e);
     const info = viser();
-    if (info) info.auClic?.(); // ex. le calendrier tourne sa page
-    if (info && info !== selection) selectionner(info);
-    else if (info) afficherCarte(info); // déjà sélectionné : on rafraîchit seulement la carte (libellés des boutons)
-    else deselectionner();
+    if (!info) return;
+    if (info.auClic) info.auClic(); // ex. le calendrier tourne sa page, le store du Velux se ferme
+    else if (info.interrupteur) basculer(info.interrupteur);
   });
 
   // le curseur devient une main au-dessus de ce qu'on peut cliquer
@@ -412,7 +303,8 @@ export function initialiserInteractions({
     if (e.buttons || performance.now() - dernierSurvol < 60) return;
     dernierSurvol = performance.now();
     placerPointeur(e);
-    canvas.style.cursor = viser() ? 'pointer' : '';
+    const info = viser();
+    canvas.style.cursor = info && reagit(info) ? 'pointer' : '';
   });
 
   // --- À chaque image ---
@@ -466,21 +358,14 @@ export function initialiserInteractions({
       if (Math.abs(d - zoomCible) < 0.005) zoomCible = null;
     }
 
-    // l'objet sélectionné respire doucement
-    if (selection) {
-      const intensite = 0.28 + 0.1 * Math.sin(temps * 3);
-      for (const m of materiauxDe(selection.groupe)) if (m[MEMOIRE]) m.emissiveIntensity = intensite;
-    }
-
     // boutons : on ne touche au DOM que quand quelque chose change
-    const sig = Object.keys(commandes).map((id) => +estAllume(id)).join('') + (selection?.nom ?? '');
+    const sig = Object.keys(commandes).map((id) => +estAllume(id)).join('');
     if (sig !== signature) {
       signature = sig;
       for (const [id, b] of boutonsLumieres) b.classList.toggle('actif', estAllume(id));
-      majBoutonCarte();
     }
     bAuto.classList.toggle('actif', Object.values(commandes).every((c) => c.manuel === null));
   }
 
-  return { maj, selectionner, deselectionner };
+  return { maj };
 }
