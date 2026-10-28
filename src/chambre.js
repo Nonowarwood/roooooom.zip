@@ -204,7 +204,7 @@ export const objetsVitrine = [
     nom: 'LE SSERAFIM « PUREFLOW » (les 4 versions empilées)',
     description:
       "« PUREFLOW », 2ᵉ album studio de LE SSERAFIM : un « outer box » rond (135 × 40 mm) par version, empilés en cylindre. De haut en bas : Vol.1 Birch Scar (bleu), Vol.2 Yusu Lily (bleu clair), Vol.3 Peony Room (blanc), Vol.4 Tri Accord (beige).",
-    pos: [VX, 0.668],
+    pos: [VX - 0.1225, 0.668],
     pile: {
       rayon: 0.0675,
       epaisseur: 0.04,
@@ -216,6 +216,18 @@ export const objetsVitrine = [
         { couleur: '#dccbab', fond: '#d6c3a0' },
       ],
     },
+  },
+  {
+    nom: 'LE SSERAFIM « PUREFLOW » — Compact, Innocent Green (Yunjin)',
+    description:
+      "« PUREFLOW », version Compact « Innocent Green » (celle de Yunjin) : la grande couverture souple de 230 × 297 mm du 2ᵉ album studio de LE SSERAFIM, appuyée contre le fond à côté de la pile des versions boîte.",
+    pos: [VX + 0.075, 0.668],
+    taille: [0.23, 0.297, 0.006],
+    texture: '/textures/pureflow-yunjin.jpg',
+    cote: '#1f9d55',
+    inclinaison: 0.12,
+    rotation: 0,
+    contreMur: true,
   },
   // — étagère du haut : l'album et son contenu, tous appuyés contre le fond —
   {
