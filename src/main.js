@@ -620,6 +620,15 @@ ecranCanvas.width = 160;
 ecranCanvas.height = 90;
 const ecranTex = new THREE.CanvasTexture(ecranCanvas);
 ecranTex.colorSpace = THREE.SRGBColorSpace;
+// Écran du Mac : une capture du site lui-même (public/textures/ecran-mac.jpg), allumée comme un écran.
+const matEcranMac = new THREE.MeshStandardMaterial({
+  color: '#000000',
+  emissive: '#ffffff',
+  emissiveMap: textures.image('/textures/ecran-mac.jpg'),
+  emissiveIntensity: 0.85,
+  roughness: 0.3,
+});
+matEcranMac.userData.sansSurbrillance = true;
 const matEcran = new THREE.MeshStandardMaterial({
   color: '#050507',
   emissive: '#ffffff',
@@ -1112,6 +1121,8 @@ for (const m of meubles) {
             o.receiveShadow = true;
             // le modèle de TV contient un plan nommé « ecran » : on y branche l'image animée
             if (o.name === 'ecran') o.material = matEcran;
+            // le Mac du bureau : une capture du site dans une fenêtre de navigateur
+            if (o.name === 'ecran-mac') o.material = matEcranMac;
           });
           remplacerParModele(groupe, gltf.scene, m);
           preparerMurs(); // le modèle d'un meuble accroché à un mur doit s'effacer avec lui

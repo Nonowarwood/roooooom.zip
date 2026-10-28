@@ -196,7 +196,7 @@ function lampadaire() {
 // (x, y, z) = centre du dessous de la base ; y = hauteur du plateau de verre.
 //  - base en coin : 11,3 mm à la charnière, 4 mm devant, le dessus penche donc vers l'utilisateur ;
 //  - clavier de 69 touches sur 6 rangées (rangée des fonctions plus basse, flèches en demi-hauteur),
-//    fond noir, fente de ventilation sous la charnière ; trackpad large entouré d'un fin sillon ;
+//    fente de ventilation sous la charnière ; trackpad large entouré d'un fin sillon ;
 //  - charnière cylindrique, capot arrondi avec la pomme, écran noir encadré avec encoche et caméra ;
 //  - quatre pieds en caoutchouc, ports sur le flanc gauche, prise casque à droite.
 function macbook(m, x, y, z) {
@@ -229,12 +229,11 @@ function macbook(m, x, y, z) {
   chassis.receiveShadow = true;
   el.push(chassis);
 
-  // — clavier : fond noir, puis les touches rangée par rangée —
+  // — clavier : les touches rangée par rangée, directement sur l'aluminium —
   const U = 0.019; // pas d'une touche
   const largeurClavier = 15 * U;
   const zClavier = 0.019;
   const profondeurClavier = 0.0095 + 0.0025 + 5 * U;
-  el.push(boite([largeurClavier + 0.004, 0.0006, profondeurClavier + 0.004], m.noirMat, [x, dessus(zClavier + profondeurClavier / 2) - 0.0002, zh + zClavier + profondeurClavier / 2], { r: 0.0005, rot: [ANG, 0, 0] }));
   const rangees = [
     { h: 0.0095, largeurs: [1.5, ...Array(12).fill(1), 1.5] }, // échap, F1–F12, Touch ID
     { h: 0.0165, largeurs: [...Array(13).fill(1), 2] }, // chiffres, supprimer
@@ -294,7 +293,12 @@ function macbook(m, x, y, z) {
   const prof = 0.2115;
   couvercle.add(boite([L, ep, prof], m.metalClair, [0, 0, prof / 2], { r: 0.0022 })); // capot en aluminium
   couvercle.add(boite([0.298, 0.0007, prof - 0.006], m.noirMat, [0, -0.0007, prof / 2], { r: 0.0012 })); // cadre noir
-  couvercle.add(boite([0.289, 0.0006, 0.1885], m.ecran, [0, -0.0013, prof / 2 + 0.002], { r: 0.0008 })); // dalle de l'écran
+  // dalle de l'écran : un plan (l'image du site est collée dessus par le programme, qui le repère par son nom)
+  const dalle = new THREE.Mesh(new THREE.PlaneGeometry(0.289, 0.1885), m.ecran);
+  dalle.rotation.x = Math.PI / 2; // la face regarde vers -y local, c'est-à-dire vers l'utilisateur
+  dalle.position.set(0, -0.00165, prof / 2 + 0.002);
+  dalle.name = 'ecran-mac';
+  couvercle.add(dalle);
   couvercle.add(boite([0.056, 0.0007, 0.0085], m.noirMat, [0, -0.0014, prof - 0.0105], { r: 0.0025 })); // encoche
   couvercle.add(sphere(0.0034, m.uni('#2a3550'), [0, -0.0017, prof - 0.0105])); // objectif de la caméra
   // la pomme, au dos du capot : deux lobes, une feuille, et la « morsure » suggérée par un creux
