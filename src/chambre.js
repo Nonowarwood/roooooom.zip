@@ -199,15 +199,23 @@ export const objetsVitrine = [
     avance,
   })),
   {
-    nom: 'double page du photobook KiiiKiii',
+    // quatre boîtes rondes (une par version) empilées en cylindre, comme sur la photo du produit :
+    // 135 mm de diamètre, 40 mm d'épaisseur chacune, du haut vers le bas.
+    nom: 'LE SSERAFIM « PUREFLOW » (les 4 versions empilées)',
     description:
-      "Une double page du photobook (pages 16 et 17) : le photobook ouvert sur un éventail peint aux couleurs de l'île, appuyé contre le fond de la vitrine.",
+      "« PUREFLOW », 2ᵉ album studio de LE SSERAFIM : un « outer box » rond (135 × 40 mm) par version, empilés en cylindre. De haut en bas : Vol.1 Birch Scar (bleu), Vol.2 Yusu Lily (bleu clair), Vol.3 Peony Room (blanc), Vol.4 Tri Accord (beige).",
     pos: [VX, 0.668],
-    taille: [0.3, 0.21, 0.004],
-    texture: '/textures/whykiiikiii-double.jpg',
-    cote: '#f4f4f4',
-    inclinaison: 0.22,
-    contreMur: true,
+    pile: {
+      rayon: 0.0675,
+      epaisseur: 0.04,
+      couvercle: '/textures/pureflow-couvercle.jpg',
+      boites: [
+        { couleur: '#a7c3e6', fond: '#bdd1ea' },
+        { couleur: '#cfdcec', fond: '#dbe5f1' },
+        { couleur: '#eceff2', fond: '#e4e8ec' },
+        { couleur: '#dccbab', fond: '#d6c3a0' },
+      ],
+    },
   },
   // — étagère du haut : l'album et son contenu, tous appuyés contre le fond —
   {

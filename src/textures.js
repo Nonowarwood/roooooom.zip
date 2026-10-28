@@ -119,3 +119,40 @@ export function image(url) {
   return t;
 }
 
+
+// Tranche d'une boîte ronde « PUREFLOW » (LE SSERAFIM) : deux anneaux (couvercle et fond) de la couleur de
+// la version, avec les lettres P-U-R-E-F-L-O-W espacées autour et un petit repère entre chaque.
+export function pureflowTranche(haut, bas, graine = 1) {
+  return creer(1024, 128, (g, w, h) => {
+    const r = aleatoire(graine);
+    for (const [y0, hh, c] of [[0, h / 2, haut], [h / 2, h / 2, bas]]) {
+      const d = g.createLinearGradient(0, 0, w, 0);
+      d.addColorStop(0, c);
+      d.addColorStop(0.5, c);
+      d.addColorStop(1, c);
+      g.fillStyle = d;
+      g.fillRect(0, y0, w, hh);
+      // un peu de marbrure : des traînées plus claires
+      for (let i = 0; i < 14; i++) {
+        g.fillStyle = `rgba(255,255,255,${0.08 + r() * 0.16})`;
+        g.beginPath();
+        g.ellipse(r() * w, y0 + r() * hh, 40 + r() * 120, 3 + r() * 10, 0, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    g.fillStyle = 'rgba(0,0,0,0.12)';
+    g.fillRect(0, h / 2 - 1, w, 2); // la fente entre couvercle et fond
+    g.fillStyle = '#6b7380';
+    g.font = '600 24px Inter, Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    const lettres = 'PUREFLOW';
+    for (let k = 0; k < 16; k++) {
+      const x = ((k + 0.5) * w) / 16;
+      g.fillText(lettres[k % 8], x, h * 0.26);
+      g.fillText(lettres[(k + 3) % 8], x, h * 0.76);
+      g.fillRect(x + w / 32 - 1, h * 0.14, 2, 10);
+      g.fillRect(x + w / 32 - 1, h * 0.64, 2, 10);
+    }
+  });
+}

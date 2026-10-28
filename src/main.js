@@ -852,6 +852,31 @@ posters.forEach((q, i) => {
 const Z_FOND = 0.02;
 const baseZ = {}; // z de la base de chaque objet, pour poser les petits objets devant les grands
 for (const o of objetsVitrine) {
+  if (o.pile) {
+    // pile de boîtes rondes : un cylindre par version, légèrement tourné l'un par rapport à l'autre
+    const { rayon, epaisseur, boites, couvercle } = o.pile;
+    const g = new THREE.Group();
+    g.name = o.nom;
+    g.position.set(o.pos[0], o.pos[1], Z_FOND + rayon + 0.002);
+    const n = boites.length;
+    boites.forEach((b, i) => {
+      const geo = new THREE.CylinderGeometry(rayon, rayon, epaisseur, 48);
+      const tranche = new THREE.MeshStandardMaterial({ map: textures.pureflowTranche(b.couleur, b.fond, i + 1), roughness: 0.55 });
+      const lid = new THREE.MeshStandardMaterial({ map: textures.image(couvercle), roughness: 0.5, color: new THREE.Color(b.couleur).lerp(new THREE.Color('#ffffff'), 0.35) });
+      const dessous = new THREE.MeshStandardMaterial({ color: b.fond, roughness: 0.7 });
+      const m = new THREE.Mesh(geo, [tranche, i === 0 ? lid : dessous, dessous]);
+      m.position.y = epaisseur * (n - 1 - i) + epaisseur / 2; // la 1re version est en haut
+      m.rotation.y = i * 0.35 + 0.2;
+      m.castShadow = true;
+      m.receiveShadow = true;
+      g.add(m);
+    });
+    racine.add(g);
+    const info = { nom: o.nom, description: o.description, groupe: g };
+    g.userData.info = info;
+    cliquables.push(info);
+    continue;
+  }
   const [w, h, d] = o.taille;
   const incl = o.inclinaison ?? 0;
   const lacet = o.rotation ?? 0.02; // à peine de travers, comme posé à la main
