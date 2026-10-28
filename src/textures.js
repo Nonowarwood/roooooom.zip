@@ -161,46 +161,52 @@ export function pureflowTranche(haut, bas, graine = 1) {
 // vont de haut en bas (le haut de l'image = le haut du bâton).
 //  - couleur : face avant argentée, côté droit plus sombre, coutures, joints du bas, et un liseré
 //    clair tout autour des ajours (les tranches lumineuses de l'acrylique) ;
-//  - alpha : blanc = matière, noir = ajour. Face : le logo en zigzag (deux éclats reliés par un col) ;
-//    côté (à 90°) : « FEARNOT » découpé, lu de bas en haut. On voit le cœur lumineux à travers.
+//  - alpha : blanc = matière, noir = ajour. Face : le vrai symbole du groupe (une croix aplatie aux
+//    bords en dents de scie, public/textures/logo-lesserafim.png) tourné à la verticale et étiré
+//    le long du bâton, comme sur le produit ; côté (à 90°) : « FEARNOT », lu de bas en haut.
+//    On voit le cœur lumineux à travers.
+// Le symbole se charge en arrière-plan : les textures sont repeintes dès qu'il est là.
 export function lightStickTextures() {
   const W = 1024;
   const H = 2048;
-  const faire = (dessiner) => {
+  const fabrique = () => {
     const c = document.createElement('canvas');
     c.width = W;
     c.height = H;
-    dessiner(c.getContext('2d'));
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 8;
-    return tex;
+    return { c, g: c.getContext('2d'), tex };
   };
-  const tri = (x) => Math.abs((((x % 1) + 1) % 1) - 0.5) * 2; // onde triangulaire 0..1
+  const cou = fabrique();
+  const alp = fabrique();
+  const symbole = new Image();
+  let chargé = false;
 
-  // trace tous les ajours : `mode` = 'remplir' (alpha) ou 'contour' (liseré de la couleur)
-  const ajours = (g, mode) => {
-    const cx = W * 0.5;
-    const y0 = 110;
-    const y1 = 1230;
-    const demi = (u, dephase) => {
-      if (u > 0.43 && u < 0.56) return 18 + 10 * tri(u * 9 + dephase);
-      const k = u <= 0.43 ? u * 7 : (u - 0.56) * 6.6;
-      return 46 + 52 * tri(k + dephase);
-    };
-    const gauche = [];
-    const droite = [];
-    for (let i = 0; i <= 120; i++) {
-      const u = i / 120;
-      const y = y0 + u * (y1 - y0);
-      gauche.push([cx - demi(u, 0), y]);
-      droite.push([cx + demi(u, 0.5), y]);
-    }
-    g.beginPath();
-    gauche.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
-    droite.reverse().forEach(([x, y]) => g.lineTo(x, y));
-    g.closePath();
-    mode === 'remplir' ? g.fill() : g.stroke();
-    // FEARNOT, lu de bas en haut, avec sa barre en haut
+  // le symbole, de la taille voulue : 1120 px de long (le long du bâton) pour 197 px de large
+  const LONG = 1120;
+  const LARG = LONG / (1593 / 280);
+  const CX = W * 0.5;
+  const CY = 670;
+  const poserSymbole = (g, teinte) => {
+    if (!chargé) return;
+    const t = document.createElement('canvas');
+    t.width = Math.round(LONG);
+    t.height = Math.round(LARG);
+    const tg = t.getContext('2d');
+    tg.imageSmoothingQuality = 'high';
+    tg.drawImage(symbole, 0, 0, t.width, t.height);
+    tg.globalCompositeOperation = 'source-in';
+    tg.fillStyle = teinte;
+    tg.fillRect(0, 0, t.width, t.height);
+    g.save();
+    g.translate(CX, CY);
+    g.rotate(-Math.PI / 2); // à la verticale
+    g.drawImage(t, -LONG / 2, -LARG / 2);
+    g.restore();
+  };
+
+  // FEARNOT, lu de bas en haut, avec sa barre horizontale en haut ; `mode` : remplir | contour
+  const fearnot = (g, mode) => {
     g.save();
     g.translate(W * 0.8, 700);
     g.rotate(-Math.PI / 2);
@@ -210,11 +216,14 @@ export function lightStickTextures() {
     if ('letterSpacing' in g) g.letterSpacing = '10px';
     mode === 'remplir' ? g.fillText('FEARNOT', 0, 0) : g.strokeText('FEARNOT', 0, 0);
     g.restore();
-    const barres = [[W * 0.8 - 62, 140, 124, 14], [W * 0.8 - 7, 110, 14, 70]];
-    for (const b of barres) (mode === 'remplir' ? g.fillRect : g.strokeRect).call(g, ...b);
+    for (const b of [[W * 0.8 - 62, 140, 124, 14], [W * 0.8 - 7, 110, 14, 70]]) {
+      mode === 'remplir' ? g.fillRect(...b) : g.strokeRect(...b);
+    }
   };
 
-  const couleur = faire((g) => {
+  const peindre = () => {
+    // — couleur —
+    const g = cou.g;
     g.fillStyle = '#a3aec4';
     g.fillRect(0, 0, W, H);
     g.fillStyle = '#6f788d';
@@ -237,19 +246,32 @@ export function lightStickTextures() {
     g.strokeStyle = '#2b303b';
     g.lineWidth = 3;
     for (const x of [0.42, 0.5]) g.strokeRect(W * x, H * 0.885, W * 0.08, 70);
-    // le liseré lumineux autour des ajours (la moitié intérieure est coupée par l'alpha)
+    // liseré lumineux autour des ajours : un halo clair (la partie sous l'ajour est coupée par l'alpha)
+    g.save();
+    g.shadowColor = '#f4f8ff';
+    g.shadowBlur = 16;
+    for (let i = 0; i < 3; i++) poserSymbole(g, '#f4f8ff');
+    g.restore();
     g.strokeStyle = '#f4f8ff';
     g.lineWidth = 16;
-    g.lineJoin = 'miter';
-    ajours(g, 'contour');
-  });
+    fearnot(g, 'contour');
+    cou.tex.needsUpdate = true;
+    // — alpha —
+    const a = alp.g;
+    a.fillStyle = '#fff';
+    a.fillRect(0, 0, W, H);
+    a.fillStyle = '#000';
+    poserSymbole(a, '#000');
+    fearnot(a, 'remplir');
+    alp.tex.needsUpdate = true;
+  };
 
-  const alpha = faire((g) => {
-    g.fillStyle = '#fff';
-    g.fillRect(0, 0, W, H);
-    g.fillStyle = '#000';
-    ajours(g, 'remplir');
-  });
+  peindre(); // une première fois sans le symbole (FEARNOT seul), puis avec dès qu'il est chargé
+  symbole.onload = () => {
+    chargé = true;
+    peindre();
+  };
+  symbole.src = chemin('/textures/logo-lesserafim.png');
 
-  return { couleur, alpha };
+  return { couleur: cou.tex, alpha: alp.tex };
 }
