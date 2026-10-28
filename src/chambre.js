@@ -172,14 +172,32 @@ export const objetsVitrine = [
   {
     nom: "coffret Season's Greetings aespa",
     description:
-      "Coffret crème gaufré « One More Page, I Swear » : le Season's Greetings 2027 d'aespa (calendrier de bureau, carnet, photobook, cartes…), debout contre le fond de la vitrine.",
-    pos: [VX, 0.998],
+      "Coffret crème gaufré « One More Page, I Swear » : le Season's Greetings 2027 d'aespa (calendrier de bureau, carnet, photobook, cartes…), debout contre le fond de la vitrine, sur l'étagère du bas.",
+    pos: [VX, 0.338],
     taille: [0.175, 0.245, 0.07],
     texture: '/textures/coffret.jpg',
     cote: '#e9e1d0',
     inclinaison: 0.05,
     contreMur: true,
   },
+  // — troisième étage : les 4 albums membres d'ILLIT « Break Even » (version GLLIT), en éventail —
+  // `avance` : de combien l'album est avancé (m) pour chevaucher le précédent sans se confondre avec lui.
+  ...[
+    ['yunah', 'Yunah', -0.132, 0],
+    ['minju', 'Minju', -0.044, 0.011],
+    ['wonhee', 'Wonhee', 0.044, 0.022],
+    ['iroha', 'Iroha', 0.132, 0.033],
+  ].map(([id, nom, dx, avance]) => ({
+    nom: `album ILLIT « Break Even » — ${nom}`,
+    description: `ILLIT, 5ᵉ mini-album « Break Even », version GLLIT : le folding package de ${nom} (115 × 165 mm, 9 mm d'épaisseur), appuyé contre le fond de la vitrine avec les trois autres versions membres.`,
+    pos: [VX + dx, 0.998],
+    taille: [0.115, 0.165, 0.009],
+    texture: `/textures/illit-${id}.jpg`,
+    cote: '#e6e9ec',
+    inclinaison: 0.13,
+    contreMur: true,
+    avance,
+  })),
   {
     nom: 'double page du photobook KiiiKiii',
     description:

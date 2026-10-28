@@ -857,7 +857,7 @@ for (const o of objetsVitrine) {
   const lacet = o.rotation ?? 0.02; // à peine de travers, comme posé à la main
   let z = 0.18;
   if (o.contreMur) {
-    z = Z_FOND + h * Math.sin(incl) + (d / 2) * Math.cos(incl) + (w / 2) * Math.sin(Math.abs(lacet)) + 0.001;
+    z = Z_FOND + h * Math.sin(incl) + (d / 2) * Math.cos(incl) + (w / 2) * Math.sin(Math.abs(lacet)) + 0.001 + (o.avance ?? 0);
   } else if (o.devant) {
     const support = objetsVitrine.find((x) => x.nom === o.devant);
     const dessous = baseZ[o.devant] + support.taille[2] / 2 + 0.002;
