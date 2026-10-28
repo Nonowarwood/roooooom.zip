@@ -229,6 +229,14 @@ export const objetsVitrine = [
     rotation: 0,
     contreMur: true,
   },
+  {
+    // couché devant les deux albums, tête vers la droite (mesures estimées : ~25 cm, tête Ø6 cm)
+    nom: 'light stick officiel LE SSERAFIM',
+    description:
+      "Le light stick officiel de LE SSERAFIM : un bâton argenté à reflets bleutés dont la tête est ajourée du logo du groupe (vu de face) et du logo FEARNOT (vu de côté). Allumé, il brille d'abord en « Fearless Blue ». Ici posé couché devant les albums.",
+    pos: [VX - 0.01, 0.668],
+    baton: { longueur: 0.25, z: 0.255, angle: -0.1 },
+  },
   // — étagère du haut : l'album et son contenu, tous appuyés contre le fond —
   {
     nom: 'TourBook KiiiKiii (Guide Book Ver.)',

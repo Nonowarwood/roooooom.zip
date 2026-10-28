@@ -156,3 +156,37 @@ export function pureflowTranche(haut, bas, graine = 1) {
     }
   });
 }
+
+// Logo LE SSERAFIM de la tête du light stick : un éclat de traits blancs qui partent d'un centre, sur
+// fond noir (la texture sert d'« émission » : seul le logo s'illumine). Le texte est lisible à plat.
+export function logoLightStick() {
+  return creer(
+    256,
+    512,
+    (g, w, h) => {
+      g.fillStyle = '#000';
+      g.fillRect(0, 0, w, h);
+      const r = aleatoire(23);
+      g.fillStyle = '#fff';
+      g.strokeStyle = '#fff';
+      g.lineCap = 'round';
+      const cx = w / 2;
+      const cy = h / 2;
+      // l'éclat : des pointes effilées, plus longues à l'horizontale
+      for (let i = 0; i < 18; i++) {
+        const a = (i / 18) * Math.PI * 2 + (r() - 0.5) * 0.2;
+        const long = 55 + r() * 70;
+        const lx = Math.cos(a) * long * 1.0;
+        const ly = Math.sin(a) * long * 2.1;
+        g.beginPath();
+        g.moveTo(cx + Math.cos(a + 1.57) * 5, cy + Math.sin(a + 1.57) * 5);
+        g.lineTo(cx + lx, cy + ly);
+        g.lineTo(cx + Math.cos(a - 1.57) * 5, cy + Math.sin(a - 1.57) * 5);
+        g.closePath();
+        g.fill();
+      }
+      g.fillRect(cx - 70, cy - 5, 140, 10);
+    },
+    false,
+  );
+}

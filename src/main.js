@@ -852,6 +852,40 @@ posters.forEach((q, i) => {
 const Z_FOND = 0.02;
 const baseZ = {}; // z de la base de chaque objet, pour poser les petits objets devant les grands
 for (const o of objetsVitrine) {
+  if (o.baton) {
+    // light stick : corps fuselé (surface de révolution) argenté-bleuté, tête ajourée au logo qui s'illumine
+    const { longueur: L, z, angle } = o.baton;
+    const profil = [[0, 0], [0.011, 0], [0.0125, 0.006], [0.0125, 0.07], [0.0155, 0.09], [0.0195, 0.11], [0.0215, 0.13], [0.0225, 0.2], [0.0215, 0.25], [0.017, 0.258], [0.01, 0.262], [0, 0.263]]
+      .map(([r, y]) => new THREE.Vector2(r, (y / 0.263) * L));
+    const corps = new THREE.Mesh(
+      new THREE.LatheGeometry(profil, 40),
+      new THREE.MeshStandardMaterial({ color: '#8e9bb0', metalness: 0.55, roughness: 0.4 }),
+    );
+    corps.castShadow = true;
+    corps.receiveShadow = true;
+    const bague = new THREE.Mesh(new THREE.TorusGeometry(0.0128, 0.002, 8, 32), new THREE.MeshStandardMaterial({ color: '#c8d0dc', metalness: 0.6, roughness: 0.35 }));
+    bague.rotation.x = Math.PI / 2;
+    bague.position.y = 0.075 * (L / 0.263);
+    const fenetre = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0227, 0.0227, 0.14 * (L / 0.263), 32, 1, true, -0.62, 1.24),
+      new THREE.MeshStandardMaterial({ color: '#0b0f14', emissive: '#ffffff', emissiveMap: textures.logoLightStick(), emissiveIntensity: 0.9, roughness: 0.3, side: THREE.DoubleSide }),
+    );
+    fenetre.position.y = 0.185 * (L / 0.263);
+    const bras = new THREE.Group();
+    bras.add(corps, bague, fenetre);
+    bras.rotation.z = -Math.PI / 2; // couché, tête vers +x
+    bras.position.set(-L / 2, 0.0225, 0);
+    const g = new THREE.Group();
+    g.name = o.nom;
+    g.position.set(o.pos[0], o.pos[1], z);
+    g.rotation.y = angle;
+    g.add(bras);
+    racine.add(g);
+    const info = { nom: o.nom, description: o.description, groupe: g };
+    g.userData.info = info;
+    cliquables.push(info);
+    continue;
+  }
   if (o.pile) {
     // pile de boîtes rondes : un cylindre par version, légèrement tourné l'un par rapport à l'autre
     const { rayon, epaisseur, boites, couvercle } = o.pile;
