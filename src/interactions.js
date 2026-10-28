@@ -48,12 +48,20 @@ export function initialiserInteractions({
   const sph1 = new THREE.Spherical();
   const tmp = new THREE.Vector3();
 
+  // l'inertie d'un glissé (rotation ou déplacement) continue d'agir après le lâcher : on la termine d'un
+  // coup avant tout mouvement automatique, sinon elle pousserait la caméra pendant le trajet
+  const viderInertie = () => {
+    controls.enableDamping = false;
+    controls.update();
+    controls.enableDamping = true;
+  };
   const annuler = () => {
     focus = null;
     vers = null;
     zoomCible = null;
   };
   function focusTo(position, cible, fov = camera.fov, duree = 1.15) {
+    viderInertie();
     vers = null;
     zoomCible = null;
     const p0 = camera.position.clone();
@@ -61,11 +69,13 @@ export function initialiserInteractions({
     focus = { t: 0, duree, p0, p1: milieu, p2: position.clone(), s0: controls.target.clone(), s2: cible.clone(), f0: camera.fov, f1: fov };
   }
   function goTo(position, cible, fov = camera.fov) {
+    viderInertie();
     focus = null;
     zoomCible = null;
     vers = { position: position.clone(), cible: cible.clone(), fov };
   }
   function zoomBy(facteur) {
+    viderInertie();
     focus = null;
     vers = null;
     zoomCible = THREE.MathUtils.clamp((zoomCible ?? camera.position.distanceTo(controls.target)) * facteur, controls.minDistance, controls.maxDistance);

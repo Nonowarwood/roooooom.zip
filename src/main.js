@@ -45,17 +45,19 @@ camera.position.set(-4.6, 7.6, -6.2); // depuis le nord-ouest : on voit le mur e
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 0.9, 0);
-// Réglages repris de la référence : pas de déplacement latéral (le clic droit ne fait plus rien), une
-// inertie un peu plus longue (0,08), le zoom borné, et la caméra qui peut aller jusqu'à la verticale
-// du dessus mais pas passer sous le sol (82° max depuis le haut).
+// Réglages repris de la référence (inertie 0,08, zoom borné, caméra qui peut aller jusqu'à la verticale
+// du dessus mais pas passer sous le sol : 82° max depuis le haut), COMBINÉS avec l'ancien système :
+// le déplacement latéral reste possible (clic droit, Maj + glisser, ou deux doigts), mais la cible de
+// la caméra est gardée dans la pièce pour qu'on ne puisse jamais perdre la chambre hors de l'écran.
 const LIMITE_POLAIRE = Math.PI / 2.2;
-controls.enablePan = false;
+controls.enablePan = true;
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 1.2;
 controls.maxDistance = 16;
 controls.minPolarAngle = 0;
 controls.maxPolarAngle = LIMITE_POLAIRE;
+const LIMITE_CIBLE = { min: new THREE.Vector3(-2.6, 0, -2.6), max: new THREE.Vector3(2.6, 2.4, 2.6) }; // en repère scène
 const reglages = { murs: 'auto' }; // 'auto' | 'up' (tous levés) | 'down' (tous baissés) : boutons en haut à gauche
 controls.update();
 
@@ -1357,6 +1359,12 @@ renderer.setAnimationLoop(() => {
     dessinerEcran(maintenant);
   }
   controls.update();
+  // la cible reste dans la pièce : si un déplacement latéral la fait sortir, on ramène la caméra du même décalage
+  const dedans = controls.target.clone().clamp(LIMITE_CIBLE.min, LIMITE_CIBLE.max);
+  if (!dedans.equals(controls.target)) {
+    camera.position.add(dedans.clone().sub(controls.target));
+    controls.target.copy(dedans);
+  }
   renderer.render(scene, camera);
 });
 
