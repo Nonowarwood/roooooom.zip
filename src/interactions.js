@@ -170,6 +170,13 @@ export function initialiserInteractions({
       elActions.append(boutonCarte);
       majBoutonCarte();
     }
+    for (const a of info.actions ?? []) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = a.label;
+      b.addEventListener('click', () => a.fn());
+      elActions.append(b);
+    }
     elCarte.hidden = false;
   }
   function majBoutonCarte() {
@@ -230,6 +237,7 @@ export function initialiserInteractions({
     if (!court || !immobile) return; // c'était un glissement : on tournait la caméra
     placerPointeur(e);
     const info = viser();
+    if (info) info.auClic?.(); // ex. le calendrier tourne sa page
     if (info && info !== selection) selectionner(info);
     else if (!info) deselectionner();
   });

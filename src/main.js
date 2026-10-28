@@ -591,6 +591,8 @@ chargeur.setMeshoptDecoder(MeshoptDecoder);
 // Ce sur quoi on peut cliquer : meubles et décors, avec leur nom, leur description
 // et l'éventuel interrupteur qu'ils commandent.
 const cliquables = [];
+const calendriers = []; // animations des calendriers à pages (appelées à chaque image)
+const infoCal = {};
 const promessesDecors = [];
 
 // Écran de la TV : une image animée qui ne s'affiche que quand elle est allumée.
@@ -673,6 +675,63 @@ for (const d of decors) {
         })
         .catch((err) => console.warn(`Modèle introuvable pour « ${d.nom} » :`, err.message)),
     );
+  } else if (d.pages) {
+    // calendrier à pages : la page du dessous est fixe, la page du dessus se tourne vers le haut
+    // autour de sa charnière et glisse derrière
+    const [w, h] = d.taille;
+    const e = d.epaisseur;
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(w, h, e), mat('#ece6e2'));
+    chassis.position.z = e / 2;
+    chassis.castShadow = true;
+    chassis.receiveShadow = true;
+    g.add(chassis);
+
+    const textes = d.pages.map((u) => textures.image(u));
+    const matDessous = new THREE.MeshStandardMaterial({ map: textes[1 % textes.length], roughness: 0.8 });
+    const matDessus = new THREE.MeshStandardMaterial({ map: textes[0], roughness: 0.8 });
+    const matDos = new THREE.MeshStandardMaterial({ color: '#d8d2c8', roughness: 0.9 });
+    const dessous = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDessous);
+    dessous.position.z = e + 0.0005;
+    dessous.receiveShadow = true;
+    g.add(dessous);
+
+    const charniere = new THREE.Group();
+    charniere.position.set(0, h / 2, e + 0.0015); // le haut de la page
+    const devant = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDessus);
+    devant.position.y = -h / 2;
+    devant.castShadow = true;
+    devant.receiveShadow = true;
+    const dos = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDos);
+    dos.position.set(0, -h / 2, -0.0004);
+    dos.rotation.y = Math.PI;
+    charniere.add(devant, dos);
+    g.add(charniere);
+
+    const cal = { i: 0, t: -1, n: textes.length };
+    const tourner = () => {
+      if (cal.t >= 0) return; // une page est déjà en train de tourner
+      cal.t = 0;
+    };
+    calendriers.push((dt) => {
+      if (cal.t < 0) return;
+      cal.t = Math.min(1, cal.t + dt / 0.85);
+      const k = cal.t;
+      const lisse = k * k * (3 - 2 * k);
+      charniere.rotation.x = -Math.PI * lisse; // vers l'avant puis par-dessus le haut
+      // dans la dernière partie, la page s'aplatit contre le mur et disparaît
+      charniere.scale.y = 1 - THREE.MathUtils.smoothstep(k, 0.72, 1);
+      if (cal.t >= 1) {
+        cal.i = (cal.i + 1) % cal.n;
+        matDessus.map = textes[cal.i];
+        matDessous.map = textes[(cal.i + 1) % cal.n];
+        matDessus.needsUpdate = true;
+        matDessous.needsUpdate = true;
+        charniere.rotation.x = 0;
+        charniere.scale.y = 1;
+        cal.t = -1;
+      }
+    });
+    infoCal.tourner = tourner;
   } else if (d.epaisseur) {
     // affiche : un châssis sombre derrière l'image
     const [w, h] = d.taille;
@@ -706,6 +765,10 @@ for (const d of decors) {
       groupe: g,
       normale: new THREE.Vector3(Math.sin(r), 0, Math.cos(r)), // côté pièce
     };
+    if (d.pages) {
+      info.auClic = () => infoCal.tourner();
+      info.actions = [{ label: 'Page suivante', fn: () => infoCal.tourner() }];
+    }
     g.userData.info = info;
     cliquables.push(info);
   }
@@ -1174,6 +1237,7 @@ renderer.setAnimationLoop(() => {
   animerMurs(dt);
   majLumieres(dt);
   interactions.maj(dt);
+  for (const f of calendriers) f(dt);
   // l'image de la TV change environ 8 fois par seconde, seulement si elle est allumée
   const maintenant = performance.now() / 1000;
   if (commandes.tv?.niveau > 0.02 && maintenant - dernierEcran > 0.12) {

@@ -110,13 +110,14 @@ export const decors = [
   {
     nom: 'calendrier aespa 2027',
     description:
-      "Calendrier mural 2027 d'aespa (Season's Greetings « One More Page, I Swear »), accroché au mur près de la commode, ouvert sur la page de février.",
+      "Calendrier mural 2027 d'aespa (Season's Greetings « One More Page, I Swear »), accroché au mur près de la commode, ouvert sur février. Clique dessus pour tourner la page : février, mars, avril, mai.",
     mur: 'est',
     s: 0.9,
     y: 1.62,
     taille: [0.297, 0.42], // A3 réel : 297 × 420 mm
     epaisseur: 0.008,
-    texture: 'calendrier',
+    // un clic tourne la page (vers le haut, comme un vrai calendrier mural) ; la liste boucle
+    pages: ['/textures/cal-fevrier.jpg', '/textures/cal-mars.jpg', '/textures/cal-avril.jpg', '/textures/cal-mai.jpg'],
   },
   {
     nom: 'interrupteur du lampadaire',
