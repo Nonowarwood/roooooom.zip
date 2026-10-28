@@ -845,20 +845,21 @@ posters.forEach((q, i) => {
   });
 });
 
-// --- Objets dans la vitrine : un coffret en carton gaufré, la pochette sur la face avant ---
+// --- Objets dans la vitrine : coffret, livre, cartes… une boîte plate avec la bonne image devant ---
 for (const o of objetsVitrine) {
   const [w, h, d] = o.taille;
-  const creme = new THREE.MeshStandardMaterial({ color: '#e9e1d0', roughness: 0.95 });
-  const avant = new THREE.MeshStandardMaterial({ map: textures.image(o.texture), roughness: 0.9 });
+  const cote = new THREE.MeshStandardMaterial({ color: o.cote ?? '#f1ece2', roughness: 0.9 });
+  const avant = new THREE.MeshStandardMaterial({ map: textures.image(o.texture), roughness: 0.85 });
   // ordre des faces d'une boîte : +x, -x, +y, -y, +z (avant), -z
-  const boite = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [creme, creme, creme, creme, avant, creme]);
+  const boite = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [cote, cote, cote, cote, avant, cote]);
   boite.position.set(0, h / 2, 0);
   boite.castShadow = true;
   boite.receiveShadow = true;
   const g = new THREE.Group();
   g.name = o.nom;
-  g.position.set(o.pos[0], o.pos[1], o.pos[2]);
-  g.rotation.y = 0.05; // à peine de travers, comme posé à la main
+  g.position.set(...o.pos); // coordonnées de la pièce
+  g.rotation.x = -(o.inclinaison ?? 0); // les objets plats penchent vers le fond de la vitrine
+  g.rotation.y = o.rotation ?? 0.04; // à peine de travers, comme posé à la main
   g.add(boite);
   racine.add(g);
   const info = { nom: o.nom, description: o.description, groupe: g };
