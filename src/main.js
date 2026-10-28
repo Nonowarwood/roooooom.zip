@@ -656,6 +656,46 @@ function dessinerEcran(t) {
 }
 dessinerEcran(0);
 
+// Le clip de la TV (public/videos/clip-tv.mp4) : il n'est téléchargé qu'au premier allumage, il se lit
+// avec le son quand on allume la TV (le clic sur le bouton autorise le son) et se met en pause quand on
+// l'éteint. En attendant qu'il soit prêt, l'écran garde son image animée de remplacement.
+let clipTV = null;
+let clipPret = false;
+function preparerClip() {
+  if (clipTV) return;
+  clipTV = document.createElement('video');
+  clipTV.src = textures.chemin('/videos/clip-tv.mp4');
+  clipTV.loop = true;
+  clipTV.playsInline = true;
+  clipTV.preload = 'auto';
+  clipTV.crossOrigin = 'anonymous';
+  clipTV.addEventListener('canplay', () => {
+    if (clipPret) return;
+    clipPret = true;
+    const tex = new THREE.VideoTexture(clipTV);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    matEcran.emissiveMap = tex;
+    matEcran.needsUpdate = true;
+  });
+}
+let tvAllumee = false;
+function suivreClip() {
+  const voulu = commandes.tv?.manuel === true;
+  if (voulu === tvAllumee) return;
+  tvAllumee = voulu;
+  if (voulu) {
+    preparerClip();
+    clipTV.muted = false;
+    // si le navigateur refuse le son, on lit quand même, sans le son
+    clipTV.play().catch(() => {
+      clipTV.muted = true;
+      clipTV.play().catch(() => {});
+    });
+  } else {
+    clipTV?.pause();
+  }
+}
+
 // `retrait` : de combien le décor recule derrière le plan du mur (renfoncement).
 const poseMur = {
   ouest: (s, y, o) => ({ p: [0.004 - o, y, s], r: Math.PI / 2 }),
@@ -1395,7 +1435,8 @@ renderer.setAnimationLoop(() => {
   for (const f of calendriers) f(dt);
   // l'image de la TV change environ 8 fois par seconde, seulement si elle est allumée
   const maintenant = performance.now() / 1000;
-  if (commandes.tv?.niveau > 0.02 && maintenant - dernierEcran > 0.12) {
+  suivreClip();
+  if (!clipPret && commandes.tv?.niveau > 0.02 && maintenant - dernierEcran > 0.12) {
     dernierEcran = maintenant;
     dessinerEcran(maintenant);
   }
