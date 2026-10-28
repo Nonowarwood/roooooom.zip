@@ -854,6 +854,8 @@ for (const d of decors) {
             o.receiveShadow = true;
           });
           g.add(gltf.scene);
+          const vantail = gltf.scene.getObjectByName('pivot_vantail');
+          if (vantail && g.userData.info) g.userData.info.auClic = creerOuvrant(vantail, 'y', 0, 1.75, { vitesse: 2.8 });
           preparerMurs();
         })
         .catch((err) => console.warn(`Modèle introuvable pour « ${d.nom} » :`, err.message)),
@@ -1253,6 +1255,33 @@ function remplacerParModele(groupe, modele, m) {
 }
 const promesses = [];
 
+// --- Ouvrants : capot du Mac, porte de la vitrine, porte de la chambre ---
+// Chaque ouvrant est un sous-groupe « pivot_… » du modèle 3D, dont l'origine est la charnière : on
+// l'anime en tournant sur un axe entre une position fermée et une position ouverte.
+const ouvrants = [];
+function creerOuvrant(pivot, axe, ferme, ouvert, { ouvertAuDepart = false, vitesse = 4 } = {}) {
+  const o = { pivot, axe, ferme, ouvert, vitesse, f: ouvertAuDepart ? 1 : 0, cible: ouvertAuDepart ? 1 : 0 };
+  pivot.rotation[axe] = ouvertAuDepart ? ouvert : ferme;
+  ouvrants.push(o);
+  return () => {
+    o.cible = o.cible ? 0 : 1;
+  };
+}
+function animerOuvrants(dt) {
+  for (const o of ouvrants) {
+    if (o.f === o.cible) continue;
+    o.f += (o.cible - o.f) * (1 - Math.exp(-o.vitesse * dt));
+    if (Math.abs(o.f - o.cible) < 0.002) o.f = o.cible;
+    o.pivot.rotation[o.axe] = THREE.MathUtils.lerp(o.ferme, o.ouvert, o.f);
+  }
+}
+// un objet cliquable à lui seul à l'intérieur d'un meuble (le Mac, la porte de la vitrine)
+function ouvrantCliquable(nom, description, partie, groupe, basculer) {
+  const info = { nom, description, groupe, auClic: basculer };
+  partie.userData.info = info;
+  cliquables.push(info);
+}
+
 for (const m of meubles) {
   const groupe = new THREE.Group();
   groupe.name = m.nom;
@@ -1280,6 +1309,22 @@ for (const m of meubles) {
             if (o.name === 'ecran-mac') o.material = matEcranMac;
           });
           remplacerParModele(groupe, gltf.scene, m);
+          if (m.nom === 'bureau') {
+            // le MacBook : le capot s'ouvre à 112° (comme sur la photo) ou se referme sur le clavier
+            const capot = groupe.getObjectByName('pivot_capot');
+            const mac = groupe.getObjectByName('objet_mac');
+            if (capot && mac) {
+              const bascule = creerOuvrant(capot, 'x', 0.034, -1.95, { ouvertAuDepart: true });
+              ouvrantCliquable('MacBook', 'Le MacBook Air du bureau. Clique pour fermer ou rouvrir son capot.', mac, mac, bascule);
+            }
+          }
+          if (m.nom === 'vitrine') {
+            const porte = groupe.getObjectByName('pivot_porte');
+            if (porte) {
+              const bascule = creerOuvrant(porte, 'y', 0, -1.9, { vitesse: 3.2 });
+              ouvrantCliquable('porte de la vitrine', 'La porte vitrée de la vitrine.', porte, groupe, bascule);
+            }
+          }
           preparerMurs(); // le modèle d'un meuble accroché à un mur doit s'effacer avec lui
         })
         .catch((err) => console.warn(`Modèle introuvable pour « ${m.nom} » :`, err.message)),
@@ -1577,6 +1622,7 @@ renderer.setAnimationLoop(() => {
   interactions.maj(dt);
   for (const f of calendriers) f(dt);
   animerStore(dt);
+  animerOuvrants(dt);
   // l'image de la TV change environ 8 fois par seconde, seulement si elle est allumée
   const maintenant = performance.now() / 1000;
   suivreClip();
@@ -1597,6 +1643,7 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+
 
 
 

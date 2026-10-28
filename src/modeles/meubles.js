@@ -288,6 +288,7 @@ function macbook(m, x, y, z) {
   // — capot et écran, groupés pour pivoter autour de la charnière —
   const couvercle = new THREE.Group();
   couvercle.position.set(x, yh + 0.0035, zh + 0.0015);
+  couvercle.name = 'pivot_capot'; // le programme le fait pivoter (ouvert : -1,95 rad ; fermé : le dessus de la base, ~0,034)
   couvercle.rotation.x = -1.95; // ouvert à 112°
   const ep = 0.0045;
   const prof = 0.2115;
@@ -307,7 +308,7 @@ function macbook(m, x, y, z) {
   couvercle.add(sphere(0.0165, m.chrome, [0.0042, ep + 0.0004, cz], { echelle: [1, 0.12, 1.02] }));
   couvercle.add(boite([0.0036, 0.0004, 0.0072], m.chrome, [0.0016, ep + 0.0004, cz - 0.0122], { r: 0.0009, rot: [0, 0.5, 0] }));
   el.push(couvercle);
-  return el;
+  return [groupe('objet_mac', ...el)]; // tout le Mac forme un objet à part : on peut cliquer dessus
 }
 
 // --- Bureau en bouleau : deux flancs pleins, plateau et plaque de verre, retrait au dos ---
@@ -420,6 +421,25 @@ function vitrine() {
     ...[0.175, -0.175].flatMap((x) => [0.13, -0.13].map((z) => boite([0.014, 0.012, 0.014], m.metal, [x, y - 0.011, z], { r: 0.002 }))),
   ]);
   const charnieres = [0.2, 0.8, 1.4].map((y) => cylindre(0.012, 0.06, m.metalClair, [-0.208, y, 0.178], { segments: 10 }));
+  // porte vitrée : verre, cadre, poignée sur deux supports, serrure. Elle pivote autour de ses charnières
+  // (axe vertical, côté gauche) et s'ouvre vers la pièce (rotation y négative).
+  const porteVitree = groupe(
+    'pivot_porte',
+    groupe(
+      '',
+      boite([0.39, 1.5, 0.006], m.verre, [0, 0.085, 0.172], { r: 0.001 }),
+      boite([0.018, 1.53, 0.014], m.bouleauClair, [-0.2, 0.07, 0.175], { r: 0.003 }),
+      boite([0.018, 1.53, 0.014], m.bouleauClair, [0.2, 0.07, 0.175], { r: 0.003 }),
+      boite([0.4, 0.018, 0.014], m.bouleauClair, [0, 0.07, 0.175], { r: 0.003 }),
+      boite([0.4, 0.018, 0.014], m.bouleauClair, [0, 1.582, 0.175], { r: 0.003 }),
+      boite([0.012, 0.14, 0.012], m.metal, [0.16, 0.72, 0.203], { r: 0.004 }),
+      barre([0.16, 0.76, 0.183], [0.16, 0.76, 0.203], 0.004, m.metal, 8),
+      barre([0.16, 0.8, 0.183], [0.16, 0.8, 0.203], 0.004, m.metal, 8),
+      cylindre(0.014, 0.01, m.metalFonce, [0.178, 0.9, 0.18], { rot: axeZ, centre: true, segments: 10 }),
+    ),
+  );
+  porteVitree.position.set(-0.205, 0, 0.175);
+  porteVitree.children[0].position.set(0.205, 0, -0.175);
   return groupe(
     'vitrine',
     ...pieds,
@@ -430,17 +450,8 @@ function vitrine() {
     boite([0.006, 1.53, 0.31], m.verre, [0.2, 0.07, 0], { r: 0.001 }),
     boite([0.006, 1.53, 0.31], m.verre, [-0.2, 0.07, 0], { r: 0.001 }),
     ...etageres,
-    // porte vitrée : verre, cadre, charnières, poignée sur deux supports, serrure
-    boite([0.39, 1.5, 0.006], m.verre, [0, 0.085, 0.172], { r: 0.001 }),
-    boite([0.018, 1.53, 0.014], m.bouleauClair, [-0.2, 0.07, 0.175], { r: 0.003 }),
-    boite([0.018, 1.53, 0.014], m.bouleauClair, [0.2, 0.07, 0.175], { r: 0.003 }),
-    boite([0.4, 0.018, 0.014], m.bouleauClair, [0, 0.07, 0.175], { r: 0.003 }),
-    boite([0.4, 0.018, 0.014], m.bouleauClair, [0, 1.582, 0.175], { r: 0.003 }),
     ...charnieres,
-    boite([0.012, 0.14, 0.012], m.metal, [0.16, 0.72, 0.203], { r: 0.004 }),
-    barre([0.16, 0.76, 0.183], [0.16, 0.76, 0.203], 0.004, m.metal, 8),
-    barre([0.16, 0.8, 0.183], [0.16, 0.8, 0.203], 0.004, m.metal, 8),
-    cylindre(0.014, 0.01, m.metalFonce, [0.178, 0.9, 0.18], { rot: axeZ, centre: true, segments: 10 }),
+    porteVitree,
   );
 }
 
@@ -650,22 +661,34 @@ function porte() {
     cylindre(0.014, 0.1, m.laiton, [0.425, y - 0.05, 0.03], { segments: 10 }),
     boite([0.014, 0.1, 0.006], m.laiton, [0.415, y - 0.05, 0.043], { r: 0.002 }),
   ]);
+  // le vantail (planche, panneaux, poignée) pivote autour des charnières, côté +x, et s'ouvre vers la pièce
+  // (+z) ; derrière lui, un fond sombre figure le couloir
+  const vantail = groupe(
+    'pivot_vantail',
+    groupe(
+      '',
+      boite([0.83, 2.04, 0.04], m.acajou, [0, -1.02, 0], { r: 0.005 }),
+      ...panneaux,
+      // poignée à hauteur du traverse du milieu : plaque en acier brossé, levier en équerre, serrure
+      boite([0.045, 0.24, 0.006], m.metal, [-0.335, -0.21, 0.043], { r: 0.003 }),
+      boite([0.014, 0.05, 0.02], m.metal, [-0.335, -0.02, 0.058], { r: 0.003 }),
+      boite([0.14, 0.018, 0.016], m.metal, [-0.27, -0.045, 0.074], { r: 0.006 }),
+      boite([0.018, 0.075, 0.016], m.metal, [-0.205, -0.075, 0.074], { r: 0.006 }),
+      boite([0.01, 0.026, 0.004], m.noirMat, [-0.335, -0.2, 0.0475], { r: 0.001 }),
+    ),
+  );
+  vantail.position.set(0.415, 0, 0);
+  vantail.children[0].position.set(-0.415, 0, 0);
   return groupe(
     'porte',
-    boite([0.83, 2.04, 0.04], m.acajou, [0, -1.02, 0], { r: 0.005 }),
-    ...panneaux,
+    boite([0.83, 2.04, 0.01], m.uni('#241d2b'), [0, -1.02, 0.006], { r: 0.001 }), // le couloir, vu porte ouverte
+    vantail,
     // chambranle : trois montants plus larges, un peu en saillie
     boite([0.07, 2.11, 0.02], m.acajouFonce, [-0.45, -1.02, 0.02], { r: 0.004 }),
     boite([0.07, 2.11, 0.02], m.acajouFonce, [0.45, -1.02, 0.02], { r: 0.004 }),
     boite([0.97, 0.07, 0.02], m.acajouFonce, [0, 1.02, 0.02], { r: 0.004 }),
     boite([0.83, 0.018, 0.045], m.metalFonce, [0, -1.02, 0.02], { r: 0.003 }), // seuil
     ...charnieres,
-    // poignée à hauteur du traverse du milieu : plaque en acier brossé, levier en équerre, serrure
-    boite([0.045, 0.24, 0.006], m.metal, [-0.335, -0.21, 0.043], { r: 0.003 }),
-    boite([0.014, 0.05, 0.02], m.metal, [-0.335, -0.02, 0.058], { r: 0.003 }),
-    boite([0.14, 0.018, 0.016], m.metal, [-0.27, -0.045, 0.074], { r: 0.006 }),
-    boite([0.018, 0.075, 0.016], m.metal, [-0.205, -0.075, 0.074], { r: 0.006 }),
-    boite([0.01, 0.026, 0.004], m.noirMat, [-0.335, -0.2, 0.0475], { r: 0.001 }),
   );
 }
 

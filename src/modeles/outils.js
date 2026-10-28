@@ -266,26 +266,34 @@ export function fusionner(racine) {
   const inverse = new THREE.Matrix4().copy(racine.matrixWorld).invert();
   const seaux = new Map();
   const nommes = [];
+  const gardes = []; // sous-groupes qui doivent rester séparés : un capot, une porte… (nom en « objet_ » ou « pivot_ »)
   const rel = new THREE.Matrix4();
 
-  racine.traverse((o) => {
-    if (!o.isMesh) return;
-    rel.multiplyMatrices(inverse, o.matrixWorld);
-    let g = o.geometry.clone();
-    for (const nom of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(nom)) g.deleteAttribute(nom);
-    if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-    g.applyMatrix4(rel);
-    if (o.name) {
-      const m = new THREE.Mesh(g, o.material);
-      m.name = o.name;
-      m.receiveShadow = true;
-      nommes.push(m);
+  const visiter = (o) => {
+    if (o !== racine && /^(objet|pivot)_/.test(o.name)) {
+      gardes.push(o);
       return;
     }
-    if (!g.index) g = mergeVertices(g, 1e-5);
-    if (!seaux.has(o.material)) seaux.set(o.material, []);
-    seaux.get(o.material).push(g);
-  });
+    if (o.isMesh) {
+      rel.multiplyMatrices(inverse, o.matrixWorld);
+      let g = o.geometry.clone();
+      for (const nom of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(nom)) g.deleteAttribute(nom);
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      g.applyMatrix4(rel);
+      if (o.name) {
+        const m = new THREE.Mesh(g, o.material);
+        m.name = o.name;
+        m.receiveShadow = true;
+        nommes.push(m);
+        return;
+      }
+      if (!g.index) g = mergeVertices(g, 1e-5);
+      if (!seaux.has(o.material)) seaux.set(o.material, []);
+      seaux.get(o.material).push(g);
+    }
+    o.children.forEach(visiter);
+  };
+  visiter(racine);
 
   const sortie = new THREE.Group();
   sortie.name = racine.name;
@@ -298,6 +306,12 @@ export function fusionner(racine) {
     sortie.add(m);
   }
   if (nommes.length) sortie.add(...nommes);
+  // chaque sous-groupe est fusionné dans son propre repère, puis replacé là où il était (même charnière)
+  for (const garde of gardes) {
+    const f = fusionner(garde);
+    rel.multiplyMatrices(inverse, garde.matrixWorld).decompose(f.position, f.quaternion, f.scale);
+    sortie.add(f);
+  }
   return sortie;
 }
 

@@ -55,17 +55,6 @@ html, body {
   display: block;
 }
 
-.titre {
-  position: absolute;
-  top: calc(20px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: clamp(28px, 6vw, 48px);
-  letter-spacing: 0.02em;
-  filter: drop-shadow(0 2px 10px #0000004d);
-  pointer-events: none;
-}
-
 .soleil {
   position: absolute;
   bottom: calc(20px + env(safe-area-inset-bottom));
@@ -98,7 +87,7 @@ html, body {
 
 .aide {
   position: absolute;
-  top: calc(122px + env(safe-area-inset-top));
+  top: calc(66px + env(safe-area-inset-top));
   left: 0;
   right: 0;
   text-align: center;
@@ -122,7 +111,7 @@ html, body {
 /* --- Vues prédéfinies, en haut --- */
 .vues {
   position: absolute;
-  top: calc(74px + env(safe-area-inset-top));
+  top: calc(20px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
