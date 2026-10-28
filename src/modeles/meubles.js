@@ -192,26 +192,118 @@ function lampadaire() {
   );
 }
 
-// MacBook ouvert, posé sur le bureau, l'écran tourné vers la chaise (côté +z).
-// (x, y, z) = centre du dessous de la base, y = hauteur du plateau.
+// MacBook Air 13" ouvert (304 × 215 mm), posé sur le bureau, l'écran tourné vers la chaise (côté +z).
+// (x, y, z) = centre du dessous de la base ; y = hauteur du plateau de verre.
+//  - base en coin : 11,3 mm à la charnière, 4 mm devant, le dessus penche donc vers l'utilisateur ;
+//  - clavier de 69 touches sur 6 rangées (rangée des fonctions plus basse, flèches en demi-hauteur),
+//    fond noir, fente de ventilation sous la charnière ; trackpad large entouré d'un fin sillon ;
+//  - charnière cylindrique, capot arrondi avec la pomme, écran noir encadré avec encoche et caméra ;
+//  - quatre pieds en caoutchouc, ports sur le flanc gauche, prise casque à droite.
 function macbook(m, x, y, z) {
-  const alu = m.metalClair;
-  const charniere = z - 0.1075; // arrière de la base
-  const haut = y + 0.011;
-  const inclinaison = -0.2618; // écran ouvert à 105°
-  const cy = haut + 0.1 * Math.cos(0.2618);
-  const cz = charniere - 0.1 * Math.sin(0.2618);
-  const ux = 0.0041; // épaisseur vers l'avant de l'écran
-  const touches = [-0.043, -0.0265, -0.01, 0.0065, 0.023].map((dz) => boite([0.258, 0.0016, 0.011], m.plastique, [x, haut - 0.0005, z + dz], { r: 0.001 }));
-  return [
-    boite([0.31, 0.011, 0.215], alu, [x, y, z], { r: 0.004 }), // base en aluminium
-    boite([0.27, 0.002, 0.098], m.noirMat, [x, haut - 0.0015, z - 0.005], { r: 0.001 }), // fond du clavier
-    ...touches,
-    boite([0.1, 0.001, 0.065], m.metal, [x, haut - 0.0005, z + 0.085], { r: 0.001 }), // trackpad
-    boite([0.31, 0.2, 0.007], alu, [x, cy - 0.1, cz], { r: 0.003, rot: [inclinaison, 0, 0] }), // capot
-    boite([0.292, 0.182, 0.0012], m.ecran, [x, cy - 0.091 + 0.00106, cz + ux * 0.9659], { r: 0.0005, rot: [inclinaison, 0, 0] }), // écran
-    cylindre(0.03, 0.0012, m.blanc, [x, cy, cz - 0.0041 * 0.9659], { rot: [1.309, 0, 0], centre: true, segments: 16 }), // pomme au dos
+  const L = 0.304;
+  const P = 0.215;
+  const EP = 0.0113; // épaisseur à la charnière
+  const EF = 0.004; // épaisseur au bord avant
+  const PENTE = (EP - EF) / P;
+  const ANG = Math.atan(PENTE);
+  const PIEDS = 0.0015;
+  const biseau = 0.0012; // arrondi des arêtes de la base : il rehausse le dessus d'autant
+  const base = y + PIEDS; // dessous de la base
+  const zh = z - P / 2; // z du bord arrière (charnière)
+  const dessus = (zr) => base + EP + biseau - PENTE * zr; // hauteur du dessus à la profondeur zr (0 = charnière)
+  const el = [];
+
+  // — base en coin : profil (z, y) extrudé sur la largeur, biseauté sur les arêtes —
+  const forme = new THREE.Shape();
+  forme.moveTo(0, 0);
+  forme.lineTo(-P, 0);
+  forme.lineTo(-P, EF);
+  forme.lineTo(0, EP);
+  forme.closePath();
+  const geo = new THREE.ExtrudeGeometry(forme, { depth: L - 2 * biseau, bevelEnabled: true, bevelThickness: biseau, bevelSize: biseau, bevelSegments: 2 });
+  geo.translate(0, 0, biseau - L / 2 + biseau);
+  geo.rotateY(Math.PI / 2); // l'extrusion devient la largeur (x) et la profondeur (z) s'étend vers l'avant
+  const chassis = new THREE.Mesh(geo, m.metalClair);
+  chassis.position.set(x, base, zh);
+  chassis.castShadow = true;
+  chassis.receiveShadow = true;
+  el.push(chassis);
+
+  // — clavier : fond noir, puis les touches rangée par rangée —
+  const U = 0.019; // pas d'une touche
+  const largeurClavier = 15 * U;
+  const zClavier = 0.019;
+  const profondeurClavier = 0.0095 + 0.0025 + 5 * U;
+  el.push(boite([largeurClavier + 0.004, 0.0006, profondeurClavier + 0.004], m.noirMat, [x, dessus(zClavier + profondeurClavier / 2) - 0.0002, zh + zClavier + profondeurClavier / 2], { r: 0.0005, rot: [ANG, 0, 0] }));
+  const rangees = [
+    { h: 0.0095, largeurs: [1.5, ...Array(12).fill(1), 1.5] }, // échap, F1–F12, Touch ID
+    { h: 0.0165, largeurs: [...Array(13).fill(1), 2] }, // chiffres, supprimer
+    { h: 0.0165, largeurs: [1.5, ...Array(12).fill(1), 1.5] }, // tab, AZERTY…
+    { h: 0.0165, largeurs: [1.75, ...Array(11).fill(1), 2.25] }, // verr. maj, retour
+    { h: 0.0165, largeurs: [2.25, ...Array(10).fill(1), 2.75] }, // maj
+    { h: 0.0165, largeurs: [1, 1, 1, 1.25, 5.5, 1.25, 1, 'fleches'] }, // bas du clavier + flèches
   ];
+  let c = zClavier + 0.002;
+  for (const rg of rangees) {
+    let xu = -largeurClavier / 2;
+    const zc = c + rg.h / 2;
+    for (const w of rg.largeurs) {
+      if (w === 'fleches') {
+        // ◀ ▲/▼ ▶ : la touche du haut et celle du bas ont chacune une demi-hauteur
+        for (const k of [0, 1, 2]) {
+          const xk = x + xu + (k + 0.5) * U;
+          if (k === 1) {
+            for (const dz of [-0.0045, 0.0045]) el.push(boite([U - 0.0025, 0.0012, 0.0078], m.noir, [xk, dessus(zc + dz) + 0.0003, zh + zc + dz], { r: 0.0008, rot: [ANG, 0, 0] }));
+          } else {
+            el.push(boite([U - 0.0025, 0.0012, 0.0078], m.noir, [xk, dessus(zc + 0.0045) + 0.0003, zh + zc + 0.0045], { r: 0.0008, rot: [ANG, 0, 0] }));
+          }
+        }
+        xu += 3 * U;
+        continue;
+      }
+      const lg = w * U - 0.0025;
+      el.push(boite([lg, 0.0012, rg.h], m.noir, [x + xu + (w * U) / 2, dessus(zc) + 0.0003, zh + zc], { r: 0.0008, rot: [ANG, 0, 0] }));
+      xu += w * U;
+    }
+    c += rg.h + 0.0025 + (rg === rangees[0] ? 0 : 0.0025);
+  }
+  // fente de ventilation sous la charnière
+  el.push(boite([0.24, 0.0004, 0.0016], m.noirMat, [x, dessus(0.0105) + 0.0002, zh + 0.0105], { r: 0.0004, rot: [ANG, 0, 0] }));
+
+  // — trackpad : large, avec un sillon sombre tout autour —
+  const zt = 0.1385 + 0.034;
+  el.push(boite([0.112, 0.0004, 0.072], m.noirMat, [x, dessus(zt) - 0.0001, zh + zt], { r: 0.003, rot: [ANG, 0, 0] }));
+  el.push(boite([0.108, 0.0006, 0.068], m.metal, [x, dessus(zt) + 0.0001, zh + zt], { r: 0.003, rot: [ANG, 0, 0] }));
+
+  // — pieds en caoutchouc —
+  for (const sx of [-0.13, 0.13]) for (const sz of [0.025, 0.19]) el.push(cylindre(0.014, PIEDS, m.noirMat, [x + sx, y, zh + sz], { segments: 12 }));
+
+  // — ports : deux USB-C et MagSafe à gauche, prise casque à droite —
+  for (const dz of [0.04, 0.062, 0.084]) el.push(boite([0.0006, 0.0028, 0.009], m.noirMat, [x - L / 2 - 0.0002, base + 0.0042, zh + dz], { r: 0.0008 }));
+  el.push(cylindre(0.0035, 0.0006, m.noirMat, [x + L / 2 + 0.0002, base + 0.0045, zh + 0.04], { rot: axeX, centre: true, segments: 10 }));
+
+  // — charnière : un cylindre sombre entre la base et le capot —
+  const yh = base + EP + biseau - 0.0018;
+  el.push(cylindre(0.0075, 0.226, m.metalFonce, [x, yh, zh + 0.001], { rot: axeX, centre: true, segments: 14 }));
+
+  // — capot et écran, groupés pour pivoter autour de la charnière —
+  const couvercle = new THREE.Group();
+  couvercle.position.set(x, yh + 0.0035, zh + 0.0015);
+  couvercle.rotation.x = -1.95; // ouvert à 112°
+  const ep = 0.0045;
+  const prof = 0.2115;
+  couvercle.add(boite([L, ep, prof], m.metalClair, [0, 0, prof / 2], { r: 0.0022 })); // capot en aluminium
+  couvercle.add(boite([0.298, 0.0007, prof - 0.006], m.noirMat, [0, -0.0007, prof / 2], { r: 0.0012 })); // cadre noir
+  couvercle.add(boite([0.289, 0.0006, 0.1885], m.ecran, [0, -0.0013, prof / 2 + 0.002], { r: 0.0008 })); // dalle de l'écran
+  couvercle.add(boite([0.056, 0.0007, 0.0085], m.noirMat, [0, -0.0014, prof - 0.0105], { r: 0.0025 })); // encoche
+  couvercle.add(sphere(0.0034, m.uni('#2a3550'), [0, -0.0017, prof - 0.0105])); // objectif de la caméra
+  // la pomme, au dos du capot : deux lobes, une feuille, et la « morsure » suggérée par un creux
+  const cz = prof / 2 + 0.006;
+  couvercle.add(sphere(0.0165, m.chrome, [-0.0042, ep + 0.0004, cz], { echelle: [1, 0.12, 1.02] }));
+  couvercle.add(sphere(0.0165, m.chrome, [0.0042, ep + 0.0004, cz], { echelle: [1, 0.12, 1.02] }));
+  couvercle.add(boite([0.0036, 0.0004, 0.0072], m.chrome, [0.0016, ep + 0.0004, cz - 0.0122], { r: 0.0009, rot: [0, 0.5, 0] }));
+  el.push(couvercle);
+  return el;
 }
 
 // --- Bureau en bouleau : deux flancs pleins, plateau et plaque de verre, retrait au dos ---
