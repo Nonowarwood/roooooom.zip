@@ -979,29 +979,33 @@ for (const o of objetsVitrine) {
   cliquables.push(info);
 }
 
-// --- Magazines posés sur la commode, debout contre le mur de l'est ---
-for (const mg of magazinesCommode.liste) {
-  const [w, h, d] = mg.taille;
-  const papier = new THREE.MeshStandardMaterial({ color: '#f3efe8', roughness: 0.85 });
-  const face = new THREE.MeshStandardMaterial({ map: textures.image(mg.fichier), roughness: 0.55 });
-  // ordre des faces d'une boîte : +x, -x, +y, -y, +z (avant), -z
-  const boite = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [papier, papier, papier, papier, face, papier]);
-  boite.position.y = h / 2;
-  boite.castShadow = true;
-  boite.receiveShadow = true;
-  const regard = new THREE.Group(); // la face (+z) regarde la pièce (-x), avec un léger travers
-  regard.rotation.y = -Math.PI / 2 + mg.rotation;
-  regard.add(boite);
-  const g = new THREE.Group(); // penche vers le mur, autour de sa base
-  g.name = mg.nom;
-  g.rotation.z = -mg.inclinaison;
-  // x : le haut du dos touche juste le mur (le bas est reculé du déport de l'inclinaison)
-  g.position.set(magazinesCommode.mur - (h * Math.sin(mg.inclinaison) + (d / 2) * Math.cos(mg.inclinaison)) - 0.002, magazinesCommode.y, mg.z);
-  g.add(regard);
-  racine.add(g);
-  const info = { nom: mg.nom, description: mg.description, groupe: g };
-  g.userData.info = info;
-  cliquables.push(info);
+// --- Magazines empilés à plat sur la commode ---
+{
+  const n = magazinesCommode.liste.length;
+  let hauteur = magazinesCommode.y; // sommet de la pile en construction (on monte du dessous vers le dessus)
+  for (let i = n - 1; i >= 0; i--) {
+    const mg = magazinesCommode.liste[i];
+    const [w, h, d] = mg.taille;
+    const papier = new THREE.MeshStandardMaterial({ color: '#f3efe8', roughness: 0.85 });
+    const face = new THREE.MeshStandardMaterial({ map: textures.image(mg.fichier), roughness: 0.55 });
+    // ordre des faces d'une boîte : +x, -x, +y, -y, +z (avant), -z
+    const boite = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [papier, papier, papier, papier, face, papier]);
+    boite.castShadow = true;
+    boite.receiveShadow = true;
+    const couche = new THREE.Group(); // couché : la face (+z) regarde vers le haut, le haut du magazine vers -z
+    couche.rotation.x = -Math.PI / 2;
+    couche.add(boite);
+    const g = new THREE.Group(); // tourné pour que le haut du magazine soit vers le mur (+x)
+    g.name = mg.nom;
+    g.rotation.y = -Math.PI / 2 + mg.rotation;
+    g.position.set(magazinesCommode.centre[0] + mg.dx, hauteur + d / 2, magazinesCommode.centre[1] + mg.dz);
+    g.add(couche);
+    racine.add(g);
+    hauteur += d + 0.0004; // un tout petit jeu pour éviter le scintillement entre deux couvertures
+    const info = { nom: mg.nom, description: mg.description, groupe: g };
+    g.userData.info = info;
+    cliquables.push(info);
+  }
 }
 
 // --- Meubles : formes simples, remplacées par un .glb si `glb` est renseigné ---

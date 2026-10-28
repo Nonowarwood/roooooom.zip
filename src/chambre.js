@@ -284,17 +284,17 @@ export const objetsVitrine = [
   },
 ];
 
-// Magazines posés debout sur la commode, appuyés contre le mur de l'est. `z` = position le long du mur
-// (centre du magazine), `taille` = [largeur, hauteur, épaisseur] ; `inclinaison` = de combien il penche
-// vers le mur ; `rotation` = léger décalage de travers. La face regarde la pièce.
+// Magazines posés à plat sur la commode, empilés à la main (couverture visible vers le haut, le
+// haut de la couverture vers le mur). `liste` va du dessus de la pile vers le dessous. `dx`, `dz` =
+// décalage par rapport au centre de la pile (m), `rotation` = léger travers (radians).
 export const magazinesCommode = {
   y: 1.0, // dessus de la commode
-  mur: 3.6, // x du mur de l'est
+  centre: [3.355, 0.955], // [x, z] du centre de la pile
   liste: [
-    { nom: "Harper's Bazaar Korea (été 2026) — Sana", description: "Couverture de Harper's Bazaar Korea, édition d'été 2026, avec Sana de TWICE en tenue Alo.", fichier: '/photos/mag-bazaar.jpg', z: 0.64, taille: [0.205, 0.256, 0.004], inclinaison: 0.15, rotation: 0.03 },
-    { nom: 'W Korea « born to be loud » — Keonho (CORTIS)', description: 'Couverture de W Korea, numéro « born to be loud » : Keonho de CORTIS adossé à une moto rouge.', fichier: '/photos/mag-w-keonho.jpg', z: 0.85, taille: [0.2, 0.265, 0.004], inclinaison: 0.12, rotation: -0.02 },
-    { nom: 'W Korea « born to be loud » — Martin (CORTIS)', description: 'Couverture de W Korea, numéro « born to be loud » : Martin de CORTIS en long manteau et bottes vernies.', fichier: '/photos/mag-w-martin.jpg', z: 1.06, taille: [0.2, 0.265, 0.004], inclinaison: 0.17, rotation: 0.02 },
-    { nom: 'W Korea « born to be loud » — Seonghyeon (CORTIS)', description: 'Couverture de W Korea, numéro « born to be loud » : Seonghyeon de CORTIS assis dans le sable avec un caméléon.', fichier: '/photos/mag-w-seonghyeon.jpg', z: 1.27, taille: [0.2, 0.265, 0.004], inclinaison: 0.13, rotation: -0.03 },
+    { nom: "Harper's Bazaar Korea (été 2026) — Sana", description: "Couverture de Harper's Bazaar Korea, édition d'été 2026, avec Sana de TWICE en tenue Alo. Posé sur le dessus de la pile de magazines.", fichier: '/photos/mag-bazaar.jpg', taille: [0.205, 0.256, 0.004], dx: 0.0, dz: 0.0, rotation: 0.04 },
+    { nom: 'W Korea « born to be loud » — Keonho (CORTIS)', description: 'Couverture de W Korea, numéro « born to be loud » : Keonho de CORTIS adossé à une moto rouge.', fichier: '/photos/mag-w-keonho.jpg', taille: [0.2, 0.265, 0.004], dx: 0.012, dz: -0.028, rotation: -0.07 },
+    { nom: 'W Korea « born to be loud » — Martin (CORTIS)', description: 'Couverture de W Korea, numéro « born to be loud » : Martin de CORTIS en long manteau et bottes vernies.', fichier: '/photos/mag-w-martin.jpg', taille: [0.2, 0.265, 0.004], dx: -0.01, dz: 0.03, rotation: 0.09 },
+    { nom: 'W Korea « born to be loud » — Seonghyeon (CORTIS)', description: 'Couverture de W Korea, numéro « born to be loud » : Seonghyeon de CORTIS assis dans le sable avec un caméléon.', fichier: '/photos/mag-w-seonghyeon.jpg', taille: [0.2, 0.265, 0.004], dx: 0.006, dz: -0.012, rotation: -0.03 },
   ],
 };
 
