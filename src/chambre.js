@@ -98,14 +98,15 @@ export const decors = [
     couleur: '#e9eef4',
   },
   {
-    nom: 'affiche Iron Man',
-    description: 'Affiche Iron Man 3 (61 × 91 cm), à côté de la porte, avec les trois spots juste au-dessus.',
+    nom: "affiche Harper's Bazaar Korea (juin 2026)",
+    description:
+      "Couverture de Harper's Bazaar Korea, numéro de juin 2026 (les lettres « J » et « K » en bas), affichée en poster à côté de la porte, avec les trois spots juste au-dessus.",
     mur: 'ouest',
     s: 1.4,
-    y: 1.55,
-    taille: [0.61, 0.91],
+    y: 1.594,
+    taille: [0.62, 0.812], // la couverture entière, sans rognage (rapport 0,76)
     epaisseur: 0.012,
-    texture: 'iron',
+    texture: 'bazaar',
   },
   {
     nom: 'calendrier aespa 2027',
@@ -560,7 +561,7 @@ export const meubles = [
 //  - sinon `ampoules` = petites sphères lumineuses ; sans elles, une ampoule posée en `pos`.
 export const lumieres = [
   {
-    // trois spots collés au mur ouest, au-dessus de l'affiche Iron Man (qui finit à 2,0 m)
+    // trois spots collés au mur ouest, au-dessus de l'affiche Harper's Bazaar (qui finit à 2,0 m)
     nom: 'spots du mur ouest',
     mur: 'ouest', // les spots s'abaissent avec le mur
     spots: true,

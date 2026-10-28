@@ -594,7 +594,7 @@ accrocher(['nord', 'est', 'ouest', 'sud'], plafond, { ecraser: false, fondu: FON
 // --- Décors plaqués sur les murs (affiches, porte) ---
 const texturesNommees = {
   couette: textures.couette(),
-  iron: textures.affiche('iron'),
+  bazaar: textures.image('/textures/bazaar-jk.jpg'),
   mando: textures.affiche('mando'),
   calendrier: textures.image('/textures/calendrier.jpg'),
 };
