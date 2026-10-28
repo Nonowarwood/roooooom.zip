@@ -17,6 +17,7 @@ import {
   palette,
   photosMur,
   objetsVitrine,
+  magazinesCommode,
 } from './chambre.js';
 import { initialiserInteractions } from './interactions.js';
 import * as textures from './textures.js';
@@ -974,6 +975,31 @@ for (const o of objetsVitrine) {
   g.add(boite);
   racine.add(g);
   const info = { nom: o.nom, description: o.description, groupe: g };
+  g.userData.info = info;
+  cliquables.push(info);
+}
+
+// --- Magazines posés sur la commode, debout contre le mur de l'est ---
+for (const mg of magazinesCommode.liste) {
+  const [w, h, d] = mg.taille;
+  const papier = new THREE.MeshStandardMaterial({ color: '#f3efe8', roughness: 0.85 });
+  const face = new THREE.MeshStandardMaterial({ map: textures.image(mg.fichier), roughness: 0.55 });
+  // ordre des faces d'une boîte : +x, -x, +y, -y, +z (avant), -z
+  const boite = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [papier, papier, papier, papier, face, papier]);
+  boite.position.y = h / 2;
+  boite.castShadow = true;
+  boite.receiveShadow = true;
+  const regard = new THREE.Group(); // la face (+z) regarde la pièce (-x), avec un léger travers
+  regard.rotation.y = -Math.PI / 2 + mg.rotation;
+  regard.add(boite);
+  const g = new THREE.Group(); // penche vers le mur, autour de sa base
+  g.name = mg.nom;
+  g.rotation.z = -mg.inclinaison;
+  // x : le haut du dos touche juste le mur (le bas est reculé du déport de l'inclinaison)
+  g.position.set(magazinesCommode.mur - (h * Math.sin(mg.inclinaison) + (d / 2) * Math.cos(mg.inclinaison)) - 0.002, magazinesCommode.y, mg.z);
+  g.add(regard);
+  racine.add(g);
+  const info = { nom: mg.nom, description: mg.description, groupe: g };
   g.userData.info = info;
   cliquables.push(info);
 }
