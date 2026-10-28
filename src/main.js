@@ -846,8 +846,25 @@ posters.forEach((q, i) => {
 });
 
 // --- Objets dans la vitrine : coffret, livre, cartes… une boîte plate avec la bonne image devant ---
+// Le fond de la vitrine (la face avant de son panneau arrière) est en z = 0,02. Un objet qui penche
+// vers l'arrière pivote autour de sa base : on place sa base pour que le haut de son dos touche
+// juste le fond, sans le traverser.
+const Z_FOND = 0.02;
+const baseZ = {}; // z de la base de chaque objet, pour poser les petits objets devant les grands
 for (const o of objetsVitrine) {
   const [w, h, d] = o.taille;
+  const incl = o.inclinaison ?? 0;
+  const lacet = o.rotation ?? 0.02; // à peine de travers, comme posé à la main
+  let z = 0.18;
+  if (o.contreMur) {
+    z = Z_FOND + h * Math.sin(incl) + (d / 2) * Math.cos(incl) + (w / 2) * Math.sin(Math.abs(lacet)) + 0.001;
+  } else if (o.devant) {
+    const support = objetsVitrine.find((x) => x.nom === o.devant);
+    const dessous = baseZ[o.devant] + support.taille[2] / 2 + 0.002;
+    z = dessous + h * Math.sin(incl) + (d / 2) * Math.cos(incl);
+  }
+  baseZ[o.nom] = z;
+
   const cote = new THREE.MeshStandardMaterial({ color: o.cote ?? '#f1ece2', roughness: 0.9 });
   const avant = new THREE.MeshStandardMaterial({ map: textures.image(o.texture), roughness: 0.85 });
   // ordre des faces d'une boîte : +x, -x, +y, -y, +z (avant), -z
@@ -857,9 +874,10 @@ for (const o of objetsVitrine) {
   boite.receiveShadow = true;
   const g = new THREE.Group();
   g.name = o.nom;
-  g.position.set(...o.pos); // coordonnées de la pièce
-  g.rotation.x = -(o.inclinaison ?? 0); // les objets plats penchent vers le fond de la vitrine
-  g.rotation.y = o.rotation ?? 0.04; // à peine de travers, comme posé à la main
+  g.position.set(o.pos[0], o.pos[1], z);
+  g.rotation.order = 'YXZ';
+  g.rotation.y = lacet;
+  g.rotation.x = -incl; // penche vers le fond de la vitrine
   g.add(boite);
   racine.add(g);
   const info = { nom: o.nom, description: o.description, groupe: g };

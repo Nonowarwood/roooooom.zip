@@ -159,10 +159,12 @@ export const photosMur = [
   },
 ];
 
-// Objets posés sur les étagères de la vitrine (coordonnées de la pièce : [x, z] au centre du
-// meuble, y = hauteur du dessus de l'étagère). La face avant regarde la porte vitrée (+z).
+// Objets posés sur les étagères de la vitrine (coordonnées de la pièce : x = position, y = hauteur
+// du dessus de l'étagère). La face avant regarde la porte vitrée (+z).
 //   taille : [largeur, hauteur, épaisseur] en mètres ; texture : image de la face avant
-//   inclinaison : de combien l'objet penche vers l'arrière (radians), pour les objets plats
+//   inclinaison : de combien l'objet penche vers l'arrière (radians)
+//   contreMur : true = l'objet s'appuie contre le fond de la vitrine (sa profondeur est calculée)
+//   devant : nom d'un autre objet contre lequel celui-ci s'appuie, posé devant lui
 //   cote : couleur des tranches et du dos
 // Étagères de la vitrine : 0,338 / 0,668 / 0,998 / 1,328 m (dessus du verre).
 const VX = 1.265; // centre de la vitrine
@@ -170,61 +172,69 @@ export const objetsVitrine = [
   {
     nom: "coffret Season's Greetings aespa",
     description:
-      "Coffret crème gaufré « One More Page, I Swear » : le Season's Greetings 2027 d'aespa (calendrier de bureau, carnet, photobook, cartes…), debout sur l'étagère de la vitrine.",
-    pos: [VX, 0.998, 0.2],
+      "Coffret crème gaufré « One More Page, I Swear » : le Season's Greetings 2027 d'aespa (calendrier de bureau, carnet, photobook, cartes…), debout contre le fond de la vitrine.",
+    pos: [VX, 0.998],
     taille: [0.175, 0.245, 0.07],
     texture: '/textures/coffret.jpg',
     cote: '#e9e1d0',
-  },
-  {
-    nom: 'TourBook KiiiKiii (Guide Book Ver.)',
-    description:
-      "Le photobook « TourBook » de l'EP WHYKiiiKiii de KiiiKiii, version Guide Book (150 × 210 mm) : un faux guide de voyage de l'île de Whykiiikiii, avec son macaron « 2026 Edition ».",
-    pos: [VX - 0.09, 1.328, 0.19],
-    taille: [0.15, 0.21, 0.014],
-    texture: '/textures/whykiiikiii-couverture.jpg',
-    cote: '#eef1f6',
-    inclinaison: 0.1,
-  },
-  {
-    nom: "billet d'avion KiiiKiii",
-    description:
-      "La carte « Air Ticket » (170 × 65 mm) de l'album : un faux billet de première classe pour Whykiiikiii Isle, siège A13, avec ses souches.",
-    pos: [VX + 0.1, 1.328, 0.19],
-    taille: [0.17, 0.065, 0.002],
-    texture: '/textures/whykiiikiii-billet.jpg',
-    cote: '#dfeaf6',
-    inclinaison: 0.5,
+    inclinaison: 0.05,
+    contreMur: true,
   },
   {
     nom: 'double page du photobook KiiiKiii',
     description:
-      "Une double page du photobook (pages 16 et 17) : le photobook ouvert sur un éventail peint aux couleurs de l'île.",
-    pos: [VX, 0.668, 0.17],
+      "Une double page du photobook (pages 16 et 17) : le photobook ouvert sur un éventail peint aux couleurs de l'île, appuyé contre le fond de la vitrine.",
+    pos: [VX, 0.668],
     taille: [0.3, 0.21, 0.004],
     texture: '/textures/whykiiikiii-double.jpg',
     cote: '#f4f4f4',
-    inclinaison: 0.3,
+    inclinaison: 0.22,
+    contreMur: true,
+  },
+  // — étagère du haut : l'album et son contenu, tous appuyés contre le fond —
+  {
+    nom: 'TourBook KiiiKiii (Guide Book Ver.)',
+    description:
+      "Le photobook « TourBook » de l'EP WHYKiiiKiii de KiiiKiii, version Guide Book (150 × 210 mm) : un faux guide de voyage de l'île de Whykiiikiii, avec son macaron « 2026 Edition ».",
+    pos: [VX - 0.1, 1.328],
+    taille: [0.15, 0.21, 0.014],
+    texture: '/textures/whykiiikiii-couverture.jpg',
+    cote: '#eef1f6',
+    inclinaison: 0.13,
+    contreMur: true,
   },
   {
     nom: 'pochette « Travel Documents » KiiiKiii',
     description:
-      "La pochette « Travel Documents from KiiiKiii Travel » de l'album, avec son adresse imaginaire à Whykiiikiii (WHKK, 29930).",
-    pos: [VX - 0.075, 0.338, 0.17],
-    taille: [0.2, 0.129, 0.003],
+      "La pochette « Travel Documents from KiiiKiii Travel » de l'album, avec son adresse imaginaire à Whykiiikiii (WHKK, 29930), appuyée contre le fond.",
+    pos: [VX + 0.1, 1.328],
+    taille: [0.18, 0.116, 0.003],
     texture: '/textures/whykiiikiii-docs.jpg',
     cote: '#f4f4f4',
-    inclinaison: 0.4,
+    inclinaison: 0.2,
+    contreMur: true,
+  },
+  {
+    nom: "billet d'avion KiiiKiii",
+    description:
+      "La carte « Air Ticket » (170 × 65 mm) de l'album : un faux billet de première classe pour Whykiiikiii Isle, siège A13, posée devant le photobook.",
+    pos: [VX - 0.1, 1.328],
+    taille: [0.17, 0.065, 0.002],
+    texture: '/textures/whykiiikiii-billet.jpg',
+    cote: '#dfeaf6',
+    inclinaison: 0.5,
+    devant: 'TourBook KiiiKiii (Guide Book Ver.)',
   },
   {
     nom: "carte d'identité KiiiKiii",
     description:
-      "Une des cinq cartes « ID Photo Card » (85 × 55 mm) : une fausse carte d'identité de l'île, ici celle de Jiyu, née le 14 mai 2006.",
-    pos: [VX + 0.115, 0.338, 0.19],
+      "Une des cinq cartes « ID Photo Card » (85 × 55 mm) : une fausse carte d'identité de l'île, ici celle de Jiyu, née le 14 mai 2006, posée devant la pochette.",
+    pos: [VX + 0.1, 1.328],
     taille: [0.085, 0.055, 0.002],
     texture: '/textures/whykiiikiii-carte.jpg',
     cote: '#ecebe8',
     inclinaison: 0.5,
+    devant: 'pochette « Travel Documents » KiiiKiii',
   },
 ];
 
