@@ -181,7 +181,7 @@ html, body {
   position: absolute;
   left: 190px;
   bottom: calc(20px + env(safe-area-inset-bottom));
-  width: min(320px, calc(100vw - 420px));
+  width: min(284px, calc(100vw - 420px)); /* s'arrête avant la rangée des lumières */
   padding: 16px 18px;
   background: #302139f2;
   border: 1px solid #ffffff30;
@@ -283,3 +283,7 @@ html, body {
   .commandes-gauche, .commandes-droite { display: none; }
   .commandes-murs { top: calc(14px + env(safe-area-inset-top)); left: 12px; }
 }
+
+/* lever et coucher du soleil réels, à droite de la barre de l'heure */
+.soleil-heures { font-size: 12px; opacity: 0.75; white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .soleil-heures { display: none; } }

@@ -46,7 +46,19 @@ export const colonne = { largeur: 0.3, profondeur: 0.2 };
 
 // Velux dans la pente : x = centre sur la largeur, v = distance du mur bas
 // mesurée le long de la pente.
-export const velux = { x: 2.55, v: 0.95, largeur: 0.8, longueur: 1.05 };
+export const velux = {
+  x: 2.55,
+  v: 0.95,
+  largeur: 0.8,
+  longueur: 1.05,
+  description:
+    "La fenêtre de toit (Velux) de la chambre, encastrée dans la pente, avec son cadre en bois. Clique dessus pour fermer ou ouvrir son store plissé : fermé, il cache la vitre et la lumière du jour.",
+};
+
+// Où se trouve la chambre : le lever et le coucher du soleil du site sont ceux de ce lieu, pour la date
+// du jour (src/soleil.js). Change ces trois valeurs si tu n'habites pas à Paris.
+//   lat : latitude (nord positif), lon : longitude (est positif)
+export const lieu = { nom: 'Paris', lat: 48.8566, lon: 2.3522 };
 
 // Charpente en bois sombre contre le mur ouest (chevron, poteau, entrait).
 // La charpente du mur ouest, près de la TV (d'après ta photo) : trois pièces en bois sombre.

@@ -332,8 +332,12 @@ export function initialiserInteractions({
     for (const a of info.actions ?? []) {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = a.label;
-      b.addEventListener('click', () => a.fn());
+      const libelle = () => (typeof a.label === 'function' ? a.label() : a.label);
+      b.textContent = libelle();
+      b.addEventListener('click', () => {
+        a.fn();
+        b.textContent = libelle();
+      });
       elActions.append(b);
     }
     elCarte.hidden = false;
@@ -398,7 +402,8 @@ export function initialiserInteractions({
     const info = viser();
     if (info) info.auClic?.(); // ex. le calendrier tourne sa page
     if (info && info !== selection) selectionner(info);
-    else if (!info) deselectionner();
+    else if (info) afficherCarte(info); // déjà sélectionné : on rafraîchit seulement la carte (libellés des boutons)
+    else deselectionner();
   });
 
   // le curseur devient une main au-dessus de ce qu'on peut cliquer

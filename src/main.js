@@ -18,8 +18,10 @@ import {
   photosMur,
   objetsVitrine,
   magazinesCommode,
+  lieu,
 } from './chambre.js';
 import { initialiserInteractions } from './interactions.js';
+import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
 
 const canvas = document.getElementById('scene');
@@ -469,6 +471,9 @@ pente.add(surfacePente);
 // Le Velux est encastré dans l'épaisseur du toit : un tableau (les quatre côtés du trou)
 // en plâtre clair, avec le cadre en bois et la vitre à l'extérieur.
 const PROFONDEUR_TABLEAU = 0.22;
+const veluxObjet = new THREE.Group(); // tableau, cadre, vitre et store : l'objet sur lequel on clique
+veluxObjet.name = 'Velux';
+pente.add(veluxObjet);
 const platre = new THREE.MeshStandardMaterial({ color: '#fbf2f0', roughness: 0.95, side: THREE.DoubleSide });
 const largV = velux.largeur;
 const longV = velux.longueur;
@@ -483,7 +488,7 @@ for (const [taille, pos] of tableau) {
   b.position.set(...pos);
   b.castShadow = true;
   b.receiveShadow = true;
-  pente.add(b);
+  veluxObjet.add(b);
 }
 const boisVelux = new THREE.MeshStandardMaterial({ color: '#c28a58', roughness: 0.85 });
 const e = 0.05;
@@ -497,7 +502,7 @@ for (const [taille, [x, y]] of [
   const b = new THREE.Mesh(new THREE.BoxGeometry(taille[0], taille[1], 0.04), boisVelux);
   b.position.set(x, y, zCadre);
   b.castShadow = true;
-  pente.add(b);
+  veluxObjet.add(b);
 }
 
 // --- Charpente contre le mur ouest : chevron + poteau + entrait, comme sur ta photo ---
@@ -564,7 +569,65 @@ const veluxMat = new THREE.MeshStandardMaterial({
 });
 const vitre = new THREE.Mesh(new THREE.PlaneGeometry(velux.largeur, velux.longueur), veluxMat);
 vitre.position.set(velux.x, velux.v, PROFONDEUR_TABLEAU + 0.012);
-pente.add(vitre);
+veluxObjet.add(vitre);
+veluxMat.userData.sansSurbrillance = true; // son éclat suit le jour et le store, pas la sélection
+
+// --- Store plissé : il descend du haut du Velux, sous la vitre, et se replie vers le haut ---
+const cPli = document.createElement('canvas');
+cPli.width = 8;
+cPli.height = 32;
+{
+  const g = cPli.getContext('2d');
+  const d = g.createLinearGradient(0, 0, 0, 32);
+  d.addColorStop(0, '#f3eadf');
+  d.addColorStop(0.55, '#e4d8c8');
+  d.addColorStop(1, '#cdbfac');
+  g.fillStyle = d;
+  g.fillRect(0, 0, 8, 32);
+  g.fillStyle = 'rgba(90,70,50,0.38)';
+  g.fillRect(0, 31, 8, 1); // l'arête de chaque pli
+}
+const texStore = new THREE.CanvasTexture(cPli);
+texStore.colorSpace = THREE.SRGBColorSpace;
+texStore.wrapT = THREE.RepeatWrapping;
+const NB_PLIS = 22; // nombre de plis quand le store est entièrement fermé
+const matStore = new THREE.MeshStandardMaterial({ map: texStore, emissiveMap: texStore, emissive: '#ffffff', emissiveIntensity: 0, roughness: 0.9, side: THREE.DoubleSide });
+matStore.userData.sansSurbrillance = true;
+const lStore = largV - 0.03;
+const hStore = longV - 0.04;
+const hautStore = velux.v + longV / 2 - 0.02;
+const zStore = PROFONDEUR_TABLEAU - 0.05;
+const geoStore = new THREE.PlaneGeometry(lStore, hStore);
+geoStore.translate(0, -hStore / 2, 0); // le haut du store est l'origine : il s'étire vers le bas
+const store = new THREE.Mesh(geoStore, matStore);
+store.position.set(velux.x, hautStore, zStore);
+store.receiveShadow = true;
+const barreStore = new THREE.Mesh(new THREE.BoxGeometry(lStore + 0.012, 0.018, 0.014), new THREE.MeshStandardMaterial({ color: '#cbbdab', roughness: 0.7 }));
+barreStore.position.set(velux.x, hautStore, zStore);
+store.visible = false;
+veluxObjet.add(store, barreStore);
+
+const etatStore = { ferme: false, f: 0 }; // f : 0 = ouvert (replié en haut), 1 = fermé
+function basculerStore() {
+  etatStore.ferme = !etatStore.ferme;
+}
+// la lumière du jour derrière la vitre est cachée par le store
+function ajusterVitre() {
+  veluxMat.emissiveIntensity = (veluxMat.userData.base ?? 0.8) * (1 - 0.8 * etatStore.f);
+}
+function animerStore(dt) {
+  const cible = etatStore.ferme ? 1 : 0;
+  if (etatStore.f === cible) return;
+  etatStore.f += (cible - etatStore.f) * (1 - Math.exp(-5 * dt));
+  if (Math.abs(etatStore.f - cible) < 0.002) etatStore.f = cible;
+  const f = etatStore.f;
+  store.visible = f > 0.004;
+  store.scale.y = Math.max(f, 0.001);
+  texStore.repeat.set(1, NB_PLIS * f); // les plis gardent la même taille, seul leur nombre change
+  texStore.offset.set(0, -NB_PLIS * f); // et restent alignés sur le haut
+  barreStore.position.y = hautStore - hStore * f;
+  ajusterVitre();
+}
 
 // Éléments permanents : sans leurs murs ils flottent, donc ils s'effacent avec eux
 // (avant les décors : ils disparaissent dès que le mur commence à descendre).
@@ -610,6 +673,17 @@ chargeur.setMeshoptDecoder(MeshoptDecoder);
 // Ce sur quoi on peut cliquer : meubles et décors, avec leur nom, leur description
 // et l'éventuel interrupteur qu'ils commandent.
 const cliquables = [];
+{
+  const infoVelux = {
+    nom: 'Velux',
+    description: velux.description,
+    groupe: veluxObjet,
+    auClic: () => basculerStore(),
+    actions: [{ label: () => (etatStore.ferme ? 'Ouvrir le store' : 'Fermer le store'), fn: () => basculerStore() }],
+  };
+  veluxObjet.userData.info = infoVelux;
+  cliquables.push(infoVelux);
+}
 const calendriers = []; // animations des calendriers à pages (appelées à chaque image)
 const infoCal = {};
 const promessesDecors = [];
@@ -1331,13 +1405,29 @@ const elCurseur = document.getElementById('curseur');
 const elLive = document.getElementById('live');
 let manuel = false;
 
+// Lever et coucher du soleil RÉELS du jour, pour le lieu choisi dans chambre.js : on les recalcule quand
+// la date change (si la page reste ouverte après minuit).
+const elSoleil = document.getElementById('soleil-heures');
+let soleilReel = { jour: '', lever: 6, coucher: 19 };
+function majSoleilReel() {
+  const maintenant = new Date();
+  const jour = maintenant.toDateString();
+  if (jour === soleilReel.jour) return;
+  const { lever, coucher } = heuresSoleil(maintenant, lieu.lat, lieu.lon);
+  soleilReel = { jour, lever, coucher };
+  elSoleil.textContent = `☀ ${formatHeure(lever)} → ${formatHeure(coucher)} · ${lieu.nom}`;
+}
+
 function appliquerHeure(heure) {
-  // lever à 6 h, coucher à 19 h : le soleil monte de 8° à 60° puis redescend
+  majSoleilReel();
+  const { lever: LEVER, coucher: COUCHER } = soleilReel;
+  const RAMPE = 0.9; // le jour se lève et se couche en 54 minutes autour de ces heures
+  // le soleil monte de 8° à 60° entre le lever et le coucher réels, puis redescend
   const h = ((heure % 24) + 24) % 24;
-  const u = clamp01((h - 6) / 13);
-  const d = h > 6 && h < 19 ? Math.sin(u * Math.PI) : 0; // 0 aux extrémités, 1 à la mi-journée
-  // facteur de jour : 0 la nuit, 1 en plein jour, avec une transition d'une heure au lever et au coucher
-  const f = clamp01(h <= 5.1 || h >= 19.9 ? 0 : h >= 6 && h <= 19 ? 1 : h < 6 ? (h - 5.1) / 0.9 : (19.9 - h) / 0.9);
+  const u = clamp01((h - LEVER) / (COUCHER - LEVER || 1));
+  const d = h > LEVER && h < COUCHER ? Math.sin(u * Math.PI) : 0; // 0 aux extrémités, 1 à la mi-journée
+  // facteur de jour : 0 la nuit, 1 en plein jour, avec une transition d'environ une heure au lever et au coucher
+  const f = clamp01(h <= LEVER - RAMPE || h >= COUCHER + RAMPE ? 0 : h >= LEVER && h <= COUCHER ? 1 : h < LEVER ? (h - (LEVER - RAMPE)) / RAMPE : (COUCHER + RAMPE - h) / RAMPE);
 
   // le soleil se lève à l'est (+x), passe au sud (+z), se couche à l'ouest
   const elevation = 0.14 + d * (1.05 - 0.14);
@@ -1358,7 +1448,9 @@ function appliquerHeure(heure) {
   hemi.intensity = 0.8 * (0.5 + 0.5 * f);
   hemi.color.copy(HEMI_CIEL_NUIT).lerp(HEMI_CIEL_JOUR, f);
 
-  veluxMat.emissiveIntensity = 0.15 + 0.85 * f;
+  veluxMat.userData.base = 0.15 + 0.85 * f;
+  matStore.emissiveIntensity = 0.45 * f; // le store laisse passer un peu de jour
+  ajusterVitre();
   veluxMat.emissive.set(f > 0.3 ? '#bfe3ff' : '#0b1230');
   veluxMat.color.copy(veluxMat.emissive);
 
@@ -1433,6 +1525,7 @@ renderer.setAnimationLoop(() => {
   majLumieres(dt);
   interactions.maj(dt);
   for (const f of calendriers) f(dt);
+  animerStore(dt);
   // l'image de la TV change environ 8 fois par seconde, seulement si elle est allumée
   const maintenant = performance.now() / 1000;
   suivreClip();
