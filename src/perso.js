@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { chemin } from './textures.js';
+import { sons } from './sons.js';
 
 // Mode secret : un tout petit bonhomme qu'on promène dans la chambre, à la troisième personne, avec un
 // déplacement inspiré de Deadlock : le bonhomme reste au centre de l'écran, la souris oriente la caméra,
@@ -195,6 +196,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   let sauts = 0; // appuis sur Espace en attente (deux appuis rapides = saut puis double saut)
   let doubleFait = false; // le double saut n'a lieu qu'une fois par vol
   let glisseEn = 0; // temps restant de la glissade
+  let foulee = 0; // distance parcourue depuis le dernier bruit de pas
   let veutGlisser = false;
   let coince = 0; // depuis combien de temps il est dans un meuble
   let sansProgres = 0; // depuis combien de temps il pousse sans avancer
@@ -500,6 +502,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       veutGlisser = false;
       if (!enAir && glisseEn <= 0 && vit.length() > 0.7) {
         glisseEn = DUREE_GLISSADE;
+        sons.glisser();
         vit.normalize().multiplyScalar(GLISSADE);
       }
     }
@@ -543,9 +546,11 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
         enAir = true;
         vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT);
         glisseEn = 0;
+        sons.saut(false);
       } else if (!doubleFait) {
         doubleFait = true;
         vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT * DOUBLE_SAUT);
+        sons.saut(true);
         if (intention > 0.1) {
           vit.x += (dirX / intention) * DASH_AIR;
           vit.y += (dirZ / intention) * DASH_AIR;
@@ -587,6 +592,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
           neuve = sol;
           enAir = false;
           doubleFait = false;
+          if (vy < -2) sons.atterrir(); // pas pour une simple marche descendue
           vy = 0;
           atterri = 0; // petit écrasement à l'arrivée
         }
@@ -605,6 +611,14 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
 
     // démarche : il se dandine au rythme des pas, se penche en courant, se couche en glissant
     const enMarche = vitH > 0.2 && !enAir && glisseEn <= 0 ? 1 : 0;
+    // un bruit de pas tous les 35 cm parcourus au sol
+    if (enMarche) {
+      foulee += vitH * dt;
+      if (foulee > 0.35) {
+        foulee = 0;
+        sons.pas();
+      }
+    }
     allure += (enMarche - allure) * (1 - Math.exp(-12 * dt));
     phase += vitH * dt * 26;
     corps.rotation.z = Math.sin(phase) * allure * 0.16;

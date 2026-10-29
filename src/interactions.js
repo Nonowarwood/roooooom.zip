@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { sons } from './sons.js';
 
 // Tout ce qui se fait à la souris ou au doigt : cliquer sur ce qui réagit (calendrier, store du Velux,
 // lampes, télé) et la caméra qui se place en face, les vues prédéfinies et les interrupteurs. Un clic ne
@@ -39,6 +40,8 @@ export function initialiserInteractions({
   let focus = null;
   let vers = null;
   let zoomCible = null;
+  // mouvements réduits (réglage du système) : trajet court et en ligne droite, sans l'arc qui donne le tournis
+  const mouvementsReduits = matchMedia('(prefers-reduced-motion: reduce)');
   const sph0 = new THREE.Spherical();
   const sph1 = new THREE.Spherical();
   const tmp = new THREE.Vector3();
@@ -60,8 +63,11 @@ export function initialiserInteractions({
     vers = null;
     zoomCible = null;
     const p0 = camera.position.clone();
-    const milieu = p0.clone().add(position).multiplyScalar(0.5).add(new THREE.Vector3(0, p0.distanceTo(position) * 0.3, 0));
+    const reduit = mouvementsReduits.matches;
+    if (reduit) duree = Math.min(duree, 0.35);
+    const milieu = p0.clone().add(position).multiplyScalar(0.5).add(new THREE.Vector3(0, reduit ? 0 : p0.distanceTo(position) * 0.3, 0));
     focus = { t: 0, duree, p0, p1: milieu, p2: position.clone(), s0: controls.target.clone(), s2: cible.clone(), f0: camera.fov, f1: fov };
+    if (p0.distanceTo(position) > 0.3) sons.camera(duree); // un souffle d'air, seulement pour un vrai trajet
   }
   function goTo(position, cible, fov = camera.fov) {
     viderInertie();
@@ -116,6 +122,7 @@ export function initialiserInteractions({
     b.addEventListener('click', () => {
       vueActive = v.id;
       eteindre();
+      cacherFiche();
       majVues();
       vueGenerale = null;
       majMenu();
@@ -356,6 +363,60 @@ export function initialiserInteractions({
     eclairer(info, boite, centre, position);
   }
 
+  // --- Fiche au clic ---
+  // En bas de l'écran, elle donne la description et les actions de ce qu'on a cliqué ; elle se ferme si on
+  // clique ailleurs, si on choisit une vue ou si on s'éloigne de l'objet.
+  const majuscule = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const elFiche = document.createElement('section');
+  elFiche.className = 'fiche';
+  elFiche.setAttribute('aria-live', 'polite');
+  elFiche.hidden = true;
+  elFiche.innerHTML = '<button class="fiche-fermer" type="button" aria-label="Fermer">×</button><h2></h2><p></p><div class="fiche-actions"></div>';
+  document.body.append(elFiche);
+  const fiche = { info: null, centre: new THREE.Vector3(), rayon: 0 };
+  elFiche.querySelector('.fiche-fermer').addEventListener('click', () => cacherFiche());
+  function actionsDe(info) {
+    const actions = [...(info.actions ?? [])];
+    if (info.interrupteur) actions.unshift({ label: () => (estAllume(info.interrupteur) ? 'Éteindre' : 'Allumer'), fn: () => basculer(info.interrupteur) });
+    return actions;
+  }
+  function majActionsFiche() {
+    if (!fiche.info) return;
+    const zone = elFiche.querySelector('.fiche-actions');
+    zone.replaceChildren();
+    for (const a of actionsDe(fiche.info)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = typeof a.label === 'function' ? a.label() : a.label;
+      b.addEventListener('click', () => {
+        a.fn();
+        majActionsFiche();
+      });
+      zone.append(b);
+    }
+    zone.hidden = !zone.children.length;
+  }
+  function montrerFiche(info) {
+    if (info.secret || !info.description) return cacherFiche();
+    const boite = boiteDe(info);
+    if (boite.isEmpty()) return cacherFiche();
+    fiche.info = info;
+    boite.getCenter(fiche.centre);
+    fiche.rayon = boite.getSize(tmp).length() / 2;
+    elFiche.querySelector('h2').textContent = majuscule(info.nom);
+    elFiche.querySelector('p').textContent = info.description;
+    majActionsFiche();
+    elFiche.hidden = false;
+    // on relance l'animation d'apparition à chaque nouvelle fiche
+    elFiche.classList.remove('entree');
+    void elFiche.offsetWidth;
+    elFiche.classList.add('entree');
+  }
+  function cacherFiche() {
+    fiche.info = null;
+    elFiche.hidden = true;
+  }
+
   // --- Clic dans la scène ---
   function visible(objet) {
     for (let o = objet; o; o = o.parent) if (!o.visible) return false;
@@ -408,10 +469,14 @@ export function initialiserInteractions({
     if (!court || !immobile) return; // c'était un glissement : on tournait la caméra
     placerPointeur(e);
     const info = viser();
-    if (!info) return eteindre();
+    if (!info) {
+      cacherFiche();
+      return eteindre();
+    }
     recentrer(info);
     if (info.auClic) info.auClic(); // ex. le calendrier tourne sa page, le store du Velux se ferme
     else if (info.interrupteur) basculer(info.interrupteur);
+    montrerFiche(info);
   });
 
   // le curseur devient une main au-dessus de ce qu'on peut cliquer
@@ -435,6 +500,11 @@ export function initialiserInteractions({
     if (eclat.cible > 0 && !focus && !vers) {
       const loin = controls.target.distanceTo(eclat.centre) > eclat.rayon + 0.6 || camera.position.distanceTo(eclat.centre) > 4.5;
       if (loin) eteindre();
+    }
+    // la fiche se ferme de la même façon quand on s'éloigne de son objet
+    if (fiche.info && !focus && !vers) {
+      const loin = controls.target.distanceTo(fiche.centre) > fiche.rayon + 0.6 || camera.position.distanceTo(fiche.centre) > fiche.rayon + 4.5;
+      if (loin) cacherFiche();
     }
     const kEclat = 1 - Math.exp(-5 * dt);
     eclat.v += (eclat.cible - eclat.v) * kEclat;
@@ -493,6 +563,7 @@ export function initialiserInteractions({
     if (sig !== signature) {
       signature = sig;
       for (const [id, b] of boutonsLumieres) b.classList.toggle('actif', estAllume(id));
+      majActionsFiche(); // « Allumer » / « Éteindre » suit l'interrupteur
     }
     bAuto.classList.toggle('actif', Object.values(commandes).every((c) => c.manuel === null));
   }
@@ -503,10 +574,26 @@ export function initialiserInteractions({
     if (oui) {
       annuler();
       eteindre();
+      cacherFiche();
       appui = null;
       canvas.style.cursor = '';
     }
   }
 
-  return { maj, bloquer };
+  // Intro, à la fin du chargement : la caméra part de plus loin et plus haut, décalée d'un quart de tour,
+  // et arrive en arc sur la vue de départ. Rien en mouvements réduits. Un geste l'interrompt, comme les autres.
+  function entree(duree = 2.6) {
+    if (mouvementsReduits.matches) return;
+    const position = camera.position.clone();
+    const cible = controls.target.clone();
+    sph0.setFromVector3(tmp.subVectors(position, cible));
+    sph0.theta += 1.0;
+    sph0.phi *= 0.7;
+    sph0.radius = Math.min(sph0.radius * 1.45, controls.maxDistance - 0.5); // sous le zoom maximal, sinon il serait ramené d'un coup
+    camera.position.setFromSpherical(sph0).add(cible);
+    camera.lookAt(cible);
+    focusTo(position, cible, camera.fov, duree);
+  }
+
+  return { maj, bloquer, entree };
 }

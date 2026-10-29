@@ -24,6 +24,7 @@ import { initialiserInteractions } from './interactions.js';
 import { creerPerso } from './perso.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
+import { sons, creerBoutonSon } from './sons.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 const canvas = document.getElementById('scene');
@@ -34,10 +35,25 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
+// Écran de chargement : la barre suit tout ce que récupèrent les chargeurs de three.js (modèles, textures).
+// Le total grandit au fur et à mesure que des fichiers sont demandés : la barre ne recule jamais et
+// s'arrête à 95 % tant que tout n'est pas fini (c'est la fin du chargement qui la remplit).
+const elNiveau = document.getElementById('chargement-niveau');
+const elAvancement = document.getElementById('chargement-texte');
+let avancement = 0;
+function afficherAvancement(f) {
+  avancement = Math.max(avancement, f);
+  elNiveau.style.transform = `scaleX(${avancement})`;
+  elAvancement.textContent = `${Math.round(avancement * 100)} %`;
+}
+THREE.DefaultLoadingManager.onProgress = (url, charges, total) => afficherAvancement(Math.min(charges / total, 0.95));
+
 const scene = new THREE.Scene();
 
 const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
 const LP = Math.hypot(H - K, R); // longueur de la pente
+const cosP = R / LP; // cosinus et sinus de l'angle de la pente
+const sinP = (H - K) / LP;
 const { P1, P2, P3 } = renfoncement; // points du renfoncement de la porte
 
 // Le centre de la pièce est à l'origine pour que la caméra tourne autour.
@@ -151,6 +167,11 @@ const RETARD_PAR_METRE = 0.14; // décalage de la vague (s par mètre de mur)
 const SEUIL_CAMERA = 0.08; // zone morte autour du plan du mur
 const EPAISSEUR_MUR = 0.1; // les murs épaississent vers l'extérieur
 const HAUTEUR_MIN = 0.04; // hauteur minimale d'une tuile
+// La pente a l'épaisseur d'un mur : sa face extérieure est DY_TOIT plus haut que sa face intérieure (à la
+// verticale), et elle atteint la hauteur du plafond ECART_FAITE plus loin vers le sud. Le haut des pignons
+// suit cette face extérieure : pignons et pente ont la même arête, sans marche.
+const DY_TOIT = (EPAISSEUR_MUR * LP) / R;
+const ECART_FAITE = (DY_TOIT * R) / (H - K);
 
 const papierUni = new THREE.MeshStandardMaterial({ color: palette.mur, roughness: 0.9 });
 const papierAlt = new THREE.MeshStandardMaterial({ color: palette.murAlt, roughness: 0.9 });
@@ -170,6 +191,16 @@ function hauteurProfil(haut, u) {
     }
   }
   return haut[haut.length - 1][1];
+}
+// La même, prolongée au-delà des bouts par la pente du premier ou du dernier segment (pour les biseaux).
+function prolongerProfil(haut, u) {
+  const n = haut.length;
+  let segment = null;
+  if (u < haut[0][0]) segment = [haut[0], haut[1]];
+  else if (u > haut[n - 1][0]) segment = [haut[n - 2], haut[n - 1]];
+  if (!segment) return hauteurProfil(haut, u);
+  const [[ua, ha], [ub, hb]] = segment;
+  return ha + ((hb - ha) * (u - ua)) / (ub - ua);
 }
 
 // `pos` = [x, z] du pied du mur (u = 0), `angle` = angle autour de y de la
@@ -197,12 +228,17 @@ function creerMur(nom, { pos, angle, haut, materiau, regle, angles = [Math.PI / 
     pts.push([ua, hauteurProfil(haut, ua)]);
     const forme = new THREE.Shape(pts.map(([u, v]) => new THREE.Vector2(u, v)));
     const geo = new THREE.ExtrudeGeometry(forme, { depth: EPAISSEUR_MUR, bevelEnabled: false });
-    // biseau des bouts : la face extérieure avance (coin saillant) ou recule (coin rentrant)
+    // biseau des bouts : la face extérieure avance (coin saillant) ou recule (coin rentrant) ; un haut en
+    // pente est prolongé jusqu'au bout du biseau (sinon le coin dépasserait de la pente du toit)
     const gp = geo.attributes.position;
+    const biseau = (k, u, nouveau) => {
+      if (Math.abs(gp.getY(k) - hauteurProfil(haut, u)) < 1e-5) gp.setY(k, prolongerProfil(haut, nouveau));
+      gp.setX(k, nouveau);
+    };
     for (let k = 0; k < gp.count; k++) {
       if (gp.getZ(k) < EPAISSEUR_MUR / 2) continue;
-      if (i === 0 && Math.abs(gp.getX(k) - ua) < 1e-5) gp.setX(k, ua - EPAISSEUR_MUR / Math.tan(angles[0] / 2));
-      if (i === nb - 1 && Math.abs(gp.getX(k) - ub) < 1e-5) gp.setX(k, ub + EPAISSEUR_MUR / Math.tan(angles[1] / 2));
+      if (i === 0 && Math.abs(gp.getX(k) - ua) < 1e-5) biseau(k, ua, ua - EPAISSEUR_MUR / Math.tan(angles[0] / 2));
+      if (i === nb - 1 && Math.abs(gp.getX(k) - ub) < 1e-5) biseau(k, ub, ub + EPAISSEUR_MUR / Math.tan(angles[1] / 2));
     }
     gp.needsUpdate = true;
     geo.computeVertexNormals();
@@ -242,7 +278,7 @@ creerMur('ouest', {
   angles: [(5 * Math.PI) / 4, Math.PI / 2],
   pos: [0, 0],
   angle: -Math.PI / 2,
-  haut: [[P1[1], H], [D - R, H], [D, K]],
+  haut: [[P1[1], H], [D - R + ECART_FAITE, H], [D, K + DY_TOIT]],
   materiau: papierMarques,
 });
 
@@ -270,7 +306,7 @@ creerMur('pan', {
 creerMur('est', {
   pos: [W, D],
   angle: Math.PI / 2,
-  haut: [[0, K], [R, H], [D - colonne.profondeur, H]],
+  haut: [[0, K + DY_TOIT], [R - ECART_FAITE, H], [D - colonne.profondeur, H]],
   materiau: papierUni,
 });
 
@@ -315,19 +351,21 @@ const accroches = [];
 //   ecraser : l'objet s'écrase vers le sol avec le mur (décors)
 //   fondu : [hauteur où il a disparu, hauteur où il est entièrement visible]
 //   large : l'objet s'étend sur tout le mur, on prend la hauteur moyenne des tuiles
-function accrocher(noms, objet, { ecraser = true, fondu = [HAUTEUR_BORDURE, HAUTEUR_BORDURE + 0.65], large = false, facteur = null } = {}) {
+//   hauteur : à la place des murs, une fonction qui donne la hauteur qui compte (le Velux suit la pente)
+//   parent : le repère de l'objet (la pièce par défaut)
+function accrocher(noms, objet, { ecraser = true, fondu = [HAUTEUR_BORDURE, HAUTEUR_BORDURE + 0.65], large = false, facteur = null, hauteur = null, parent = racine } = {}) {
   // l'enveloppe est à l'origine du sol : son échelle en y écrase l'objet vers le sol
   const enveloppe = new THREE.Group();
-  racine.add(enveloppe);
+  parent.add(enveloppe);
   enveloppe.add(objet);
-  const supports = [].concat(noms).map((nom) => {
+  const supports = [].concat(noms ?? []).map((nom) => {
     const mur = murs[nom];
     const u = large
       ? null
       : (objet.position.x - mur.pied.x) * mur.axe.x + (objet.position.z - mur.pied.z) * mur.axe.z;
     return { mur, u };
   });
-  accroches.push({ enveloppe, supports, ecraser, fondu, facteur, materiaux: [] });
+  accroches.push({ enveloppe, supports, ecraser, fondu, facteur, hauteur, materiaux: [] });
 }
 
 // Hauteur actuelle d'un mur à l'endroit où l'objet est accroché.
@@ -375,6 +413,8 @@ function ressort(t, dt) {
 
 let temps = 0;
 const cam = new THREE.Vector3();
+const versToit = new THREE.Vector3();
+const appuisToit = [murs.sud]; // le mur qui porte la pente : elle est posée dessus
 
 function animerMurs(dt) {
   temps += dt;
@@ -386,12 +426,16 @@ function animerMurs(dt) {
     const dz = cam.z - mur.centre.z;
     const d = (mur.normale.x * dx + mur.normale.z * dz) / (Math.hypot(dx, dz) || 1);
 
-    let cible = mur.cible;
+    let cible = mur.souhait ?? mur.cible;
     if (d > SEUIL_CAMERA) cible = HAUTEUR_BORDURE;
     else if (d < -SEUIL_CAMERA) cible = HAUTEUR_MUR;
     if (mur.regle?.(cam)) cible = HAUTEUR_BORDURE;
     if (reglages.murs === 'up') cible = HAUTEUR_MUR;
     else if (reglages.murs === 'down') cible = HAUTEUR_BORDURE;
+    // le mur bas du sud porte la pente : il attend qu'elle se soit repliée et effacée pour descendre ; il part
+    // dès qu'elle est à moitié effacée : les deux mouvements se tuilent
+    mur.souhait = cible;
+    if (appuisToit.includes(mur) && toit.init && toit.opacite > 0.5) cible = HAUTEUR_MUR;
 
     if (!mur.init) {
       // au chargement : pas d'animation, les murs prennent directement leur place
@@ -403,6 +447,7 @@ function animerMurs(dt) {
       mur.changement = temps;
       // la vague part du bout du mur le plus proche de la caméra
       mur.depuisDebut = cam.distanceToSquared(mur.debut) <= cam.distanceToSquared(mur.fin);
+      sons.mur(cible === HAUTEUR_BORDURE);
     }
 
     for (const t of mur.tuiles) {
@@ -417,9 +462,52 @@ function animerMurs(dt) {
 
   }
 
+  // la pente : repliée quand la caméra passe de l'autre côté du plan du toit ou quand le mur bas du sud veut
+  // descendre. « Monter tous les murs » ne la relève pas : vue du dessus, elle cacherait toute la pièce.
+  // Les étapes s'enchaînent :
+  //   pour la replier : elle se replie en vague, puis s'efface ; ensuite seulement le mur sud descend ;
+  //   pour la déplier : le mur sud remonte, puis elle se dessine, puis elle se déplie en vague.
+  const dToit = toit.n.dot(versToit.copy(cam).sub(toit.p));
+  if (dToit > 0.1) toit.souhait = BORDURE_TOIT;
+  else if (dToit < -0.1) toit.souhait = LP;
+  const souhait = reglages.murs === 'down' || appuisToit.some((m) => m.souhait === HAUTEUR_BORDURE) ? BORDURE_TOIT : toit.souhait;
+  const hSud = hauteurSupport({ mur: murs.sud, u: null });
+  const appuisDebout = appuisToit.every((m) => hauteurSupport({ mur: m, u: null }) > HAUTEUR_MUR * 0.97);
+  // le bas de la pente est posé sur le mur bas du sud : il suit sa hauteur
+  pente.position.y = (K * hSud) / HAUTEUR_MUR;  let cibleToit = BORDURE_TOIT;
+  if (!toit.init) {
+    toit.opacite = souhait === LP && appuisDebout ? 1 : 0;
+    cibleToit = toit.opacite ? LP : BORDURE_TOIT;
+  } else if (souhait === LP && appuisDebout) {
+    toit.opacite = Math.min(1, toit.opacite + dt / FONDU_TOIT);
+    if (toit.opacite >= 1) cibleToit = LP;
+  } else if (toit.tuiles.every((t) => t.h < REPLIEE)) {
+    toit.opacite = Math.max(0, toit.opacite - dt / FONDU_TOIT);
+  }
+  appliquerOpacitePente(toit.opacite);
+  if (!toit.init) {
+    toit.init = true;
+    toit.cible = cibleToit;
+    for (const t of toit.tuiles) t.h = t.cible = cibleToit;
+  } else if (cibleToit !== toit.cible) {
+    toit.cible = cibleToit;
+    toit.changement = temps;
+    toit.depuisOuest = cam.x < W / 2; // la vague part du côté de la caméra
+    sons.mur(cibleToit === BORDURE_TOIT);
+  }
+  for (const t of toit.tuiles) {
+    const distance = toit.depuisOuest ? t.u : W - t.u;
+    if (temps >= toit.changement + distance * RETARD_TOIT && t.cible !== toit.cible) {
+      t.v += toit.cible < t.h ? 2.6 : 1.4;
+      t.cible = toit.cible;
+    }
+    ressort(t, Math.min(dt * VITESSE_TOIT, 1));
+    couperBande(t);
+  }
+
   // décors et éléments permanents : hauteur du mur qui les porte (le plus bas s'il y en a plusieurs)
   for (const a of accroches) {
-    const h = Math.min(...a.supports.map(hauteurSupport));
+    const h = a.hauteur ? a.hauteur() : Math.min(...a.supports.map(hauteurSupport));
     if (a.ecraser) a.enveloppe.scale.y = Math.max(h / HAUTEUR_MUR, 0.001);
     const [bas, haut] = a.fondu;
     const fondu = THREE.MathUtils.clamp((h - bas) / (haut - bas), 0, 1) * (a.facteur ? a.facteur(dt) : 1);
@@ -445,12 +533,6 @@ pente.position.set(0, K, D);
 pente.rotation.x = -Math.atan2(R, H - K);
 racine.add(pente);
 
-const formePente = new THREE.Shape();
-formePente.moveTo(0, 0);
-formePente.lineTo(W, 0);
-formePente.lineTo(W, LP);
-formePente.lineTo(0, LP);
-formePente.closePath();
 // Géométrie du Velux, dans le repère de la pente (x = est, y = le long de la pente vers le haut,
 // z = vers l'extérieur) : le cadre est dans le plan extérieur (z = T), l'ouverture dans le plâtre
 // (z = 0) est plus haute de T / tan(pente) et un peu plus large (évasement).
@@ -462,24 +544,110 @@ const I0 = yBas + decalage; // bas de l'ouverture dans le plâtre
 const I1 = yHaut; // haut de l'ouverture : le cadre touche le haut, la coupe du dessus est perpendiculaire à la pente
 const demiCadre = velux.largeur / 2;
 const demiOuv = demiCadre + velux.evasement;
-const trou = new THREE.Path();
-const [vx0, vx1] = [velux.x - demiOuv, velux.x + demiOuv];
+const [vx0, vx1] = [velux.x - demiOuv, velux.x + demiOuv]; // trou du Velux dans le plâtre
 const [vy0, vy1] = [I0, I1];
-trou.moveTo(vx0, vy0);
-trou.lineTo(vx1, vy0);
-trou.lineTo(vx1, vy1);
-trou.lineTo(vx0, vy1);
-trou.closePath();
-formePente.holes.push(trou);
 
+// La pente se comporte comme les murs : elle est découpée en bandes épaisses (du bas vers le haut de la
+// pente) qui, quand la caméra passe au-dessus du toit, se replient en vague vers le bas de la pente avec le
+// même ressort et le même petit rebond, jusqu'à une bordure. Une bande est coupée net à sa longueur (les
+// étoiles restent à leur place au lieu de s'écraser). Les bords du trou du Velux sont des bords de bandes :
+// une bande est pleine, ou trouée (deux morceaux, sous et au-dessus de l'ouverture).
 const texPente = textures.etoiles();
 texPente.repeat.set(1 / W, 1 / LP);
-const surfacePente = new THREE.Mesh(
-  new THREE.ShapeGeometry(formePente),
-  interieur({ map: texPente, roughness: 0.9 }),
-);
-surfacePente.receiveShadow = true;
-pente.add(surfacePente);
+// matériaux propres à la pente (la tranche des murs est partagée) : ils s'effacent quand elle est repliée
+const papierPente = new THREE.MeshStandardMaterial({ map: texPente, roughness: 0.9 });
+const tranchePente = tranche.clone();
+const BORDURE_TOIT = HAUTEUR_BORDURE; // ce qui reste de la pente repliée, mesuré le long de la pente
+const FONDU_TOIT = 0.25; // s : la pente repliée apparaît / disparaît en fondu
+// la pente bouge plus vite que les murs (ressort accéléré, vague plus serrée) : elle passe avant le mur sud,
+// qui attend qu'elle soit repliée pour descendre
+const VITESSE_TOIT = 1.45;
+const RETARD_TOIT = 0.08; // s par mètre de pente
+const REPLIEE = BORDURE_TOIT + 0.35; // presque repliée : elle commence déjà à s'effacer
+const toit = {
+  n: new THREE.Vector3(0, R, H - K).normalize(), // normale extérieure du toit (repère de la pièce)
+  p: new THREE.Vector3(0, K, D), // un point du toit : le bas de la pente
+  tuiles: [],
+  souhait: LP, // dépliée ou repliée, d'après la caméra
+  cible: LP, // ce que font les bandes en ce moment
+  opacite: 1,
+  changement: -999,
+  depuisOuest: true,
+  init: false,
+};
+{
+  const E = EPAISSEUR_MUR;
+  // Le trou des bandes est 3 mm plus large que l'ouverture du plâtre (côtés et haut) : leurs bords ne sont
+  // pas dans le même plan que les joues du Velux, qui sinon scintillaient l'une dans l'autre.
+  const JEU = 0.003;
+  const bords = [];
+  const decouper = (a, b) => {
+    const nb = Math.max(1, Math.round((b - a) / LONGUEUR_TUILE));
+    for (let i = 0; i < nb; i++) bords.push(a + ((b - a) * i) / nb);
+  };
+  // la pente va d'un pignon à l'autre ; le haut des pignons monte jusqu'à sa face extérieure
+  decouper(0, vx0 - JEU);
+  decouper(vx0 - JEU, vx1 + JEU);
+  decouper(vx1 + JEU, W);
+  bords.push(W);
+  // Le rebord du Velux est horizontal : il plonge dans l'épaisseur de la pente. Sous l'ouverture, le dos
+  // de la bande est donc taillé en biais, juste sous le rebord, pour ne pas le traverser.
+  const sousRebord = I0 - ((I0 - yBas) * E) / T - JEU;
+  // Les deux bouts de la pente sont recoupés pour se raccorder sans marche (z = 0 côté pièce, E dehors) :
+  //   en bas, à la verticale, dans le plan de la face extérieure du mur sud (elle se pose sur lui) ;
+  //   en haut, à l'horizontale, à la hauteur du plafond (comme le dessus des murs).
+  const basVertical = (z) => (z * sinP - E) / cosP;
+  const hautHorizontal = (z) => LP - (z * cosP) / sinP;
+  for (let i = 0; i < bords.length - 1; i++) {
+    const [ua, ub] = [bords[i], bords[i + 1]];
+    const rect = (y0, y1) => new THREE.Shape([[ua, y0], [ub, y0], [ub, y1], [ua, y1]].map(([x, y]) => new THREE.Vector2(x, y)));
+    const troue = ua >= vx0 - JEU - 1e-6 && ub <= vx1 + JEU + 1e-6;
+    // extrudée vers l'extérieur (z local) : la face côté pièce reste dans le plan de la pente
+    const geo = new THREE.ExtrudeGeometry(troue ? [rect(0, vy0), rect(vy1 + JEU, LP)] : [rect(0, LP)], { depth: E, bevelEnabled: false });
+    const pos = geo.attributes.position;
+    for (let k = 0; k < pos.count; k++) {
+      const [y, z] = [pos.getY(k), pos.getZ(k)];
+      if (Math.abs(y) < 1e-6) pos.setY(k, basVertical(z));
+      else if (Math.abs(y - LP) < 1e-6) pos.setY(k, hautHorizontal(z));
+      else if (troue && Math.abs(y - vy0) < 1e-6 && z > E / 2) pos.setY(k, sousRebord);
+    }
+    geo.computeVertexNormals();
+    // les faces avant et arrière (groupes du matériau 0) ont pour coordonnées de texture (x, y) : on les
+    // recale sur les sommets déplacés, et à la coupe on y ramène aussi le y, pour que les étoiles ne glissent pas
+    const face = new Uint8Array(pos.count);
+    for (const g of geo.groups) if (g.materialIndex === 0) face.fill(1, g.start, g.start + g.count);
+    for (let k = 0; k < pos.count; k++) if (face[k]) geo.attributes.uv.setY(k, pos.getY(k));
+    const mesh = new THREE.Mesh(geo, [papierPente, tranchePente]);
+    mesh.receiveShadow = true;
+    pente.add(mesh);
+    toit.tuiles.push({ mesh, u: (ua + ub) / 2, troue, face, y0: geo.attributes.position.array.slice(), h: LP, v: 0, cible: LP, coupe: LP });
+  }
+}
+// Coupe une bande à sa longueur actuelle (seulement si elle a bougé).
+function couperBande(t) {
+  if (t.coupe === t.h) return;
+  t.coupe = t.h;
+  const { position, uv } = t.mesh.geometry.attributes;
+  for (let k = 0; k < position.count; k++) {
+    const y = Math.min(t.y0[3 * k + 1], t.h);
+    position.setY(k, y);
+    if (t.face[k]) uv.setY(k, y);
+  }
+  position.needsUpdate = true;
+  uv.needsUpdate = true;
+}
+// Opacité de la pente : transparente seulement pendant le fondu (sinon elle reste un objet opaque ordinaire).
+function appliquerOpacitePente(o) {
+  for (const m of [papierPente, tranchePente]) {
+    m.opacity = o;
+    const transparent = o < 0.999;
+    if (m.transparent !== transparent) {
+      m.transparent = transparent;
+      m.needsUpdate = true;
+    }
+  }
+  for (const t of toit.tuiles) t.mesh.visible = o > 0.001;
+}
 
 // --- Le Velux, d'après tes photos : plâtre d'aplomb, cadre en chêne en gradins, battant blanc ---
 const veluxObjet = new THREE.Group(); // l'objet sur lequel on clique (plâtre, cadre, vitre, store)
@@ -565,8 +733,6 @@ function veines(parent, longueur, nb, ecart, place) {
 // chevron : sous la pente, plaqué au mur. Prisme dont le bout du haut est coupé à l'horizontale, à la
 // hauteur du plafond : il vient toucher le plafond au lieu de s'arrêter en biais en dessous.
 // Profil dessiné dans le plan du mur (z, y), puis extrudé sur la profondeur de la pièce (x).
-const cosP = R / LP; // cosinus et sinus de l'angle de la pente
-const sinP = (H - K) / LP;
 const surfaceP = (sigma) => [D - sigma * cosP, K + sigma * sinP]; // point de la pente à la distance sigma du bas
 const versPiece = (pt, e) => [pt[0] - e * sinP, pt[1] - e * cosP]; // le même point, e plus bas dans la pièce (perpendiculairement)
 const yHautChevron = H + 0.006;
@@ -786,6 +952,7 @@ veluxObjet.add(store, barreStore);
 const etatStore = { ferme: false, f: 0 }; // f : 0 = ouvert (replié dans le caisson), 1 = fermé
 function basculerStore() {
   etatStore.ferme = !etatStore.ferme;
+  sons.store(etatStore.ferme);
 }
 // la vitre est cachée par le store
 function ajusterVitre() {
@@ -811,18 +978,16 @@ function animerStore(dt) {
 const FONDU_PERMANENT = [HAUTEUR_MUR * 0.55, HAUTEUR_MUR * 0.9];
 racine.updateMatrixWorld(true);
 accrocher('ouest', charpente, { ecraser: false, fondu: FONDU_PERMANENT, large: true });
-// Le toit n'existe que vu de l'intérieur : du dessus, on regarde dans la pièce. Le Velux, qui est
-// dans le toit, disparaît donc avec lui dès que la caméra passe de l'autre côté de la pente.
-const toit = { n: new THREE.Vector3(0, R, H - K).normalize(), p: new THREE.Vector3(0, K, D), visible: 1, cible: 1 };
-const versToit = new THREE.Vector3();
-function facteurToit(dt) {
-  const d = toit.n.dot(versToit.copy(cam).sub(toit.p));
-  if (d > 0.1) toit.cible = 0;
-  else if (d < -0.1) toit.cible = 1;
-  toit.visible += (toit.cible - toit.visible) * Math.min(1, dt * 8);
-  return toit.visible;
-}
-accrocher('sud', pente, { ecraser: false, fondu: FONDU_PERMANENT, large: true, facteur: facteurToit });
+// Le Velux est dans le toit : quand la pente se replie, il s'efface au passage de la coupe, entre le
+// haut et le bas de son ouverture.
+const bandesVelux = toit.tuiles.filter((t) => t.troue);
+accrocher(null, veluxObjet, {
+  ecraser: false,
+  fondu: [vy0, vy1],
+  hauteur: () => Math.min(...bandesVelux.map((t) => t.h)),
+  facteur: () => toit.opacite, // et avec la pente quand elle s'efface
+  parent: pente,
+});
 // Le plafond disparaît aussi dès que la caméra passe au-dessus : sinon la vue de dessus ne verrait que lui.
 const ciel = { visible: 1 };
 function facteurPlafond(dt) {
@@ -835,7 +1000,6 @@ accrocher(['nord', 'est', 'ouest', 'sud'], plafond, { ecraser: false, fondu: FON
 const texturesNommees = {
   couette: textures.couette(),
   mando: textures.affiche('mando'),
-  calendrier: textures.image('/textures/calendrier.jpg'),
 };
 
 // Les modèles .glb peuvent être compressés (Draco ou Meshopt) : c'est ce que
@@ -874,6 +1038,7 @@ const cliquables = [];
       sansRecentrage: true,
       auClic: () => {
         p.impulsion = 0.14;
+        sons.mobile();
         const t = performance.now();
         clics = clics.filter((c) => t - c < 2200);
         clics.push(t);
@@ -1017,7 +1182,7 @@ for (const d of decors) {
           });
           g.add(gltf.scene);
           const vantail = gltf.scene.getObjectByName('pivot_vantail');
-          if (vantail && g.userData.info) g.userData.info.auClic = creerOuvrant(vantail, 'y', 0, 1.75, { vitesse: 2.8 });
+          if (vantail && g.userData.info) g.userData.info.auClic = creerOuvrant(vantail, 'y', 0, 1.75, { vitesse: 2.8, son: 'porte' });
           preparerMurs();
         })
         .catch((err) => console.warn(`Modèle introuvable pour « ${d.nom} » :`, err.message)),
@@ -1085,10 +1250,12 @@ for (const d of decors) {
         if (cal.tombe) return;
         cal.tombe = true;
         cal.horloge = 0;
+        sons.couverture();
         return;
       }
       if (cal.t >= 0) return; // une page est déjà en train de tourner
       cal.t = 0;
+      sons.page();
     };
     const passerALaSuivante = () => {
       cal.i = (cal.i + 1) % cal.n;
@@ -1393,10 +1560,10 @@ for (const o of objetsVitrine) {
   cliquables.push(info);
 }
 
-// --- Magazines empilés à plat sur la commode ---
+// --- Magazines étalés à plat sur la commode ---
 {
   const n = magazinesCommode.liste.length;
-  let hauteur = magazinesCommode.y; // sommet de la pile en construction (on monte du dessous vers le dessus)
+  let hauteur = magazinesCommode.y; // on pose du dessous vers le dessus
   for (let i = n - 1; i >= 0; i--) {
     const mg = magazinesCommode.liste[i];
     const [w, h, d] = mg.taille;
@@ -1415,7 +1582,9 @@ for (const o of objetsVitrine) {
     g.position.set(magazinesCommode.centre[0] + mg.dx, hauteur + d / 2, magazinesCommode.centre[1] + mg.dz);
     g.add(couche);
     racine.add(g);
-    hauteur += d + 0.0004; // un tout petit jeu pour éviter le scintillement entre deux couvertures
+    // étalés, ils ne se chevauchent que d'un bord : chacun est à peine plus haut que le précédent (assez pour
+    // que les couvertures ne scintillent pas l'une dans l'autre, trop peu pour qu'il flotte au-dessus du bois)
+    hauteur += 0.0008;
     const info = { nom: mg.nom, description: mg.description, groupe: g, aPlat: true };
     g.userData.info = info;
     cliquables.push(info);
@@ -1507,12 +1676,14 @@ const promesses = [];
 // Chaque ouvrant est un sous-groupe « pivot_… » du modèle 3D, dont l'origine est la charnière : on
 // l'anime en tournant sur un axe entre une position fermée et une position ouverte.
 const ouvrants = [];
-function creerOuvrant(pivot, axe, ferme, ouvert, { ouvertAuDepart = false, vitesse = 4 } = {}) {
+// `son` : le bruitage joué à l'ouverture et à la fermeture ('porte', 'vitrine' ou 'mac', voir sons.js)
+function creerOuvrant(pivot, axe, ferme, ouvert, { ouvertAuDepart = false, vitesse = 4, son = null } = {}) {
   const o = { pivot, axe, ferme, ouvert, vitesse, f: ouvertAuDepart ? 1 : 0, cible: ouvertAuDepart ? 1 : 0 };
   pivot.rotation[axe] = ouvertAuDepart ? ouvert : ferme;
   ouvrants.push(o);
   return () => {
     o.cible = o.cible ? 0 : 1;
+    if (son) sons.ouvrant(son, o.cible === 1);
   };
 }
 function animerOuvrants(dt) {
@@ -1562,14 +1733,14 @@ for (const m of meubles) {
             const capot = groupe.getObjectByName('pivot_capot');
             const mac = groupe.getObjectByName('objet_mac');
             if (capot && mac) {
-              const bascule = creerOuvrant(capot, 'x', 0.034, -1.95, { ouvertAuDepart: true });
+              const bascule = creerOuvrant(capot, 'x', 0.034, -1.95, { ouvertAuDepart: true, son: 'mac' });
               ouvrantCliquable('MacBook', 'Le MacBook Air du bureau. Clique pour fermer ou rouvrir son capot.', mac, mac, bascule);
             }
           }
           if (m.nom === 'vitrine') {
             const porte = groupe.getObjectByName('pivot_porte');
             if (porte) {
-              const bascule = creerOuvrant(porte, 'y', 0, -1.9, { vitesse: 3.2 });
+              const bascule = creerOuvrant(porte, 'y', 0, -1.9, { vitesse: 3.2, son: 'vitrine' });
               ouvrantCliquable('porte de la vitrine', 'La porte vitrée de la vitrine.', porte, groupe, bascule);
             }
           }
@@ -1639,6 +1810,32 @@ function creerSpot(y, z, matAmpoule) {
   return g;
 }
 
+// Halo autour des ampoules allumées et derrière la TV : un simple dégradé lumineux en mélange additif (les
+// ampoules ont un sprite toujours tourné vers la caméra). Il est plus marqué la nuit. C'est bien moins coûteux
+// qu'un flou lumineux (bloom) sur toute l'image, et seul ce qui éclaire vraiment brille.
+const texHalo = textures.creer(
+  128,
+  128,
+  (g, w, h) => {
+    const d = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    d.addColorStop(0, 'rgba(255,255,255,1)');
+    d.addColorStop(0.15, 'rgba(255,255,255,0.6)');
+    d.addColorStop(0.45, 'rgba(255,255,255,0.14)');
+    d.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = d;
+    g.fillRect(0, 0, w, h);
+  },
+  false,
+);
+const materiauHalo = (couleur) =>
+  new THREE.SpriteMaterial({ map: texHalo, color: couleur, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+// `taille` < 2 × la distance au mur le plus proche : le halo ne passe jamais à travers
+function creerHalo(materiau, taille) {
+  const s = new THREE.Sprite(materiau);
+  s.scale.setScalar(taille);
+  return s;
+}
+
 const lampes = lumieres.map((l) => {
   const materiauAmpoule = new THREE.MeshStandardMaterial({
     color: l.couleur,
@@ -1646,6 +1843,7 @@ const lampes = lumieres.map((l) => {
     emissiveIntensity: 0,
     roughness: 0.3,
   });
+  const matHalo = materiauHalo(l.couleur);
   const lights = [];
   const nouvelleLumiere = (pos, ombres) => {
     const lumiere = new THREE.PointLight(l.couleur, 0, l.portee ?? 6, 1.5);
@@ -1660,6 +1858,9 @@ const lampes = lumieres.map((l) => {
     // un spot par ampoule : sa lumière est un peu en avant de l'ampoule pour éclairer la pièce sans cramer le mur
     l.ampoules.forEach(([, y, z], i) => {
       const spot = creerSpot(y, z, materiauAmpoule);
+      const h = creerHalo(matHalo, 0.34);
+      h.position.x = 0.19; // le milieu de l'ampoule
+      spot.add(h);
       racine.add(spot);
       if (l.mur) accrocher(l.mur, spot);
       nouvelleLumiere([0.34, y - 0.08, z], !!l.ombres && i === 1);
@@ -1669,11 +1870,13 @@ const lampes = lumieres.map((l) => {
     for (const p of l.ampoules ?? [l.pos]) {
       const a = new THREE.Mesh(geoAmpoule, materiauAmpoule);
       a.position.set(...p);
+      a.add(creerHalo(matHalo, 0.6));
       racine.add(a);
       if (l.mur) accrocher(l.mur, a);
     }
   }
-  return { nom: l.nom, lumieres: lights, materiauAmpoule, intensite: l.intensite };
+  // les spots s'effacent avec leur mur : leur halo aussi (voir majLumieres)
+  return { nom: l.nom, lumieres: lights, materiauAmpoule, matHalo, surMur: !!(l.spots && l.mur), intensite: l.intensite };
 });
 
 // Lueur bleutée de la TV allumée. Un écran n'éclaire que devant lui : c'est un projecteur
@@ -1683,6 +1886,12 @@ const lumTV = new THREE.SpotLight('#9ab8ff', 0, 6, Math.PI / 3, 0.9, 2);
 lumTV.position.set(0.3, 0.78, 2.2);
 lumTV.target.position.set(3, 0.55, 2.2);
 racine.add(lumTV, lumTV.target);
+// et un halo bleuté juste derrière l'écran : il déborde tout autour de la TV allumée
+const matHaloTV = new THREE.MeshBasicMaterial({ map: texHalo, color: '#9ab8ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+const haloTV = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.15), matHaloTV);
+haloTV.position.set(0.215, 0.775, 2.2); // centre de l'écran, un peu en retrait
+haloTV.rotation.y = Math.PI / 2;
+racine.add(haloTV);
 
 // --- Interrupteurs ---
 // `manuel` : null = automatique (les lumières suivent la nuit), sinon true / false
@@ -1699,7 +1908,10 @@ for (const i of interrupteurs) {
 }
 const estAllume = (id) => commandes[id].manuel ?? (commandes[id].tv ? false : nuit > 0.5);
 const basculer = (id) => {
-  commandes[id].manuel = !estAllume(id);
+  const c = commandes[id];
+  c.manuel = !estAllume(id);
+  if (c.tv) sons.tv(c.manuel);
+  else sons.interrupteur(c.manuel);
 };
 const toutAuto = () => {
   for (const c of Object.values(commandes)) c.manuel = null;
@@ -1709,13 +1921,17 @@ function majLumieres(dt) {
   for (const c of Object.values(commandes)) {
     const cible = c.manuel === null ? (c.tv ? 0 : nuit) : c.manuel ? 1 : 0;
     c.niveau += (cible - c.niveau) * Math.min(1, dt * 6);
+    const halo = c.niveau * (0.35 + 0.65 * nuit); // discret en plein jour, bien visible la nuit
     for (const l of c.lampes) {
       for (const lu of l.lumieres) lu.intensity = l.intensite * c.niveau;
       l.materiauAmpoule.emissiveIntensity = 2.5 * c.niveau;
+      l.matHalo.opacity = 0.85 * halo * (l.surMur ? matSpot.opacity : 1);
     }
     if (c.tv) {
       matEcran.emissiveIntensity = 1.1 * c.niveau;
       lumTV.intensity = 4 * c.niveau;
+      matHaloTV.opacity = 0.55 * halo;
+      haloTV.visible = halo > 0.001;
     }
   }
 }
@@ -1813,7 +2029,6 @@ function appliquerHeure(heure) {
 
   nuit = 1 - f;
   document.documentElement.style.setProperty('--nuit', nuit.toFixed(3));
-
   const hh = Math.floor(heure) % 24;
   const mm = Math.floor((heure % 1) * 60);
   elHeure.textContent = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
@@ -1865,6 +2080,7 @@ const interactions = initialiserInteractions({
   reglages,
   limitePolaire: LIMITE_POLAIRE,
 });
+creerBoutonSon(document.getElementById('cmd-murs')); // à côté des boutons des murs
 // ce qui bloque le petit bonhomme en plus des meubles : le poteau et l'entrait de la charpente
 const fixesPerso = [
   { x0: 0, x1: poutre.profondeur + 0.01, z0: poutre.poteau.z - poutre.poteau.largeur / 2, z1: poutre.poteau.z + poutre.poteau.largeur / 2, bas: 0, haut: 1.7 },
@@ -1910,7 +2126,12 @@ renderer.setAnimationLoop(() => {
 });
 
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
-  document.getElementById('chargement').classList.add('fini');
+  afficherAvancement(1);
+  // on laisse la barre finir de se remplir avant le fondu vers la chambre, qui arrive en vol
+  setTimeout(() => {
+    document.getElementById('chargement').classList.add('fini');
+    interactions.entree();
+  }, 450);
 });
 
 

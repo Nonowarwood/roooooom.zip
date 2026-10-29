@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#241435" />
     <title>Ma chambre</title>
+    <meta name="description" content="Ma chambre en 3D : fais le tour de la pièce, allume les lumières, la télé, et regarde le soleil passer à l'heure réelle de Paris." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Ma chambre" />
+    <meta property="og:description" content="Ma chambre en 3D : fais le tour de la pièce, allume les lumières, la télé, et regarde le soleil passer à l'heure réelle de Paris." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -45,7 +50,11 @@
     <button class="perso-agir" id="perso-agir" type="button" hidden>Agir</button>
     <button class="perso-saut" id="perso-saut" type="button" hidden>Saut</button>
 
-    <div id="chargement" class="chargement">Chargement…</div>
+    <div id="chargement" class="chargement" role="status" aria-live="polite">
+      <div class="chargement-titre">Ma chambre</div>
+      <div class="chargement-barre"><div class="chargement-niveau" id="chargement-niveau"></div></div>
+      <div class="chargement-texte" id="chargement-texte">Chargement…</div>
+    </div>
 
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -2,6 +2,19 @@
   --fond: #241435;
   --rose: #f4c9c2;
   --prune: #8c567a;
+  /* boutons et panneaux flottants : tous de la même famille */
+  --panneau: #302139ed;
+  --bord: #ffffff30;
+  --bord-actif: #ffffff60;
+  --bord-survol: #ffffff80;
+  --flou: blur(8px);
+  /* fond de la référence : un violet profond avec des taches de couleur floues */
+  --degrade:
+    radial-gradient(45% 40% at 10% 12%, #7b5a76 0%, transparent 72%),
+    radial-gradient(40% 45% at 92% 8%, #5c4d80 0%, transparent 72%),
+    radial-gradient(48% 45% at 90% 92%, #7d5c68 0%, transparent 72%),
+    radial-gradient(42% 42% at 8% 88%, #4a4c74 0%, transparent 72%),
+    #2c1a42;
 }
 
 * { box-sizing: border-box; }
@@ -16,16 +29,14 @@ html, body {
   font-family: Inter, system-ui, sans-serif;
 }
 
-/* Fond de la référence : un violet profond avec des taches de couleur floues, et un léger grain. */
+/* au clavier, ce qui a le focus est entouré de rose (rien au clic de souris) */
+:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+
+/* Fond de la référence : le dégradé flou, et un léger grain. */
 .fond {
   position: absolute;
   inset: -10%;
-  background:
-    radial-gradient(45% 40% at 10% 12%, #7b5a76 0%, transparent 72%),
-    radial-gradient(40% 45% at 92% 8%, #5c4d80 0%, transparent 72%),
-    radial-gradient(48% 45% at 90% 92%, #7d5c68 0%, transparent 72%),
-    radial-gradient(42% 42% at 8% 88%, #4a4c74 0%, transparent 72%),
-    #2c1a42;
+  background: var(--degrade);
   filter: blur(24px);
   pointer-events: none;
 }
@@ -80,7 +91,7 @@ html, body {
   gap: 2px;
   padding: 2px 18px 6px;
   cursor: default;
-  outline: none;
+  border-radius: 20px;
   filter: drop-shadow(0 2px 12px #0000004d);
 }
 .ville-nom { font-size: clamp(38px, 5.4vw, 58px); line-height: 1; letter-spacing: 0.01em; }
@@ -105,10 +116,10 @@ html, body {
   gap: 12px;
   margin-top: 6px;
   padding: 10px 16px;
-  background: #302139ed;
-  border: 1px solid #ffffff30;
+  background: var(--panneau);
+  border: 1px solid var(--bord);
   border-radius: 30px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: var(--flou);
   font-size: 13px;
   max-width: calc(100vw - 32px);
 }
@@ -119,7 +130,7 @@ html, body {
 .ville-reglage button {
   color: #fff;
   background: var(--prune);
-  border: 1px solid #ffffff60;
+  border: 1px solid var(--bord-actif);
   border-radius: 20px;
   padding: 6px 12px;
   font: inherit;
@@ -127,16 +138,45 @@ html, body {
   white-space: nowrap;
 }
 
+/* --- Écran de chargement : le titre qui respire et une fine barre rose qui suit les modèles et textures --- */
 .chargement {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
-  background: var(--fond);
-  font-size: 14px;
-  transition: opacity 0.5s;
+  z-index: 30; /* au-dessus de tous les boutons */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--degrade);
+  transition: opacity 0.8s ease, visibility 0.8s;
 }
-.chargement.fini { opacity: 0; pointer-events: none; }
+.chargement.fini { opacity: 0; visibility: hidden; pointer-events: none; }
+.chargement-titre {
+  font-family: 'Milky Boba', Georgia, serif;
+  font-size: clamp(48px, 8vw, 80px);
+  line-height: 1;
+  filter: drop-shadow(0 2px 14px #0000004d);
+  animation: respirer 2.4s ease-in-out infinite;
+}
+@keyframes respirer { 50% { opacity: 0.7; transform: scale(0.98); } }
+.chargement-barre {
+  width: min(240px, 60vw);
+  height: 4px;
+  border-radius: 4px;
+  background: #ffffff26;
+  overflow: hidden;
+}
+.chargement-niveau {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rose);
+  box-shadow: 0 0 10px var(--rose);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease;
+}
+.chargement-texte { font-size: 12px; letter-spacing: 0.08em; opacity: 0.75; font-variant-numeric: tabular-nums; }
 
 /* --- Vues prédéfinies, en bas au centre, sous les interrupteurs --- */
 .vues {
@@ -158,19 +198,19 @@ html, body {
 .lumieres button {
   flex: none;
   color: #fff;
-  background: #302139ed;
-  border: 1px solid #ffffff30;
+  background: var(--panneau);
+  border: 1px solid var(--bord);
   border-radius: 20px;
   padding: 7px 14px;
   font: 500 13px/1 Inter, system-ui, sans-serif;
   cursor: pointer;
-  backdrop-filter: blur(8px);
+  backdrop-filter: var(--flou);
   transition: background 0.2s, border-color 0.2s;
 }
 .vues button { width: 42px; height: 42px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
 .vues button:hover,
-.lumieres button:hover { border-color: #ffffff80; }
-.vues button.actif { background: var(--prune); border-color: #ffffff60; }
+.lumieres button:hover { border-color: var(--bord-survol); }
+.vues button.actif { background: var(--prune); border-color: var(--bord-actif); }
 
 /* --- Interrupteurs, en haut à droite --- */
 .lumieres {
@@ -217,16 +257,16 @@ html, body {
   place-items: center;
   padding: 0;
   color: #fff;
-  background: #302139ed;
-  border: 1px solid #ffffff30;
+  background: var(--panneau);
+  border: 1px solid var(--bord);
   border-radius: 50%;
   cursor: pointer;
-  backdrop-filter: blur(8px);
+  backdrop-filter: var(--flou);
   transition: background 0.2s, border-color 0.2s, transform 0.15s;
 }
-.ctrl:hover { border-color: #ffffff80; }
+.ctrl:hover { border-color: var(--bord-survol); }
 .ctrl:active { transform: scale(0.94); }
-.ctrl.actif { background: var(--prune); border-color: #ffffff60; }
+.ctrl.actif { background: var(--prune); border-color: var(--bord-actif); }
 
 .commandes-gauche {
   left: 20px;
@@ -269,6 +309,66 @@ html, body {
   .commandes-murs { top: calc(14px + env(safe-area-inset-top)); left: 12px; }
 }
 
+/* --- Fiche de l'objet cliqué, en bas au centre, au-dessus des vues --- */
+.fiche {
+  position: absolute;
+  z-index: 14;
+  left: 50%;
+  bottom: calc(80px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(360px, calc(100vw - 32px));
+  padding: 14px 18px 16px;
+  color: #fff;
+  background: var(--panneau);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  backdrop-filter: var(--flou);
+  box-shadow: 0 8px 30px #0000004d;
+}
+.fiche[hidden] { display: none; }
+.fiche.entree { animation: fiche-entree 0.25s ease both; }
+@keyframes fiche-entree { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translateX(-50%); } }
+.fiche h2 {
+  margin: 0 28px 6px 0;
+  font: 400 24px/1.1 'Milky Boba', Georgia, serif;
+  letter-spacing: 0.01em;
+}
+.fiche p { margin: 0; font-size: 13px; line-height: 1.45; opacity: 0.85; }
+.fiche-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.fiche-actions[hidden] { display: none; }
+.fiche-actions button {
+  color: #fff;
+  background: var(--prune);
+  border: 1px solid var(--bord-actif);
+  border-radius: 20px;
+  padding: 7px 14px;
+  font: 500 13px/1 Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+.fiche-actions button:hover { border-color: var(--bord-survol); }
+.fiche-fermer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #fff;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.fiche-fermer:hover { opacity: 1; background: #ffffff1a; }
+body.perso .fiche { display: none; }
+/* sur petit écran, les interrupteurs sont au-dessus des vues : la fiche passe au-dessus d'eux */
+@media (max-width: 760px) {
+  .fiche { bottom: calc(130px + env(safe-area-inset-bottom)); }
+}
+
 /* lever et coucher du soleil réels, sous le curseur */
 .soleil-heures { font-size: 12px; opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px #0006; }
 
@@ -282,18 +382,18 @@ body.perso .vues, body.perso .commandes { display: none; }
   position: absolute;
   z-index: 11;
   color: #fff;
-  background: #302139ed;
-  border: 1px solid #ffffff30;
+  background: var(--panneau);
+  border: 1px solid var(--bord);
   border-radius: 20px;
   padding: 8px 16px;
   font: 500 13px/1 Inter, system-ui, sans-serif;
   cursor: pointer;
-  backdrop-filter: blur(8px);
+  backdrop-filter: var(--flou);
 }
 .perso-quitter { top: calc(20px + env(safe-area-inset-top)); left: 20px; }
 .perso-debloquer { top: calc(20px + env(safe-area-inset-top)); left: 108px; }
 .perso-quitter:hover,
-.perso-debloquer:hover { border-color: #ffffff80; }
+.perso-debloquer:hover { border-color: var(--bord-survol); }
 .perso-aide {
   position: absolute;
   z-index: 11;
@@ -321,7 +421,7 @@ body.perso .vues, body.perso .commandes { display: none; }
   padding: 9px 18px;
   color: #fff;
   background: var(--prune);
-  border: 1px solid #ffffff60;
+  border: 1px solid var(--bord-actif);
   border-radius: 20px;
   font: 600 14px/1.2 Inter, system-ui, sans-serif;
   text-align: center;
@@ -341,7 +441,16 @@ body.perso .vues, body.perso .commandes { display: none; }
   place-items: center;
   touch-action: none;
 }
-.perso-pomme { width: 46px; height: 46px; border-radius: 50%; background: #f4c9c2; box-shadow: 0 2px 10px #0006; pointer-events: none; }
+.perso-pomme { width: 46px; height: 46px; border-radius: 50%; background: var(--rose); box-shadow: 0 2px 10px #0006; pointer-events: none; }
 .perso-agir { right: 28px; bottom: calc(52px + env(safe-area-inset-bottom)); padding: 18px 24px; border-radius: 50%; opacity: 0.6; }
 .perso-saut { right: 110px; bottom: calc(40px + env(safe-area-inset-bottom)); padding: 18px 20px; border-radius: 50%; background: var(--prune); }
 .perso-agir.pret { opacity: 1; background: var(--prune); }
+
+/* mouvements réduits (réglage du système) : pas d'animations d'interface, juste les changements d'état */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
