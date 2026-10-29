@@ -177,6 +177,11 @@ export function tissu([l, h, p], materiau, [x, yBas, z], { r = 0.04, froissement
   const v = new THREE.Vector3();
   const c = new THREE.Vector3();
   const rayon = Math.min(r, l / 2.05, h / 2.05, p / 2.05);
+  // direction de gonflement de chaque sommet : celle de l'arrondi (identique des deux côtés d'une
+  // arête, où la boîte a des sommets en double), sinon la normale de la face. Avec les normales
+  // calculées après coup, les sommets en double s'écartaient et laissaient une fente blanche.
+  const dirs = [];
+  const nFace = geo.attributes.normal;
   for (let i = 0; i < pos.count; i++) {
     v.fromBufferAttribute(pos, i);
     c.set(
@@ -185,7 +190,10 @@ export function tissu([l, h, p], materiau, [x, yBas, z], { r = 0.04, froissement
       THREE.MathUtils.clamp(v.z, -p / 2 + rayon, p / 2 - rayon),
     );
     v.sub(c);
-    if (v.lengthSq() > 0) v.setLength(rayon);
+    if (v.lengthSq() > 0) {
+      v.setLength(rayon);
+      dirs.push(v.clone().normalize());
+    } else dirs.push(new THREE.Vector3().fromBufferAttribute(nFace, i));
     v.add(c);
     pos.setXYZ(i, v.x, v.y, v.z);
   }
@@ -193,12 +201,11 @@ export function tissu([l, h, p], materiau, [x, yBas, z], { r = 0.04, froissement
   // plis : quelques ondulations qui se croisent
   const r2 = aleatoire(graine);
   const ondes = Array.from({ length: 4 }, () => ({ fx: 3 + r2() * 7, fz: 3 + r2() * 7, ph: r2() * 6.28, a: 0.4 + r2() * 0.6 }));
-  const n = geo.attributes.normal;
   for (let i = 0; i < pos.count; i++) {
     let d = 0;
     for (const o of ondes) d += o.a * Math.sin(pos.getX(i) * o.fx + pos.getZ(i) * o.fz + o.ph);
     d *= (froissement / ondes.length) * 2;
-    pos.setXYZ(i, pos.getX(i) + n.getX(i) * d, pos.getY(i) + n.getY(i) * d, pos.getZ(i) + n.getZ(i) * d);
+    pos.setXYZ(i, pos.getX(i) + dirs[i].x * d, pos.getY(i) + dirs[i].y * d, pos.getZ(i) + dirs[i].z * d);
   }
   geo.computeVertexNormals();
   if (uvDessus) {
