@@ -102,7 +102,7 @@ export function initialiserInteractions({
     bureau: `<rect x="6" y="3.5" width="12" height="8" rx="1.5" ${F}/><path d="M12 11.5V15M3 15h18M5.5 15v5.5M18.5 15v5.5"/>`,
     tv: `<rect x="3" y="5" width="18" height="12" rx="2.5" ${F}/><path d="M8 20.5l1-3.5M16 20.5l-1-3.5"/>`,
     porte: `<rect x="6" y="3" width="12" height="18" rx="1.5" ${F}/><path d="M3 21h18"/><circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none"/>`,
-    velux: `<path d="M2.5 20.5L12 4l9.5 16.5z"/><rect x="9.3" y="10.5" width="5.4" height="6.5" rx="0.8" ${F}/><path d="M12 10.5V17M9.3 13.7h5.4"/>`,
+    velux: `<rect x="4.5" y="4.5" width="15" height="15" rx="1.5" ${F}/><path d="M12 4.5v15M4.5 12h15"/>`,
   };
   let vueActive = 'ensemble';
   let vueGenerale = null; // 'dessus' | 'gauche' | 'droite' (menu de vues)
