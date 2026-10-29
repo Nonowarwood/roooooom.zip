@@ -57,11 +57,10 @@ html, body {
 
 /* --- Lieu et heure, en haut : « Paris » et l'heure ; au survol, le curseur se déplie --- */
 @font-face {
-  font-family: 'Instrument Serif';
-  font-style: italic;
+  font-family: 'Milky Boba';
   font-weight: 400;
   font-display: swap;
-  src: url('/fonts/instrument-serif-italic.woff2') format('woff2');
+  src: url('/fonts/milky-boba.otf') format('opentype');
 }
 .ville {
   position: absolute;
@@ -72,8 +71,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-style: italic;
+  font-family: 'Milky Boba', Georgia, serif;
 }
 .ville-tete {
   display: flex;
@@ -86,7 +84,7 @@ html, body {
   filter: drop-shadow(0 2px 12px #0000004d);
 }
 .ville-nom { font-size: clamp(38px, 5.4vw, 58px); line-height: 1; letter-spacing: 0.01em; }
-.ville-heure { font-size: 20px; line-height: 1; opacity: 0.8; letter-spacing: 0.02em; transition: opacity 0.25s; }
+.ville-heure { font-size: 22px; line-height: 1; opacity: 0.85; letter-spacing: 0.06em; transition: opacity 0.25s; }
 .ville:hover .ville-heure,
 .ville:focus-within .ville-heure,
 .ville.ouvert .ville-heure { opacity: 1; }

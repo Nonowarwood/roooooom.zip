@@ -516,10 +516,13 @@ const yc = (yBas + yHaut) / 2;
 const FC = 0.05; // largeur du cadre en chêne
 const FB = 0.032; // largeur du battant blanc
 // cadre en chêne (extérieur)
-bloc(velux.largeur, FC, 0.05, chene, xc, yHaut - FC / 2, T - 0.02);
-bloc(velux.largeur, FC, 0.05, chene, xc, yBas + FC / 2, T - 0.02);
-bloc(FC, velux.longueur - 2 * FC, 0.05, chene, xc - demiCadre + FC / 2, yc, T - 0.02);
-bloc(FC, velux.longueur - 2 * FC, 0.05, chene, xc + demiCadre - FC / 2, yc, T - 0.02);
+// le chêne déborde de 6 mm dans le plâtre (dessus et côtés) : ses faces ne sont plus dans le même plan que
+// celles du plâtre, ce qui faisait clignoter le bois et le blanc l'un dans l'autre
+const DEB = 0.006;
+bloc(velux.largeur + 2 * DEB, FC + DEB, 0.05, chene, xc, yHaut - (FC - DEB) / 2, T - 0.02);
+bloc(velux.largeur + 2 * DEB, FC, 0.05, chene, xc, yBas + FC / 2, T - 0.02);
+bloc(FC + DEB, velux.longueur - 2 * FC, 0.05, chene, xc - demiCadre + (FC - DEB) / 2, yc, T - 0.02);
+bloc(FC + DEB, velux.longueur - 2 * FC, 0.05, chene, xc + demiCadre - (FC - DEB) / 2, yc, T - 0.02);
 // battant blanc (un cran plus bas vers la pièce, d'où l'aspect en gradins)
 const wB = velux.largeur - 2 * FC;
 const hB = velux.longueur - 2 * FC;
@@ -1544,11 +1547,12 @@ function appliquerHeure(heure) {
   const jourZ = Math.sin(azimut) * Math.cos(elevation) * R;
   soleil.position.set(8.8 + (jourX - 8.8) * f, 19.8 + (jourY - 19.8) * f, 6.6 + (jourZ - 6.6) * f);
   baseLumiere.f = f;
-  baseLumiere.soleil = 0.65 * (1 - f) + f * (0.7 + 0.8 * d);
+  baseLumiere.soleil = f * (0.7 + 0.8 * d); // la nuit, plus de soleil : donc plus aucune ombre portée par le jour
   tmp.copy(SOLEIL_BAS).lerp(SOLEIL_MIDI, d);
   soleil.color.copy(SOLEIL_NUIT).lerp(tmp, f);
 
-  baseLumiere.ambiante = (0.65 * (1 - f) + f * (0.45 + 0.2 * d)) * (0.55 + 0.45 * f);
+  // la nuit, le remplissage ambiant prend la place du soleil pour que la pièce reste lisible, mais sans ombre
+  baseLumiere.ambiante = (0.65 * (1 - f) + f * (0.45 + 0.2 * d)) * (0.55 + 0.45 * f) + 0.3 * (1 - f);
   tmp2.copy(AMBIANT_BAS).lerp(AMBIANT_MIDI, d);
   ambiante.color.copy(AMBIANT_NUIT).lerp(tmp2, f);
   // la nuit, le dôme céleste baisse pour que les lampes se voient, sans jamais noircir la scène
@@ -1654,6 +1658,7 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+
 
 
 
