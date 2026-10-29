@@ -153,7 +153,7 @@ html, body {
 }
 .vues::-webkit-scrollbar { display: none; }
 
-/* boutons des vues et des interrupteurs : même famille */
+/* boutons des vues et des interrupteurs : même famille ; les vues sont de petits logos ronds */
 .vues button,
 .lumieres button {
   flex: none;
@@ -167,6 +167,7 @@ html, body {
   backdrop-filter: blur(8px);
   transition: background 0.2s, border-color 0.2s;
 }
+.vues button { width: 42px; height: 42px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
 .vues button:hover,
 .lumieres button:hover { border-color: #ffffff80; }
 .vues button.actif { background: var(--prune); border-color: #ffffff60; }

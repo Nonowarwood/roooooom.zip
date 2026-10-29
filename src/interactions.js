@@ -93,13 +93,25 @@ export function initialiserInteractions({
   });
 
   // --- Vues prédéfinies ---
+  const icone = (d) =>
+    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICONES_VUES = {
+    ensemble: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5L12 12l8-4.5M12 12v9"/>',
+    lit: '<path d="M3 19V6M3 15h18v4M21 15v-2.5A2.5 2.5 0 0 0 18.5 10H11v5"/><circle cx="7" cy="11" r="1.7"/>',
+    bureau: '<rect x="8" y="4" width="8" height="5.5" rx="1"/><path d="M3 12h18M5 12v8M19 12v8"/>',
+    tv: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    porte: '<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M3 21h18"/><circle cx="15" cy="12.5" r="0.9"/>',
+    velux: '<path d="M6 21l3.5-17h8.5L14.5 21z"/><path d="M7.9 12.5h9.5M12.7 4L10.5 21"/>',
+  };
   let vueActive = 'ensemble';
   let vueGenerale = null; // 'dessus' | 'gauche' | 'droite' (menu de vues)
   const boutonsVues = new Map();
   for (const v of vues) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = v.label;
+    b.innerHTML = icone(ICONES_VUES[v.id]);
+    b.setAttribute('aria-label', v.label);
+    b.title = v.label;
     b.addEventListener('click', () => {
       vueActive = v.id;
       majVues();
@@ -117,8 +129,6 @@ export function initialiserInteractions({
   majVues();
 
   // --- Boutons de caméra (croix, zoom, menu de vues) et des murs ---
-  const icone = (d) =>
-    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const ICONES = {
     haut: '<path d="M12 19V5M5 12l7-7 7 7"/>',
     bas: '<path d="M12 5v14M5 12l7 7 7-7"/>',
