@@ -23,6 +23,7 @@ import {
 import { initialiserInteractions } from './interactions.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -535,12 +536,19 @@ bloc(0.07, 0.02, 0.012, blancBattant, xc, yBas + FC + FB / 2, T - 0.068, true);
 bloc(0.05, 0.014, 0.02, blancBattant, xc, yBas + FC + FB / 2 + 0.012, T - 0.058, true);
 
 // --- Charpente contre le mur ouest : chevron + poteau + entrait, comme sur ta photo ---
+// Bois sombre avec ses fibres, ses nœuds et ses fentes (une texture par pièce), arêtes un peu arrondies ;
+// l'entrait passe devant le poteau ; clous sur le poteau, boulon à rondelle et cale au bout de l'entrait ;
+// un mobile d'avions en bois pend au croisement, comme sur la photo.
 const charpente = new THREE.Group();
 charpente.name = 'charpente';
-const boisPoutre = new THREE.MeshStandardMaterial({ color: poutre.couleur, roughness: 0.85 });
-const veinePoutre = new THREE.MeshStandardMaterial({ color: new THREE.Color(poutre.couleur).multiplyScalar(0.72), roughness: 0.9 });
-const metalPoutre = new THREE.MeshStandardMaterial({ color: '#cfc8c0', roughness: 0.5, metalness: 0.2 });
+const boisDe = (texture) => new THREE.MeshStandardMaterial({ color: '#ffffff', map: texture, roughness: 0.82 });
+const boisChevron = boisDe(textures.boisSombre(256, 1024, 11, { vertical: true, noeuds: 3, fentes: 3 }));
+const boisPoteau = boisDe(textures.boisSombre(128, 1024, 23, { vertical: true, noeuds: 2, fentes: 2 }));
+const boisEntrait = boisDe(textures.boisSombre(1024, 128, 37, { noeuds: 2, fentes: 2 }));
+const metalPoutre = new THREE.MeshStandardMaterial({ color: '#cfc8c0', roughness: 0.45, metalness: 0.35 });
+const metalSombre = new THREE.MeshStandardMaterial({ color: '#4a4540', roughness: 0.6, metalness: 0.5 });
 const D2 = poutre.profondeur;
+const DEVANT = 0.014; // de combien l'entrait sort devant le poteau
 
 function morceau(geo, mat, x, y, z) {
   const m = new THREE.Mesh(geo, mat);
@@ -549,41 +557,137 @@ function morceau(geo, mat, x, y, z) {
   m.receiveShadow = true;
   return m;
 }
-// quelques veines : de fines lignes plus foncées sur la grande face, dans le sens du bois
-function veines(parent, longueur, nb, ecart, place) {
-  for (let i = 0; i < nb; i++) {
-    const v = morceau(new THREE.BoxGeometry(0.002, longueur * (0.55 + 0.4 * ((i * 37) % 10) / 10), 0.004), veinePoutre, 0, 0, 0);
-    v.castShadow = false;
-    place(v, (i - (nb - 1) / 2) * ecart, ((i * 13) % 7) / 7 - 0.5);
-    parent.add(v);
-  }
-}
+const poutreArrondie = (l, h, p, mat, x, y, z) => morceau(new RoundedBoxGeometry(l, h, p, 2, 0.007), mat, x, y, z);
 
 // chevron : sous la pente, plaqué au mur
-const chevron = morceau(new THREE.BoxGeometry(D2, LP + 0.1, poutre.epaisseur), boisPoutre, D2 / 2 + 0.002, LP / 2 + 0.03, -poutre.epaisseur / 2);
-veines(chevron, LP, 3, poutre.epaisseur / 4, (v, dz, dy) => v.position.set(D2 / 2 + 0.001, dy * LP * 0.5, dz));
+const chevron = poutreArrondie(D2, LP + 0.1, poutre.epaisseur, boisChevron, D2 / 2 + 0.002, LP / 2 + 0.03, -poutre.epaisseur / 2);
 pente.add(chevron);
 
 // poteau : du sol jusqu'sous le chevron
 const hauteurPoteau = 4.418 - poutre.poteau.z + 0.04; // dessous du chevron à cette position, + un peu pour s'y caler
-const poteau = morceau(new THREE.BoxGeometry(D2, hauteurPoteau, poutre.poteau.largeur), boisPoutre, D2 / 2 + 0.002, hauteurPoteau / 2, poutre.poteau.z);
-veines(poteau, hauteurPoteau, 3, poutre.poteau.largeur / 4, (v, dz, dy) => v.position.set(D2 / 2 + 0.001, dy * hauteurPoteau * 0.6, dz));
-// le petit bouchon rond au pied du poteau
-const bouchon = morceau(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 14), new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 0.9 }), D2 + 0.006, 0.09, poutre.poteau.z);
+const poteau = poutreArrondie(D2, hauteurPoteau, poutre.poteau.largeur, boisPoteau, D2 / 2 + 0.002, hauteurPoteau / 2, poutre.poteau.z);
+// le petit bouchon rond au pied du poteau, et deux clous à tête ronde
+const noir = new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 0.9 });
+const bouchon = morceau(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 14), noir, D2 + 0.006, 0.09, poutre.poteau.z);
 bouchon.rotation.z = Math.PI / 2;
 charpente.add(poteau, bouchon);
+for (const [y, dz] of [[0.74, -0.03], [1.22, 0.025]]) {
+  const clou = morceau(new THREE.CylinderGeometry(0.0065, 0.0065, 0.004, 10), metalSombre, D2 + 0.004, y, poutre.poteau.z + dz);
+  clou.rotation.z = Math.PI / 2;
+  clou.castShadow = false;
+  charpente.add(clou);
+}
 
-// entrait : horizontal, du poteau jusqu'au coin du mur bas, avec son boulon
-const zDebut = poutre.poteau.z + poutre.poteau.largeur / 2 - 0.01;
+// entrait : horizontal, du poteau jusqu'au coin du mur bas ; il passe devant le poteau
+const zDebut = poutre.poteau.z - 0.02;
 const longueurEntrait = poutre.entrait.zFin - zDebut;
-const entrait = morceau(new THREE.BoxGeometry(D2, poutre.entrait.hauteur, longueurEntrait), boisPoutre, D2 / 2 + 0.002, poutre.entrait.y, (zDebut + poutre.entrait.zFin) / 2);
-veines(entrait, longueurEntrait, 3, poutre.entrait.hauteur / 4, (v, dy, dz) => {
-  v.rotation.x = Math.PI / 2; // la veine suit la longueur de l'entrait (axe z)
-  v.position.set(D2 / 2 + 0.001, dy, dz * longueurEntrait * 0.3);
-});
-const boulon = morceau(new THREE.CylinderGeometry(0.019, 0.019, 0.012, 14), metalPoutre, D2 + 0.008, poutre.entrait.y, poutre.entrait.zFin - 0.07);
-boulon.rotation.z = Math.PI / 2;
-charpente.add(entrait, boulon);
+const entrait = poutreArrondie(D2 + DEVANT, poutre.entrait.hauteur, longueurEntrait, boisEntrait, (D2 + DEVANT) / 2 + 0.002, poutre.entrait.y, (zDebut + poutre.entrait.zFin) / 2);
+// boulon : une rondelle plate sous une tête ronde, près du bout
+const zBoulon = poutre.entrait.zFin - 0.07;
+const xFace = D2 + DEVANT + 0.002; // face visible de l'entrait
+const rondelle = morceau(new THREE.CylinderGeometry(0.03, 0.03, 0.005, 20), metalSombre, xFace + 0.0025, poutre.entrait.y, zBoulon);
+const tete = morceau(new THREE.CylinderGeometry(0.019, 0.019, 0.012, 16), metalPoutre, xFace + 0.011, poutre.entrait.y, zBoulon);
+rondelle.rotation.z = tete.rotation.z = Math.PI / 2;
+// cale clouée sous le bout de l'entrait, un peu de travers
+const cale = poutreArrondie(D2 + DEVANT - 0.01, 0.06, 0.05, boisPoteau, (D2 + DEVANT - 0.01) / 2 + 0.002, poutre.entrait.y - poutre.entrait.hauteur / 2 - 0.02, poutre.entrait.zFin - 0.08);
+cale.rotation.x = -0.35;
+charpente.add(entrait, rondelle, tete, cale);
+
+// --- Mobile d'avions en bois, accroché au chevron juste au-dessus du poteau ---
+// Deux baguettes parallèles ; au bout de fils : deux petits biplans, deux nuages et un cœur en bois. Ils
+// se balancent très doucement.
+const boisClair = new THREE.MeshStandardMaterial({ color: '#e6cda0', roughness: 0.8 });
+const boisAvion = new THREE.MeshStandardMaterial({ color: '#d4a96c', roughness: 0.8 });
+const boisJaune = new THREE.MeshStandardMaterial({ color: '#efc767', roughness: 0.8 });
+const filMat = new THREE.MeshStandardMaterial({ color: '#e9e0d0', roughness: 0.9 });
+
+function biplan() {
+  const a = new THREE.Group();
+  const boite = (l, h, p, mat, x, y, z) => {
+    const m = morceau(new RoundedBoxGeometry(l, h, p, 1, Math.min(l, h, p) * 0.3), mat, x, y, z);
+    a.add(m);
+    return m;
+  };
+  boite(0.016, 0.016, 0.09, boisAvion, 0, 0, 0); // fuselage (le nez vers +z)
+  boite(0.11, 0.004, 0.03, boisClair, 0, -0.011, 0.005); // aile du bas
+  boite(0.11, 0.004, 0.03, boisClair, 0, 0.019, 0.005); // aile du haut
+  for (const sx of [-0.035, 0.035]) boite(0.003, 0.03, 0.003, boisAvion, sx, 0.004, 0.005); // mâts entre les ailes
+  boite(0.004, 0.026, 0.022, boisAvion, 0, 0.012, -0.043); // dérive
+  boite(0.045, 0.003, 0.016, boisClair, 0, 0.002, -0.043); // plan fixe arrière
+  boite(0.003, 0.034, 0.006, boisAvion, 0, 0, 0.047); // hélice
+  return a;
+}
+function formeBois(forme, mat, echelle) {
+  const geo = new THREE.ExtrudeGeometry(forme, { depth: 0.005, bevelEnabled: false, curveSegments: 10 });
+  geo.center();
+  geo.scale(echelle, echelle, 1);
+  const m = morceau(geo, mat, 0, 0, 0);
+  m.userData.plat = true;
+  return m;
+}
+function nuage() {
+  const f = new THREE.Shape();
+  f.moveTo(-0.5, 0);
+  f.absarc(-0.28, 0.02, 0.22, Math.PI, Math.PI * 0.1, true);
+  f.absarc(0.05, 0.1, 0.3, Math.PI * 0.85, Math.PI * 0.05, true);
+  f.absarc(0.3, 0.0, 0.2, Math.PI * 0.35, -Math.PI * 0.5, true);
+  f.lineTo(-0.3, -0.2);
+  f.closePath();
+  return formeBois(f, boisJaune, 0.09);
+}
+function coeur() {
+  const f = new THREE.Shape();
+  f.moveTo(0, -0.45);
+  f.bezierCurveTo(-0.6, -0.05, -0.5, 0.5, 0, 0.22);
+  f.bezierCurveTo(0.5, 0.5, 0.6, -0.05, 0, -0.45);
+  return formeBois(f, boisJaune, 0.075);
+}
+
+const mobile = new THREE.Group();
+mobile.name = 'mobile avions';
+const zMobile = poutre.poteau.z - 0.13;
+mobile.position.set(D2 + 0.07, 1.68, zMobile);
+mobile.rotation.x = -0.1; // les baguettes montent un peu vers le fond de la pièce, comme sur la photo
+// deux baguettes parallèles, tenues au chevron par deux petits crochets
+for (const dy of [-0.014, 0.014]) {
+  const baguette = morceau(new THREE.CylinderGeometry(0.0055, 0.0055, 0.46, 10), boisClair, 0, dy, 0);
+  baguette.rotation.x = Math.PI / 2;
+  mobile.add(baguette);
+}
+for (const dz of [-0.17, 0.17]) {
+  const crochet = morceau(new THREE.CylinderGeometry(0.0035, 0.0035, 0.07, 8), metalSombre, -0.035, 0, dz);
+  crochet.rotation.z = Math.PI / 2;
+  crochet.castShadow = false;
+  mobile.add(crochet);
+}
+const pendules = [];
+// [position sur la baguette, longueur du fil, objet, rotation autour de la verticale]
+for (const [dz, fil, objet, lacet, phase] of [
+  [-0.19, 0.2, nuage(), 0.5, 0.0],
+  [-0.1, 0.4, biplan(), 0.95, 1.7],
+  [0.04, 0.27, nuage(), -0.3, 3.1],
+  [0.12, 0.5, biplan(), -0.7, 4.6],
+  [0.2, 0.34, coeur(), 0.2, 5.4],
+]) {
+  const pivot = new THREE.Group(); // le point d'accroche : c'est lui qui se balance
+  pivot.position.set(0, 0, dz);
+  const cordon = morceau(new THREE.CylinderGeometry(0.0012, 0.0012, fil, 5), filMat, 0, -fil / 2, 0);
+  cordon.castShadow = false;
+  objet.position.y = -fil - (objet.userData.pend ?? 0.012);
+  objet.rotation.y = lacet + (objet.userData.plat ? Math.PI / 2 : 0); // nuages et cœur : la face plate regarde la pièce
+  pivot.add(cordon, objet);
+  mobile.add(pivot);
+  pendules.push({ pivot, phase, amplitude: 0.05 + 0.03 * ((pendules.length * 7) % 3) / 3 });
+}
+charpente.add(mobile);
+let tempsMobile = 0;
+function animerMobile(dt) {
+  tempsMobile += dt;
+  for (const { pivot, phase, amplitude } of pendules) {
+    pivot.rotation.x = amplitude * Math.sin(tempsMobile * 0.9 + phase);
+    pivot.rotation.z = amplitude * 0.6 * Math.cos(tempsMobile * 0.7 + phase);
+  }
+}
 
 racine.add(charpente);
 racine.updateMatrixWorld(true);
@@ -1721,6 +1825,7 @@ renderer.setAnimationLoop(() => {
   majLumieres(dt);
   interactions.maj(dt);
   for (const f of calendriers) f(dt);
+  animerMobile(dt);
   animerStore(dt);
   animerOuvrants(dt);
   // l'image de la TV change environ 8 fois par seconde, seulement si elle est allumée
