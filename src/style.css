@@ -172,15 +172,15 @@ html, body {
 .lumieres button:hover { border-color: #ffffff80; }
 .vues button.actif { background: var(--prune); border-color: #ffffff60; }
 
-/* --- Interrupteurs, au-dessus des vues --- */
+/* --- Interrupteurs, en haut à droite --- */
 .lumieres {
   position: absolute;
-  bottom: calc(68px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(20px + env(safe-area-inset-top));
+  right: 20px;
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
-  max-width: calc(100vw - 32px);
 }
 .lumieres button { display: inline-flex; align-items: center; gap: 8px; }
 .lumieres .temoin {
@@ -196,6 +196,16 @@ html, body {
 
 @media (max-width: 760px) {
   .vues { max-width: calc(100vw - 32px); }
+  /* sur petit écran le coin haut droit est trop près du titre : les interrupteurs repassent au-dessus des vues */
+  .lumieres {
+    top: auto;
+    right: auto;
+    left: 50%;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    flex-direction: row;
+    max-width: calc(100vw - 32px);
+  }
 }
 
 /* --- Mouvement de la caméra : croix directionnelle, zoom, menu de vues, murs (comme la référence) --- */

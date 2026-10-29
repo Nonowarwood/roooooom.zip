@@ -93,15 +93,16 @@ export function initialiserInteractions({
   });
 
   // --- Vues prédéfinies ---
-  const icone = (d) =>
-    `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const icone = (d, t = 20) =>
+    `<svg width="${t}" height="${t}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const F = 'fill="currentColor" fill-opacity=".22"'; // remplissage pastel des logos
   const ICONES_VUES = {
-    ensemble: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5L12 12l8-4.5M12 12v9"/>',
-    lit: '<path d="M3 19V6M3 15h18v4M21 15v-2.5A2.5 2.5 0 0 0 18.5 10H11v5"/><circle cx="7" cy="11" r="1.7"/>',
-    bureau: '<rect x="8" y="4" width="8" height="5.5" rx="1"/><path d="M3 12h18M5 12v8M19 12v8"/>',
-    tv: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
-    porte: '<path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21M3 21h18"/><circle cx="15" cy="12.5" r="0.9"/>',
-    velux: '<path d="M6 21l3.5-17h8.5L14.5 21z"/><path d="M7.9 12.5h9.5M12.7 4L10.5 21"/>',
+    ensemble: `<path d="M12 3l8.5 4.5L12 12 3.5 7.5z" ${F}/><path d="M3.5 7.5v9L12 21l8.5-4.5v-9M12 12v9"/>`,
+    lit: `<path d="M3.5 5.5v13.5M20.5 16.5V19"/><rect x="3.5" y="12.5" width="17" height="4" rx="1.5" ${F}/><rect x="5.5" y="9" width="5" height="3.5" rx="1.7" ${F}/>`,
+    bureau: `<rect x="6" y="3.5" width="12" height="8" rx="1.5" ${F}/><path d="M12 11.5V15M3 15h18M5.5 15v5.5M18.5 15v5.5"/>`,
+    tv: `<rect x="3" y="5" width="18" height="12" rx="2.5" ${F}/><path d="M8 20.5l1-3.5M16 20.5l-1-3.5"/>`,
+    porte: `<rect x="6" y="3" width="12" height="18" rx="1.5" ${F}/><path d="M3 21h18"/><circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none"/>`,
+    velux: `<path d="M2.5 20.5L12 4l9.5 16.5z"/><rect x="9.3" y="10.5" width="5.4" height="6.5" rx="0.8" ${F}/><path d="M12 10.5V17M9.3 13.7h5.4"/>`,
   };
   let vueActive = 'ensemble';
   let vueGenerale = null; // 'dessus' | 'gauche' | 'droite' (menu de vues)
@@ -109,7 +110,7 @@ export function initialiserInteractions({
   for (const v of vues) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.innerHTML = icone(ICONES_VUES[v.id]);
+    b.innerHTML = icone(ICONES_VUES[v.id], 24);
     b.setAttribute('aria-label', v.label);
     b.title = v.label;
     b.addEventListener('click', () => {
