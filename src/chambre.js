@@ -121,13 +121,13 @@ export const decors = [
   {
     nom: 'affiche W Korea « Front Row » — Ningning (aespa)',
     description:
-      "Les trois couvertures de W Korea « Front Row » (volume 11, 2026) avec Ningning d'aespa : fond vert, portrait au manteau camel et costume prune. Accrochées en pile à côté de la porte, avec les trois spots juste au-dessus. Clique dessus pour changer de couverture : celle du dessus s'affaisse vers le bas, comme un mur qui s'abaisse, et laisse voir la suivante.",
+      "Les trois couvertures de W Korea « Front Row » (volume 11, 2026) avec Ningning d'aespa : fond vert, portrait au manteau camel et costume prune. Accrochées en pile à côté de la porte, avec les trois spots juste au-dessus. Clique dessus pour changer de couverture : celle du dessus se découpe en petits blocs qui s'affaissent en vague, comme nos murs qui s'abaissent, et laisse voir la suivante.",
     mur: 'ouest',
     s: 1.4,
     y: 1.594,
     taille: [0.62, 0.812], // la couverture entière, sans rognage (rapport 0,76)
     epaisseur: 0.012,
-    sens: 'chute', // la couverture du dessus s'affaisse vers le bas comme un mur qui s'abaisse
+    sens: 'chute', // la couverture du dessus tombe en petits blocs, comme un mur qui s'abaisse
     pages: ['/textures/w-ningning-vert.jpg', '/textures/w-ningning-brun.jpg', '/textures/w-ningning-rose.jpg'],
   },
   {

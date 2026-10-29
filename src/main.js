@@ -421,7 +421,7 @@ function animerMurs(dt) {
     if (a.ecraser) a.enveloppe.scale.y = Math.max(h / HAUTEUR_MUR, 0.001);
     const [bas, haut] = a.fondu;
     const fondu = THREE.MathUtils.clamp((h - bas) / (haut - bas), 0, 1) * (a.facteur ? a.facteur(dt) : 1);
-    for (const { materiau, opacite } of a.materiaux) materiau.opacity = opacite * fondu * (materiau.userData.facteur ?? 1);
+    for (const { materiau, opacite } of a.materiaux) materiau.opacity = opacite * fondu;
     a.enveloppe.visible = fondu > 0.001;
   }
 }
@@ -864,8 +864,8 @@ for (const d of decors) {
   } else if (d.pages) {
     // décor à pages : la page du dessous est fixe, celle du dessus part et laisse voir la suivante.
     // Calendrier : elle se tourne vers le haut autour de sa charnière et s'aplatit derrière ;
-    // couvertures (`sens: 'chute'`) : elle s'affaisse vers son bord bas avec le ressort des murs qui
-    // s'abaissent (petit rebond, puis elle s'écrase et s'efface).
+    // couvertures (`sens: 'chute'`) : elle est découpée en petits blocs qui s'écrasent chacun vers leur bord
+    // bas, en vague, avec le ressort des murs qui s'abaissent (petit rebond avant de tomber).
     const chute = d.sens === 'chute';
     const [w, h] = d.taille;
     const e = d.epaisseur;
@@ -885,25 +885,45 @@ for (const d of decors) {
     g.add(dessous);
 
     const charniere = new THREE.Group();
-    charniere.position.set(0, chute ? -h / 2 : h / 2, e + 0.0015); // le haut de la page (le bas pour une chute)
-    const devant = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDessus);
-    devant.position.set(0, chute ? h / 2 : -h / 2, 0);
-    devant.castShadow = true;
-    devant.receiveShadow = true;
-    const dos = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDos);
-    dos.position.set(0, -h / 2, -0.0004);
-    dos.rotation.y = Math.PI;
-    charniere.add(devant);
-    if (!chute) charniere.add(dos);
+    charniere.position.set(0, chute ? 0 : h / 2, e + 0.0015); // le haut de la page (le centre pour une chute)
+    const blocs = []; // chute : un bloc de la couverture, avec son propre ressort et son retard
+    if (chute) {
+      const [COLONNES, LIGNES] = [6, 8];
+      const [cw, ch] = [w / COLONNES, h / LIGNES];
+      for (let lig = 0; lig < LIGNES; lig++) {
+        for (let col = 0; col < COLONNES; col++) {
+          const geo = new THREE.PlaneGeometry(cw + 0.0006, ch + 0.0006); // léger recouvrement : pas de fente entre blocs
+          const uv = geo.attributes.uv;
+          for (let k = 0; k < uv.count; k++) uv.setXY(k, (col + uv.getX(k)) / COLONNES, 1 - (lig + 1 - uv.getY(k)) / LIGNES);
+          const morceau = new THREE.Mesh(geo, matDessus);
+          morceau.position.y = ch / 2;
+          morceau.receiveShadow = true;
+          const pivot = new THREE.Group(); // au bas du bloc : c'est vers lui qu'il s'écrase
+          pivot.position.set(-w / 2 + (col + 0.5) * cw, -h / 2 + (LIGNES - 1 - lig) * ch, 0);
+          pivot.add(morceau);
+          charniere.add(pivot);
+          const alea = Math.abs(Math.sin((lig * COLONNES + col + 1) * 12.9898)) % 1;
+          blocs.push({ pivot, r: { h: HAUTEUR_MUR, v: 0, cible: HAUTEUR_MUR }, delai: col * 0.07 + lig * 0.03 + alea * 0.08, parti: false, fini: false });
+        }
+      }
+    } else {
+      const devant = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDessus);
+      devant.position.set(0, -h / 2, 0);
+      devant.castShadow = true;
+      devant.receiveShadow = true;
+      const dos = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDos);
+      dos.position.set(0, -h / 2, -0.0004);
+      dos.rotation.y = Math.PI;
+      charniere.add(devant, dos);
+    }
     g.add(charniere);
 
-    const cal = { i: 0, t: -1, n: textes.length, tombe: false, r: { h: HAUTEUR_MUR, v: 0, cible: HAUTEUR_MUR } };
+    const cal = { i: 0, t: -1, n: textes.length, tombe: false, horloge: 0 };
     const tourner = () => {
       if (chute) {
         if (cal.tombe) return;
         cal.tombe = true;
-        cal.r.v += 2.6; // le même petit rebond avant de descendre que les murs
-        cal.r.cible = HAUTEUR_BORDURE;
+        cal.horloge = 0;
         return;
       }
       if (cal.t >= 0) return; // une page est déjà en train de tourner
@@ -918,15 +938,34 @@ for (const d of decors) {
     };
     calendriers.push((dt) => {
       if (cal.tombe) {
-        ressort(cal.r, Math.min(dt, 1) * 0.45); // plus lent que pour un mur : l'affiche doit se voir tomber
-        charniere.scale.y = Math.max(cal.r.h / HAUTEUR_MUR, 0.001);
-        matDessus.userData.facteur = THREE.MathUtils.clamp((cal.r.h - HAUTEUR_BORDURE) / 1.1, 0, 1); // s'efface comme un décor de mur, un peu plus tôt
-        if (cal.r.h < HAUTEUR_BORDURE + 0.04) {
-          // écrasée : la page suivante prend la place du dessus, une nouvelle apparaît dessous
+        cal.horloge += Math.min(dt, 1);
+        let reste = 0;
+        for (const b of blocs) {
+          if (b.fini) continue;
+          if (!b.parti && cal.horloge >= b.delai) {
+            b.parti = true;
+            b.r.v += 2.6; // le même petit rebond avant de descendre que les murs
+            b.r.cible = HAUTEUR_MIN;
+          }
+          if (b.parti) {
+            ressort(b.r, Math.min(dt, 1) * 0.6); // un peu plus lent que pour un mur : on doit voir chaque bloc tomber
+            b.pivot.scale.y = Math.max(b.r.h / HAUTEUR_MUR, 0.001);
+            if (b.r.h < 0.1) {
+              b.fini = true;
+              b.pivot.visible = false;
+            }
+          }
+          reste++;
+        }
+        if (!reste) {
+          // tous les blocs sont tombés : la page suivante prend la place du dessus, une nouvelle apparaît dessous
           passerALaSuivante();
-          cal.r = { h: HAUTEUR_MUR, v: 0, cible: HAUTEUR_MUR };
-          charniere.scale.y = 1;
-          matDessus.userData.facteur = 1;
+          for (const b of blocs) {
+            b.r = { h: HAUTEUR_MUR, v: 0, cible: HAUTEUR_MUR };
+            b.parti = b.fini = false;
+            b.pivot.scale.y = 1;
+            b.pivot.visible = true;
+          }
           cal.tombe = false;
         }
         return;
