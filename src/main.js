@@ -699,7 +699,6 @@ accrocher(['nord', 'est', 'ouest', 'sud'], plafond, { ecraser: false, fondu: FON
 // --- Décors plaqués sur les murs (affiches, porte) ---
 const texturesNommees = {
   couette: textures.couette(),
-  bazaar: textures.image('/textures/bazaar-jk.jpg'),
   mando: textures.affiche('mando'),
   calendrier: textures.image('/textures/calendrier.jpg'),
 };
@@ -727,8 +726,7 @@ const cliquables = [];
   veluxObjet.userData.info = infoVelux;
   cliquables.push(infoVelux);
 }
-const calendriers = []; // animations des calendriers à pages (appelées à chaque image)
-const infoCal = {};
+const calendriers = []; // animations des pages qui tournent (calendrier, couvertures), appelées à chaque image
 const promessesDecors = [];
 
 // Écran de la TV : une image animée qui ne s'affiche que quand elle est allumée.
@@ -835,6 +833,7 @@ for (const d of decors) {
   const g = new THREE.Group();
   let p;
   let r;
+  let tournerPage = null; // pour un décor à pages : fait tourner la page du dessus
   if (d.libre) {
     // Mur en biais : on décolle légèrement le décor le long de sa normale.
     r = d.libre.rotation;
@@ -863,8 +862,10 @@ for (const d of decors) {
         .catch((err) => console.warn(`Modèle introuvable pour « ${d.nom} » :`, err.message)),
     );
   } else if (d.pages) {
-    // calendrier à pages : la page du dessous est fixe, la page du dessus se tourne vers le haut
-    // autour de sa charnière et glisse derrière
+    // décor à pages : la page du dessous est fixe, la page du dessus se tourne autour de sa charnière et
+    // s'aplatit derrière. Calendrier : charnière en haut, la page part vers le haut ; couvertures
+    // (`sens: 'gauche'`) : charnière sur le bord gauche, la page s'ouvre comme celle d'un livre.
+    const gauche = d.sens === 'gauche';
     const [w, h] = d.taille;
     const e = d.epaisseur;
     const chassis = new THREE.Mesh(new THREE.BoxGeometry(w, h, e), mat('#ece6e2'));
@@ -883,13 +884,13 @@ for (const d of decors) {
     g.add(dessous);
 
     const charniere = new THREE.Group();
-    charniere.position.set(0, h / 2, e + 0.0015); // le haut de la page
+    charniere.position.set(gauche ? -w / 2 : 0, gauche ? 0 : h / 2, e + 0.0015); // le haut (ou le bord gauche) de la page
     const devant = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDessus);
-    devant.position.y = -h / 2;
+    devant.position.set(gauche ? w / 2 : 0, gauche ? 0 : -h / 2, 0);
     devant.castShadow = true;
     devant.receiveShadow = true;
     const dos = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDos);
-    dos.position.set(0, -h / 2, -0.0004);
+    dos.position.set(gauche ? w / 2 : 0, gauche ? 0 : -h / 2, -0.0004);
     dos.rotation.y = Math.PI;
     charniere.add(devant, dos);
     g.add(charniere);
@@ -904,21 +905,27 @@ for (const d of decors) {
       cal.t = Math.min(1, cal.t + dt / 0.85);
       const k = cal.t;
       const lisse = k * k * (3 - 2 * k);
-      charniere.rotation.x = -Math.PI * lisse; // vers l'avant puis par-dessus le haut
       // dans la dernière partie, la page s'aplatit contre le mur et disparaît
-      charniere.scale.y = 1 - THREE.MathUtils.smoothstep(k, 0.72, 1);
+      const aplat = 1 - THREE.MathUtils.smoothstep(k, 0.72, 1);
+      if (gauche) {
+        charniere.rotation.y = -Math.PI * lisse; // vers la pièce puis rabattue à gauche
+        charniere.scale.x = aplat;
+      } else {
+        charniere.rotation.x = -Math.PI * lisse; // vers l'avant puis par-dessus le haut
+        charniere.scale.y = aplat;
+      }
       if (cal.t >= 1) {
         cal.i = (cal.i + 1) % cal.n;
         matDessus.map = textes[cal.i];
         matDessous.map = textes[(cal.i + 1) % cal.n];
         matDessus.needsUpdate = true;
         matDessous.needsUpdate = true;
-        charniere.rotation.x = 0;
-        charniere.scale.y = 1;
+        charniere.rotation.set(0, 0, 0);
+        charniere.scale.set(1, 1, 1);
         cal.t = -1;
       }
     });
-    infoCal.tourner = tourner;
+    tournerPage = tourner;
   } else if (d.epaisseur) {
     // affiche : un châssis sombre derrière l'image
     const [w, h] = d.taille;
@@ -952,9 +959,9 @@ for (const d of decors) {
       groupe: g,
       normale: new THREE.Vector3(Math.sin(r), 0, Math.cos(r)), // côté pièce
     };
-    if (d.pages) {
-      info.auClic = () => infoCal.tourner();
-      info.actions = [{ label: 'Page suivante', fn: () => infoCal.tourner() }];
+    if (tournerPage) {
+      info.auClic = tournerPage;
+      info.actions = [{ label: 'Page suivante', fn: tournerPage }];
     }
     g.userData.info = info;
     cliquables.push(info);
@@ -970,11 +977,12 @@ const adhesif = new THREE.MeshStandardMaterial({ color: '#efe3b8', roughness: 0.
 const posters = [];
 for (const groupe of photosMur) {
   if (groupe.posters) {
-    for (const q of groupe.posters) posters.push({ mur: groupe.mur, fichier: q.fichier, s: q.s, y: q.y, w: q.taille[0], h: q.taille[1] });
+    for (const q of groupe.posters) posters.push({ lot: groupe, mur: groupe.mur, fichier: q.fichier, s: q.s, y: q.y, w: q.taille[0], h: q.taille[1] });
   } else {
     const [w, h] = groupe.cadre;
     groupe.fichiers.forEach((fichier, i) => {
       posters.push({
+        lot: groupe,
         mur: groupe.mur,
         fichier,
         s: groupe.s0 + (i % groupe.colonnes) * groupe.pas[0],
@@ -986,6 +994,8 @@ for (const groupe of photosMur) {
   }
 }
 
+// un clic sur une photo cadre tout son mur de photos : une seule fiche par lot, partagée par ses posters
+const infosLots = new Map();
 posters.forEach((q, i) => {
   const { w, h } = q;
   const g = new THREE.Group();
@@ -1012,6 +1022,21 @@ posters.forEach((q, i) => {
   }
   racine.add(g);
   accrocher(q.mur, g);
+
+  let info = infosLots.get(q.lot);
+  if (!info) {
+    info = {
+      nom: q.lot.nom,
+      description: q.lot.description,
+      groupe: g,
+      groupes: [],
+      normale: new THREE.Vector3(Math.sin(r), 0, Math.cos(r)), // côté pièce
+    };
+    infosLots.set(q.lot, info);
+    cliquables.push(info);
+  }
+  info.groupes.push(g);
+  g.userData.info = info;
 
   chargeurTex.load(textures.chemin(q.fichier), (t) => {
     t.colorSpace = THREE.SRGBColorSpace;
@@ -1170,7 +1195,7 @@ for (const o of objetsVitrine) {
     g.add(couche);
     racine.add(g);
     hauteur += d + 0.0004; // un tout petit jeu pour éviter le scintillement entre deux couvertures
-    const info = { nom: mg.nom, description: mg.description, groupe: g };
+    const info = { nom: mg.nom, description: mg.description, groupe: g, aPlat: true };
     g.userData.info = info;
     cliquables.push(info);
   }

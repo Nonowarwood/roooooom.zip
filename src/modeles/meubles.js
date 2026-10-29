@@ -50,10 +50,8 @@ function bande(points, x, ep, larg, materiau) {
 
 // Oreiller : un coussin bombé au centre, aux bords et aux coins pincés (là où la taie est
 // cousue), avec de petits plis. Dimensions : l (x), h (hauteur au centre), p (z).
-// `appui(x, z)` (facultatif) donne la hauteur du support sous l'oreiller : le dessous épouse alors
-// ce support (couette d'un côté, matelas de l'autre) au lieu de la lentille, qui s'enfoncerait.
-function oreiller(l, h, p, materiau, [x, yBas, z], graine = 1, appui = null) {
-  const geo = new THREE.BoxGeometry(l, h, p, 24, 4, 24);
+function oreiller(l, h, p, materiau, [x, yBas, z], graine = 1) {
+  const geo = new THREE.BoxGeometry(l, h, p, 12, 4, 16);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const vx = pos.getX(i);
@@ -64,13 +62,7 @@ function oreiller(l, h, p, materiau, [x, yBas, z], graine = 1, appui = null) {
     const e = (nx ** 2 + nz ** 2) / 2; // 0 au centre, 1 sur le bord
     const bombe = Math.max(0.1, Math.sqrt(Math.max(0, 1 - e))); // coupe en lentille : épais au milieu, fin au bord
     const pli = 0.003 * Math.sin(vx * 38 + graine) * Math.sin(vz * 31 + graine * 2);
-    let y = vy * bombe + pli;
-    if (appui) {
-      const bas = appui(x + vx, z + vz) - (yBas + h / 2) + 0.004; // dessous : collé au support
-      const haut = bas + Math.max(0.035, h * bombe); // dessus : épais au centre, mince au bord, mesuré depuis le support
-      y = bas + ((vy / h + 0.5) * (haut - bas)) + pli;
-    }
-    pos.setXYZ(i, vx * (1 - 0.04 * nz ** 2), y, vz * (1 - 0.05 * nx ** 2));
+    pos.setXYZ(i, vx * (1 - 0.04 * nz ** 2), vy * bombe + pli, vz * (1 - 0.05 * nx ** 2));
   }
   geo.computeVertexNormals();
   const m = new THREE.Mesh(geo, materiau);
@@ -119,11 +111,8 @@ function lit() {
     tissu([1.94, 0.29, 1.52], m.drap, [-0.015, 0.2, 0], { r: 0.05, froissement: 0.002, divisions: [8, 2, 8] }),
     // couette : plus large que le matelas, elle descend jusque dans les rebords (qui s'arrêtent à 34 cm) : plus de fente
     tissu([1.64, 0.27, 1.66], m.couette, [-0.22, 0.32, 0], { r: 0.05, froissement: 0.01, graine: 3, uvDessus: refCouette, divisions: [26, 4, 28] }),
-    // un seul oreiller, contre la tête de lit : il repose à la fois sur le bout de la couette (x < 0,6) et sur le matelas nu
-    oreiller(0.5, 0.2, 0.7, m.oreillerOrange, [0.72, 0.48, 0], 5, (x) => {
-      const t = Math.min(1, Math.max(0, (x - 0.55) / 0.12));
-      return 0.601 + (0.494 - 0.601) * t * t * (3 - 2 * t); // dessus de la couette (+ plis) → dessus du matelas
-    }),
+    // un seul oreiller, au centre du lit, contre la tête de lit
+    oreiller(0.5, 0.2, 0.7, m.oreillerOrange, [0.76, 0.48, 0], 5),
     // les deux lattes (basse et haute) et les barres derrière
     boite([0.03, 0.18, 1.76], m.chene, [1.065, 0.42, 0], { r: 0.008 }),
     boite([0.03, 0.2, 1.76], m.chene, [1.065, 0.7, 0], { r: 0.008 }),

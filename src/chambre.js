@@ -119,15 +119,16 @@ export const decors = [
     couleur: '#e9eef4',
   },
   {
-    nom: "affiche Harper's Bazaar Korea (juin 2026)",
+    nom: 'affiche W Korea « Front Row » — Ningning (aespa)',
     description:
-      "Couverture de Harper's Bazaar Korea, numéro de juin 2026 (les lettres « J » et « K » en bas), affichée en poster à côté de la porte, avec les trois spots juste au-dessus.",
+      "Les trois couvertures de W Korea « Front Row » (volume 11, 2026) avec Ningning d'aespa : fond vert, portrait au manteau camel et costume prune. Accrochées en pile à côté de la porte, avec les trois spots juste au-dessus. Clique dessus pour tourner la page : la couverture du dessus pivote vers la gauche comme une page de livre et laisse voir la suivante.",
     mur: 'ouest',
     s: 1.4,
     y: 1.594,
     taille: [0.62, 0.812], // la couverture entière, sans rognage (rapport 0,76)
     epaisseur: 0.012,
-    texture: 'bazaar',
+    sens: 'gauche', // charnière sur le bord gauche, la page s'ouvre vers la pièce
+    pages: ['/textures/w-ningning-vert.jpg', '/textures/w-ningning-brun.jpg', '/textures/w-ningning-rose.jpg'],
   },
   {
     nom: 'calendrier aespa 2027',
@@ -162,6 +163,8 @@ export const photosMur = [
   {
     // au-dessus du bureau : les 9 portraits en grille 3 × 3, dans l'ordre de tes fichiers (1 à 9 sur le Bureau)
     mur: 'nord',
+    nom: 'mur de photos : les 9 portraits',
+    description: "Les neuf portraits scotchés en grille 3 × 3 au-dessus du bureau.",
     colonnes: 3,
     cadre: [0.3, 0.4], // largeur, hauteur d'une photo (tes portraits sont en 3:4)
     pas: [0.35, 0.44], // distance entre deux centres
@@ -173,6 +176,8 @@ export const photosMur = [
     // au-dessus du lit : les visuels en paysage, en grand. Le toit descend côté sud (z > 2,3),
     // donc le plus grand est au nord, et la rangée du bas va jusqu'à z = 2,76.
     mur: 'est',
+    nom: 'posters au-dessus du lit',
+    description: 'Les trois grands visuels en paysage collés au mur est, au-dessus de la tête de lit : la photo de groupe en haut, deux autres en dessous.',
     posters: [
       { fichier: '/photos/l3.jpg', s: 1.85, y: 2.03, taille: [0.86, 0.614] }, // photo de groupe
       { fichier: '/photos/l1.jpg', s: 1.74, y: 1.43, taille: [0.64, 0.457] },

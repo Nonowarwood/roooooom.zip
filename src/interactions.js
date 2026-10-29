@@ -115,6 +115,7 @@ export function initialiserInteractions({
     b.title = v.label;
     b.addEventListener('click', () => {
       vueActive = v.id;
+      eteindre();
       majVues();
       vueGenerale = null;
       majMenu();
@@ -274,12 +275,50 @@ export function initialiserInteractions({
     return murs4[0][1];
   }
 
+  // --- Petit projecteur : sur ce qu'on vient de cliquer, comme une lampe de tableau ---
+  // Les photos et les objets reçoivent peu de lumière dans la pièce : le temps d'un regard de près, une
+  // lumière douce, sans ombre, les éclaire. Elle s'éteint si on clique ailleurs, si on choisit une vue ou si
+  // on s'éloigne. Elle reste dans la scène en permanence (intensité 0 quand elle est éteinte) : ajouter ou
+  // retirer une lumière obligerait à recompiler tous les matériaux.
+  const projecteur = new THREE.SpotLight('#fff0dc', 0, 0, 0.4, 0.95, 2);
+  const scene = racine.parent;
+  scene.add(projecteur, projecteur.target);
+  const eclat = { v: 0, cible: 0, info: null, intensite: 0, pos: new THREE.Vector3(), centre: new THREE.Vector3(), rayon: 0, angle: 0.4 };
+  const eteindre = () => {
+    eclat.cible = 0;
+  };
+  function eclairer(info, boite, centre, position) {
+    const taille = boite.getSize(new THREE.Vector3());
+    if (Math.max(taille.x, taille.y, taille.z) > 1.5) return eteindre(); // un grand meuble n'a pas besoin de projecteur
+    eclat.info = info;
+    eclat.rayon = taille.length() / 2;
+    eclat.centre.copy(centre);
+    eclat.pos.copy(position).y += 0.3; // un peu au-dessus de l'œil, comme une lampe de tableau
+    const d = eclat.pos.distanceTo(centre);
+    eclat.angle = THREE.MathUtils.clamp(Math.atan((eclat.rayon * 1.25) / d), 0.1, 0.8);
+    eclat.intensite = 3 * d * d; // l'éclairement au centre reste le même quelle que soit la distance
+    eclat.cible = 1;
+    if (eclat.v < 0.03) {
+      projecteur.position.copy(eclat.pos);
+      projecteur.angle = eclat.angle;
+      projecteur.target.position.copy(centre);
+    }
+  }
+  const boiteDe = (info) => {
+    const b = new THREE.Box3();
+    for (const g of info.groupes ?? [info.groupe]) b.expandByObject(g);
+    return b;
+  };
+
   function recentrer(info) {
-    if (info.sansRecentrage) return;
-    const boite = new THREE.Box3().setFromObject(info.groupe);
+    if (info.sansRecentrage) return eteindre();
+    const boite = boiteDe(info);
     if (boite.isEmpty()) return;
     const centre = boite.getCenter(new THREE.Vector3());
-    if (dernierCentrage === info && !focus && !vers && controls.target.distanceTo(centre) < 0.15) return; // déjà cadré
+    if (dernierCentrage === info && !focus && !vers && controls.target.distanceTo(centre) < 0.15) {
+      if (eclat.info === info) eclat.cible = 1; // déjà cadré : on rallume juste le projecteur
+      return;
+    }
 
     const plat = !!info.normale;
     const face = plat ? new THREE.Vector3(info.normale.x, 0, info.normale.z).normalize() : cotePiece(centre);
@@ -289,7 +328,7 @@ export function initialiserInteractions({
       const cote = Math.sign(tmp.crossVectors(face, vers_cam).y) || 1;
       face.applyAxisAngle(HAUT, cote * THREE.MathUtils.degToRad(35));
     }
-    const elevation = THREE.MathUtils.degToRad(plat ? 6 : 26);
+    const elevation = THREE.MathUtils.degToRad(plat ? 6 : info.aPlat ? 58 : 26); // à plat (magazines) : vu d'assez haut
     const dir = face.clone().multiplyScalar(Math.cos(elevation)).setY(Math.sin(elevation)).normalize();
 
     // distance qui fait tenir les huit coins de la boîte dans le champ de vision
@@ -304,7 +343,7 @@ export function initialiserInteractions({
       const marge = 0.76;
       distance = Math.max(distance, c.dot(dir) + Math.max(Math.abs(c.dot(droite)) / (tanH * marge), Math.abs(c.dot(haut)) / (tanV * marge)));
     }
-    distance = THREE.MathUtils.clamp(distance, 0.9, 7);
+    distance = THREE.MathUtils.clamp(distance, info.aPlat ? 0.6 : 0.9, 7);
 
     const position = centre.clone().addScaledVector(dir, distance);
     position.x = THREE.MathUtils.clamp(position.x, -demiX + 0.12, demiX - 0.12);
@@ -314,6 +353,7 @@ export function initialiserInteractions({
     majVues();
     dernierCentrage = info;
     allerA(position, centre, 1.0, fov);
+    eclairer(info, boite, centre, position);
   }
 
   // --- Clic dans la scène ---
@@ -327,14 +367,14 @@ export function initialiserInteractions({
   }
 
   // Ce qui réagit au clic : une action propre (calendrier, store…) ou une lumière à allumer/éteindre.
-  const reagit = (info) => !!(info.auClic || info.interrupteur);
+  const reagit = (info) => !!(info.auClic || info.interrupteur || !info.sansRecentrage);
 
   // Renvoie ce que le pointeur vise : un meuble ou un décor, ou rien. Un mur
   // debout bloque la vue ; un mur abaissé laisse passer.
   function viser() {
     raycaster.setFromCamera(pointeur, camera);
     const objets = [];
-    for (const c of cliquables) c.groupe.traverse((o) => o.isMesh && objets.push(o));
+    for (const c of cliquables) for (const g of c.groupes ?? [c.groupe]) g.traverse((o) => o.isMesh && objets.push(o));
     for (const mur of Object.values(murs)) for (const t of mur.tuiles) objets.push(t.mesh);
     for (const hit of raycaster.intersectObjects(objets, false)) {
       if (!visible(hit.object)) continue;
@@ -366,7 +406,7 @@ export function initialiserInteractions({
     if (!court || !immobile) return; // c'était un glissement : on tournait la caméra
     placerPointeur(e);
     const info = viser();
-    if (!info) return;
+    if (!info) return eteindre();
     recentrer(info);
     if (info.auClic) info.auClic(); // ex. le calendrier tourne sa page, le store du Velux se ferme
     else if (info.interrupteur) basculer(info.interrupteur);
@@ -387,6 +427,18 @@ export function initialiserInteractions({
   let signature = '';
   function maj(dt) {
     temps += dt;
+
+    // projecteur : fondu, léger glissement vers le nouvel objet, et extinction si on s'en éloigne
+    if (eclat.cible > 0 && !focus && !vers) {
+      const loin = controls.target.distanceTo(eclat.centre) > eclat.rayon + 0.6 || camera.position.distanceTo(eclat.centre) > 4.5;
+      if (loin) eteindre();
+    }
+    const kEclat = 1 - Math.exp(-5 * dt);
+    eclat.v += (eclat.cible - eclat.v) * kEclat;
+    projecteur.intensity = eclat.v * eclat.intensite;
+    projecteur.position.lerp(eclat.pos, kEclat);
+    projecteur.angle += (eclat.angle - projecteur.angle) * kEclat;
+    projecteur.target.position.lerp(eclat.centre, kEclat);
 
     if (focus) {
       focus.t = Math.min(focus.duree, focus.t + dt);
