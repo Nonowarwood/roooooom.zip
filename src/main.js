@@ -665,7 +665,6 @@ function animerStore(dt) {
   texStore.offset.set(0, -NB_PLIS * f); // et restent alignés sur le haut
   barreStore.position.y = yHautStore - hStore * f - 0.008;
   ajusterVitre();
-  appliquerLumiereJour();
   appliquerLumiereJour(); // fermer le store coupe la lumière du jour
 }
 
@@ -1504,7 +1503,9 @@ let manuel = false;
 // céleste) baisse quand le store se ferme. Fermé en plein jour, il ne reste que 35 % de la lumière.
 const baseLumiere = { f: 0, soleil: 0, ambiante: 0, hemi: 0 };
 function appliquerLumiereJour() {
-  const k = 1 - 0.65 * etatStore.f * baseLumiere.f;
+  // le store ne coupe que la vraie lumière du jour : rien à la nuit ni à la tombée, puis de plus en plus
+  const jour = clamp01((baseLumiere.f - 0.3) / 0.7);
+  const k = 1 - 0.65 * etatStore.f * jour * jour * (3 - 2 * jour);
   soleil.intensity = baseLumiere.soleil * k;
   ambiante.intensity = baseLumiere.ambiante * k;
   hemi.intensity = baseLumiere.hemi * k;
@@ -1556,6 +1557,7 @@ function appliquerHeure(heure) {
 
   veluxMat.userData.base = 0.15 + 0.85 * f;
   ajusterVitre();
+  appliquerLumiereJour(); // les intensités de l'heure, réduites si le store est fermé en plein jour
   veluxMat.emissive.set(f > 0.3 ? '#bfe3ff' : '#0b1230');
   veluxMat.color.copy(veluxMat.emissive);
 
@@ -1652,6 +1654,7 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+
 
 
 

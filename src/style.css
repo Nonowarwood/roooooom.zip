@@ -129,18 +129,6 @@ html, body {
   white-space: nowrap;
 }
 
-.aide {
-  position: absolute;
-  top: calc(112px + env(safe-area-inset-top));
-  left: 0;
-  right: 0;
-  text-align: center;
-  margin: 0;
-  font-size: 12px;
-  opacity: 0.6;
-  pointer-events: none;
-}
-
 .chargement {
   position: absolute;
   inset: 0;
@@ -208,7 +196,6 @@ html, body {
 .lumieres button.auto.actif { background: var(--prune); opacity: 1; }
 
 @media (max-width: 760px) {
-  .aide { display: none; }
   .vues { max-width: calc(100vw - 32px); }
 }
 
