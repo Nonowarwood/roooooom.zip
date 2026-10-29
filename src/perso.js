@@ -3,12 +3,15 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { chemin } from './textures.js';
 
-// Mode secret : un tout petit bonhomme qu'on promène dans la chambre, vue de derrière.
-// On y entre par trois clics rapides sur un des petits avions du mobile (voir main.js).
-// Flèches ou ZQSD pour marcher (haut/bas avance, gauche/droite tourne), Espace pour sauter, E pour agir
-// sur ce qui est devant lui (porte, lumières, store, calendrier…), Échap pour sortir. La souris (ou le
-// doigt) fait tourner la caméra autour de lui, la molette règle la distance. Sur téléphone : un joystick et
-// deux boutons « Agir » et « Saut ». Le personnage vit dans le repère de la pièce (x ouest→est, z nord→sud).
+// Mode secret : un tout petit bonhomme qu'on promène dans la chambre, à la troisième personne, avec un
+// déplacement inspiré de Deadlock : le bonhomme reste au centre de l'écran, la souris oriente la caméra,
+// et les touches sont RELATIVES À LA CAMÉRA (Z/↑ avance vers où l'on regarde, Q/D se décale, S recule).
+// Il garde son élan (accélération, inertie, contrôle réduit en l'air), sprinte (Maj), glisse (Ctrl ou C),
+// saute et fait un double saut avec un petit dash (Espace, deux fois). E agit sur ce qui est devant lui
+// (porte, lumières, store, calendrier…), Échap sort. On y entre par trois clics rapides sur un des petits
+// avions du mobile (voir main.js). Un clic dans la scène capte la souris ; Échap la rend, un second Échap quitte.
+// Sur téléphone : un joystick pour bouger, un glissé du doigt pour regarder, et les boutons « Agir » et « Saut ».
+// Le personnage vit dans le repère de la pièce (x ouest→est, z nord→sud).
 //
 // Le modèle est « Frutiger aero character v2 » (public/models/perso.glb), un bonhomme vert brillant sans
 // squelette : le dandinement, l'inclinaison et l'écrasement sont faits ici, en code.
@@ -17,16 +20,24 @@ import { chemin } from './textures.js';
 // Hauteur maximale d'un saut, en mètres. Pour monter dessus : la chaise (0,45), le lit (0,6), le bureau
 // (0,75) et la commode (1,0) demandent un saut d'au moins leur hauteur.
 const HAUTEUR_SAUT = 1.15;
+const DOUBLE_SAUT = 0.8; // le second saut, en l'air, monte de cette part de la hauteur du premier
+const DASH_AIR = 1.6; // m/s ajoutés dans la direction visée par le double saut
 const GRAVITE = 9.8; // m/s² : moins = des sauts plus longs et plus flottants
-const VITESSE = 0.95; // m/s à pied
-const TOURNE = 2.7; // rad/s
+const VITESSE = 1.1; // m/s à pied
+const SPRINT = 1.75; // facteur de vitesse avec Maj
+const GLISSADE = 2.9; // m/s au départ d'une glissade (Ctrl ou C pendant qu'il court)
+const DUREE_GLISSADE = 0.85; // secondes
+const ACCELERATION = 11; // plus c'est grand, plus il démarre et s'arrête vite au sol
+const CONTROLE_AIR = 2.6; // idem en l'air : petit = il garde son élan et se redirige peu
+const SENSIBILITE = 0.0022; // souris, radians par pixel
 const TAILLE = 0.3; // hauteur du bonhomme, en mètres
 // ↑↑↑
 
 export function creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece }) {
   const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
   const RAYON = 0.1; // épaisseur du bonhomme pour les collisions (les bras dépassent un peu du corps)
-  const CORPS = TAILLE + 0.03; // hauteur occupée, pour passer sous un meuble ou se cogner la tête
+  const CORPS_DEBOUT = TAILLE + 0.03; // hauteur occupée, pour passer sous un meuble ou se cogner la tête
+  let CORPS = CORPS_DEBOUT; // plus basse pendant une glissade
   const MARCHE = 0.08; // il monte tout seul une marche de cette hauteur
 
   // --- Le bonhomme ---
@@ -162,12 +173,19 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   let enAir = false;
   let airLisse = 0; // 0 au sol, 1 en l'air (lissé, pour l'étirement)
   let atterri = 1; // chronomètre de l'écrasement à l'arrivée (1 = terminé)
-  let saute = false;
+  let sauts = 0; // appuis sur Espace en attente (deux appuis rapides = saut puis double saut)
+  let doubleFait = false; // le double saut n'a lieu qu'une fois par vol
+  let glisseEn = 0; // temps restant de la glissade
+  let veutGlisser = false;
+  let squat = 1; // 1 debout, ~0,5 en glissade (lissé)
+  let fovVoulu = 62;
+  const vit = new THREE.Vector2(); // vitesse horizontale (x, z), avec son inertie
   let tangage = 0.3; // hauteur de la caméra autour de lui (radians au-dessus de l'horizontale)
   let distance = 0.82;
   let dernierGlisse = -10; // moment du dernier glissé de souris : la caméra ne le contrarie pas tout de suite
-  let cap = 0; // direction du bonhomme : devant lui = (sin cap, cos cap)
-  let capCamera = 0;
+  let cap = 0; // direction du bonhomme : devant lui = (sin cap, cos cap), tourné vers où il va
+  let capCamera = 0; // direction de la caméra, pilotée par la souris
+  let verrou = false; // souris captée (pointer lock)
   const pos = new THREE.Vector3();
   let phase = 0;
   let allure = 0; // 0 à l'arrêt, 1 en marche (lissé)
@@ -193,12 +211,17 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     else if (cible.interrupteur) basculer(cible.interrupteur);
   }
   window.addEventListener('keydown', (e) => {
-    if (!actif || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
+    if (!actif || e.metaKey || e.altKey || (e.ctrlKey && k !== 'control')) return;
     if (k === 'escape') return desactiver();
+    if (k === 'control' || k === 'c') {
+      e.preventDefault();
+      if (!e.repeat) veutGlisser = true;
+      return;
+    }
     if (k === ' ') {
       e.preventDefault();
-      if (!e.repeat) saute = true;
+      if (!e.repeat) sauts = Math.min(2, sauts + 1);
       return;
     }
     if (k === 'e' || k === 'enter') {
@@ -206,7 +229,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       if (!e.repeat) agir();
       return;
     }
-    if (Object.values(NOMS_TOUCHES).some((l) => l.includes(k))) {
+    if (k === 'shift' || Object.values(NOMS_TOUCHES).some((l) => l.includes(k))) {
       e.preventDefault();
       touche.add(k);
     }
@@ -215,29 +238,50 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   window.addEventListener('blur', () => touche.clear());
   el.quitter.addEventListener('click', () => desactiver());
   el.agir.addEventListener('click', agir);
-  el.saut.addEventListener('click', () => (saute = true));
+  el.saut.addEventListener('click', () => (sauts = Math.min(2, sauts + 1)));
   // les boutons ne gardent pas le focus : Espace ne doit pas les « cliquer » à la place du saut
   for (const b of [el.quitter, el.agir, el.saut]) b.addEventListener('pointerdown', (e) => e.preventDefault());
 
-  // la souris (ou un doigt) fait tourner la caméra autour de lui ; la molette change la distance
+  // la souris oriente la caméra (un clic dans la scène la capte) ; sans souris captée ou au doigt, on glisse ;
+  // la molette change la distance
   const canvas = controls.domElement;
+  const regarder = (dx, dy, k) => {
+    capCamera -= (dx || 0) * k;
+    tangage = THREE.MathUtils.clamp(tangage + (dy || 0) * k * 0.8, -0.2, 1.25);
+    dernierGlisse = temps;
+  };
   let glisse = null;
   canvas.addEventListener('pointerdown', (e) => {
     if (!actif) return;
+    if (e.pointerType === 'mouse' && !verrou) {
+      try {
+        canvas.requestPointerLock?.()?.catch?.(() => {}); // refusé (iframe, aperçu…) : on garde le glissé
+      } catch {
+        /* pas de souris captée : le glissé suffit */
+      }
+    }
     glisse = { id: e.pointerId, x: e.clientX, y: e.clientY };
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* le pointeur a déjà été capté ou relâché */
+    }
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!actif || !glisse || e.pointerId !== glisse.id) return;
-    capCamera -= (e.clientX - glisse.x) * 0.006;
-    tangage = THREE.MathUtils.clamp(tangage + (e.clientY - glisse.y) * 0.004, -0.15, 1.2);
+    if (!actif) return;
+    if (verrou) return regarder(e.movementX, e.movementY, SENSIBILITE);
+    if (!glisse || e.pointerId !== glisse.id) return;
+    regarder(e.clientX - glisse.x, e.clientY - glisse.y, 0.006);
     glisse.x = e.clientX;
     glisse.y = e.clientY;
-    dernierGlisse = temps;
   });
   const finGlisse = (e) => glisse && e.pointerId === glisse.id && (glisse = null);
   canvas.addEventListener('pointerup', finGlisse);
   canvas.addEventListener('pointercancel', finGlisse);
+  document.addEventListener('pointerlockchange', () => {
+    verrou = document.pointerLockElement === canvas;
+    texteAide();
+  });
   canvas.addEventListener(
     'wheel',
     (e) => {
@@ -247,6 +291,11 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     },
     { passive: false },
   );
+  function texteAide() {
+    el.aide.textContent = verrou
+      ? 'ZQSD : bouger · Souris : caméra · Maj : sprint · Espace : sauter (2×) · Ctrl : glisser · E : agir · Échap : libérer la souris'
+      : (touches ? 'Joystick : bouger · Glisse le doigt : regarder' : 'Clique dans la scène pour piloter la caméra à la souris · ZQSD : bouger · Maj : sprint · Espace : sauter (2×) · Ctrl : glisser · E : agir · Échap : quitter');
+  }
 
   // joystick tactile : on glisse le pouce dans le rond
   let doigt = null;
@@ -301,13 +350,19 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     pos.set(x, 0, z);
     alt = vy = 0;
     enAir = false;
-    saute = false;
+    sauts = 0;
+    doubleFait = false;
+    glisseEn = 0;
+    veutGlisser = false;
+    squat = 1;
+    vit.set(0, 0);
     tangage = 0.3;
-    distance = 0.82;
+    distance = 1.0;
     cap = capCamera = Math.atan2(W / 2 - x, D / 2 - z);
     perso.position.copy(pos);
     perso.rotation.y = cap;
     perso.visible = true;
+    texteAide();
     el.aide.hidden = false;
     el.quitter.hidden = false;
     if (touches) el.stick.hidden = el.agir.hidden = el.saut.hidden = false;
@@ -327,33 +382,33 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     controls.maxPolarAngle = maxPolaireAvant;
     interactions.bloquer(false);
     // retour à la vue d'ensemble, par le trajet habituel de la caméra
+    document.exitPointerLock?.();
     document.querySelector('#vues button')?.click();
     camera.fov = fovAvant;
     camera.updateProjectionMatrix();
   }
 
   // --- Caméra autour de lui ---
-  // Elle se place derrière lui, à la distance et à la hauteur choisies à la souris. `suit` : elle revient
-  // doucement derrière son dos quand il marche ou tourne, sauf juste après un glissé de souris.
-  function suivreCamera(dt, suit) {
-    const k = 1 - Math.exp(-9 * dt);
-    if (suit && temps - dernierGlisse > 1) {
-      const ecart = THREE.MathUtils.euclideanModulo(cap - capCamera + Math.PI, Math.PI * 2) - Math.PI;
-      capCamera += ecart * (1 - Math.exp(-3.2 * dt));
-    }
+  // Elle reste derrière lui à la distance et à l'inclinaison choisies à la souris ; il est au centre de
+  // l'écran, avec un léger décalage d'épaule. Rien ne la ramène derrière son dos : c'est lui qui se tourne
+  // vers où il va.
+  function suivreCamera(dt) {
+    const k = 1 - Math.exp(-20 * dt);
     const [sx, cz] = [Math.sin(capCamera), Math.cos(capCamera)];
-    const hy = alt + TAILLE * 0.75; // le point visé : sa tête
+    const hy = alt + TAILLE * 0.6 * squat; // le point visé : le milieu de son corps
     const [horiz, vert] = [Math.cos(tangage) * distance, Math.sin(tangage) * distance];
+    const epaule = 0.06; // vers la droite de l'écran : lui un peu à gauche du viseur
+    const [rx, rz] = [-cz, sx];
     // on se rapproche de lui tant que la caméra serait dans un mur, sous le toit ou dans un meuble
     let t = 1;
     for (; t > 0.2; t -= 0.07) {
-      if (cameraLibre(pos.x - sx * horiz * t, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t)) break;
+      if (cameraLibre(pos.x - sx * horiz * t + rx * epaule, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t + rz * epaule)) break;
     }
-    cameraVoulue.set(pos.x - sx * horiz * t, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t).add(racine.position);
-    regardVoulu.set(pos.x + sx * 0.18, hy - 0.04, pos.z + cz * 0.18).add(racine.position);
+    cameraVoulue.set(pos.x - sx * horiz * t + rx * epaule, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t + rz * epaule).add(racine.position);
+    regardVoulu.set(pos.x + rx * epaule * 0.5 + sx * 0.25, hy, pos.z + rz * epaule * 0.5 + cz * 0.25).add(racine.position);
     camera.position.lerp(cameraVoulue, k);
     controls.target.lerp(regardVoulu, k);
-    camera.fov += (62 - camera.fov) * k;
+    camera.fov += (fovVoulu - camera.fov) * (1 - Math.exp(-6 * dt));
     camera.updateProjectionMatrix();
   }
 
@@ -387,26 +442,77 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   function maj(dt) {
     if (!actif) return;
     temps += dt;
-    let avance = (presse('haut') ? 1 : 0) - (presse('bas') ? 0.5 : 0) - stick.y;
-    let tourne = (presse('gauche') ? 1 : 0) - (presse('droite') ? 1 : 0) - stick.x;
-    avance = THREE.MathUtils.clamp(avance, -0.5, 1);
-    tourne = THREE.MathUtils.clamp(tourne, -1, 1);
-    cap += tourne * TOURNE * dt * (avance !== 0 ? 0.85 : 1);
-    const pas = avance * VITESSE * dt;
-    if (pas !== 0) {
-      const [nx, nz] = [pos.x + Math.sin(cap) * pas, pos.z + Math.cos(cap) * pas];
-      // si le chemin est bloqué on glisse le long de l'obstacle, un axe après l'autre
-      if (libre(nx, nz, alt)) pos.set(nx, 0, nz);
-      else if (libre(nx, pos.z, alt)) pos.x = nx;
-      else if (libre(pos.x, nz, alt)) pos.z = nz;
+
+    // l'intention : les touches sont relatives à la caméra (avant = là où on regarde)
+    let ix = (presse('droite') ? 1 : 0) - (presse('gauche') ? 1 : 0) + stick.x;
+    let iz = (presse('haut') ? 1 : 0) - (presse('bas') ? 1 : 0) - stick.y;
+    const n = Math.hypot(ix, iz);
+    if (n > 1) [ix, iz] = [ix / n, iz / n];
+    const [fx, fz] = [Math.sin(capCamera), Math.cos(capCamera)];
+    const [dirX, dirZ] = [fx * iz - fz * ix, fz * iz + fx * ix]; // devant = (fx, fz), à droite = (-fz, fx)
+    const intention = Math.hypot(dirX, dirZ);
+    const sprint = touche.has('shift') && intention > 0.1 && !enAir && glisseEn <= 0;
+
+    // glissade : un élan au départ d'une course, qui s'éteint tout seul
+    if (veutGlisser) {
+      veutGlisser = false;
+      if (!enAir && glisseEn <= 0 && vit.length() > 0.7) {
+        glisseEn = DUREE_GLISSADE;
+        vit.normalize().multiplyScalar(GLISSADE);
+      }
+    }
+    CORPS = glisseEn > 0 ? CORPS_DEBOUT * 0.5 : CORPS_DEBOUT;
+
+    // vitesse horizontale, avec son inertie : vive au sol, presque inchangée en l'air
+    if (glisseEn > 0) {
+      glisseEn -= dt;
+      vit.multiplyScalar(Math.exp(-1.6 * dt));
+      vit.x += dirX * 1.2 * dt; // on peut un peu infléchir la glissade
+      vit.y += dirZ * 1.2 * dt;
+    } else {
+      const vitesseVisee = VITESSE * (sprint ? SPRINT : 1);
+      const rythme = enAir ? (intention > 0.05 ? CONTROLE_AIR : 0.35) : ACCELERATION * (intention > 0.05 ? 1 : 1.2);
+      const k = 1 - Math.exp(-rythme * dt);
+      vit.x += (dirX * vitesseVisee - vit.x) * k;
+      vit.y += (dirZ * vitesseVisee - vit.y) * k;
+    }
+    vit.clampLength(0, 4);
+    // il avance un axe après l'autre : contre un obstacle il glisse le long, et perd seulement cette vitesse-là
+    const [mx, mz] = [vit.x * dt, vit.y * dt];
+    if (mx !== 0) {
+      if (libre(pos.x + mx, pos.z, alt)) pos.x += mx;
+      else vit.x = 0;
+    }
+    if (mz !== 0) {
+      if (libre(pos.x, pos.z + mz, alt)) pos.z += mz;
+      else vit.y = 0;
+    }
+    const vitH = vit.length();
+    // il se tourne vers où il va
+    if (vitH > 0.15) {
+      const ecart = THREE.MathUtils.euclideanModulo(Math.atan2(vit.x, vit.y) - cap + Math.PI, Math.PI * 2) - Math.PI;
+      cap += ecart * (1 - Math.exp(-14 * dt));
+    }
+
+    // saut, puis double saut en l'air avec un petit dash dans la direction visée
+    if (sauts > 0) {
+      sauts--;
+      if (!enAir) {
+        enAir = true;
+        vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT);
+        glisseEn = 0;
+      } else if (!doubleFait) {
+        doubleFait = true;
+        vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT * DOUBLE_SAUT);
+        if (intention > 0.1) {
+          vit.x += (dirX / intention) * DASH_AIR;
+          vit.y += (dirZ / intention) * DASH_AIR;
+        }
+        atterri = 0; // un petit coup d'écrasement, comme une impulsion
+      }
     }
 
     // verticalement : à pied il suit le sol (il monte une marche, ou tombe d'un rebord) ; en l'air, la pesanteur
-    if (saute && !enAir) {
-      enAir = true;
-      vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT);
-    }
-    saute = false;
     if (!enAir) {
       const sol = solSous(pos.x, pos.z, alt + MARCHE);
       if (sol < alt - 0.01) {
@@ -438,6 +544,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
         if (neuve <= sol) {
           neuve = sol;
           enAir = false;
+          doubleFait = false;
           vy = 0;
           atterri = 0; // petit écrasement à l'arrivée
         }
@@ -445,24 +552,28 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       alt = Math.max(0, neuve);
     }
 
-    // démarche : il se dandine, pivote autour des pieds au rythme des pas et se penche en avançant
-    const enMarche = pas !== 0 && !enAir ? 1 : 0;
+    // démarche : il se dandine au rythme des pas, se penche en courant, se couche en glissant
+    const enMarche = vitH > 0.2 && !enAir && glisseEn <= 0 ? 1 : 0;
     allure += (enMarche - allure) * (1 - Math.exp(-12 * dt));
-    phase += Math.abs(pas) * 26 + (tourne !== 0 && !enMarche ? dt * 6 : 0);
-    const balance = Math.sin(phase) * (enMarche ? allure : Math.min(1, Math.abs(tourne)) * 0.35);
-    corps.rotation.z = balance * 0.16;
-    corps.rotation.x = 0.1 * allure * Math.sign(avance || 1);
+    phase += vitH * dt * 26;
+    corps.rotation.z = Math.sin(phase) * allure * 0.16;
+    const penche = (sprint ? 0.2 : 0.1) * allure - (glisseEn > 0 ? 0.5 : 0);
+    corps.rotation.x += (penche - corps.rotation.x) * (1 - Math.exp(-14 * dt));
     corps.position.y = Math.abs(Math.sin(phase)) * 0.012 * allure;
-    // il s'étire en montant et s'écrase en retombant
+    // il s'étire en montant, s'écrase en retombant ou en glissant
     airLisse += ((enAir ? 1 : 0) - airLisse) * (1 - Math.exp(-16 * dt));
     atterri = Math.min(1, atterri + dt / 0.16);
+    squat += ((glisseEn > 0 ? 0.55 : 1) - squat) * (1 - Math.exp(-18 * dt));
     const ecrase = Math.sin(Math.PI * atterri) * 0.18 * (atterri < 1 ? 1 : 0);
     const etire = airLisse * 0.1 * THREE.MathUtils.clamp(Math.abs(vy) / 3, 0, 1);
-    perso.scale.set(1 + ecrase * 0.6 - etire * 0.4, 1 - ecrase + etire, 1 + ecrase * 0.6 - etire * 0.4);
+    const large = 1 + ecrase * 0.6 - etire * 0.4 + (1 - squat) * 0.35;
+    perso.scale.set(large, (1 - ecrase + etire) * squat, large);
     perso.position.set(pos.x, alt, pos.z);
     perso.rotation.y = cap;
 
-    suivreCamera(dt, enMarche === 1 || tourne !== 0);
+    // la vue s'élargit quand il court ou glisse
+    fovVoulu = 62 + (sprint && vitH > 1.2 ? 8 : 0) + (glisseEn > 0 ? 5 : 0);
+    suivreCamera(dt);
 
     delaiCible -= dt;
     if (delaiCible <= 0) {
@@ -473,7 +584,6 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       el.agir.classList.toggle('pret', !!cible);
     }
   }
-
 
   return { activer, desactiver, maj, get actif() { return actif; } };
 }
