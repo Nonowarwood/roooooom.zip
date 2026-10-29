@@ -2,9 +2,10 @@ import * as THREE from 'three';
 
 // Mode secret : un tout petit bonhomme pastel qu'on promène dans la chambre, vue de derrière.
 // On y entre par trois clics rapides sur un des petits avions du mobile (voir main.js).
-// Flèches ou ZQSD pour marcher (haut/bas avance, gauche/droite tourne), E pour agir sur ce qui est
-// devant lui (porte, lumières, store, calendrier…), Échap pour sortir. Sur téléphone : un joystick et
-// un bouton « Agir ». Le personnage vit dans le repère de la pièce (x ouest→est, z nord→sud).
+// Flèches ou ZQSD pour marcher (haut/bas avance, gauche/droite tourne), Espace pour sauter, E pour agir
+// sur ce qui est devant lui (porte, lumières, store, calendrier…), Échap pour sortir. La souris (ou le
+// doigt) fait tourner la caméra autour de lui, la molette règle la distance. Sur téléphone : un joystick et
+// deux boutons « Agir » et « Saut ». Le personnage vit dans le repère de la pièce (x ouest→est, z nord→sud).
 export function creerPerso({ racine, camera, controls, interactions, contour, meubles, cliquables, basculer, piece }) {
   const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
   const RAYON = 0.075; // épaisseur du bonhomme pour les collisions
@@ -123,11 +124,21 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     stick: document.getElementById('perso-stick'),
     pomme: document.getElementById('perso-pomme'),
     agir: document.getElementById('perso-agir'),
+    saut: document.getElementById('perso-saut'),
   };
   const touches = matchMedia('(pointer: coarse)').matches;
   const touche = new Set();
   const stick = { x: 0, y: 0 }; // -1…1, haut = avancer
   let actif = false;
+  let temps = 0;
+  let alt = 0; // hauteur du saut
+  let vy = 0;
+  let airLisse = 0; // 0 au sol, 1 en l'air (lissé, pour les bras et les jambes)
+  let atterri = 1; // chronomètre de l'écrasement à l'arrivée (1 = terminé)
+  let saute = false;
+  let tangage = 0.3; // hauteur de la caméra autour de lui (radians au-dessus de l'horizontale)
+  let distance = 0.82;
+  let dernierGlisse = -10; // moment du dernier glissé de souris : la caméra ne le contrarie pas tout de suite
   let cap = 0; // direction du bonhomme : devant lui = (sin cap, cos cap)
   let capCamera = 0;
   const pos = new THREE.Vector3();
@@ -158,7 +169,12 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     if (!actif || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (k === 'escape') return desactiver();
-    if (k === 'e' || k === 'enter' || k === ' ') {
+    if (k === ' ') {
+      e.preventDefault();
+      if (!e.repeat) saute = true;
+      return;
+    }
+    if (k === 'e' || k === 'enter') {
       e.preventDefault();
       if (!e.repeat) agir();
       return;
@@ -172,6 +188,38 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
   window.addEventListener('blur', () => touche.clear());
   el.quitter.addEventListener('click', () => desactiver());
   el.agir.addEventListener('click', agir);
+  el.saut.addEventListener('click', () => (saute = true));
+  // les boutons ne gardent pas le focus : Espace ne doit pas les « cliquer » à la place du saut
+  for (const b of [el.quitter, el.agir, el.saut]) b.addEventListener('pointerdown', (e) => e.preventDefault());
+
+  // la souris (ou un doigt) fait tourner la caméra autour de lui ; la molette change la distance
+  const canvas = controls.domElement;
+  let glisse = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    if (!actif) return;
+    glisse = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (!actif || !glisse || e.pointerId !== glisse.id) return;
+    capCamera -= (e.clientX - glisse.x) * 0.006;
+    tangage = THREE.MathUtils.clamp(tangage + (e.clientY - glisse.y) * 0.004, -0.15, 1.2);
+    glisse.x = e.clientX;
+    glisse.y = e.clientY;
+    dernierGlisse = temps;
+  });
+  const finGlisse = (e) => glisse && e.pointerId === glisse.id && (glisse = null);
+  canvas.addEventListener('pointerup', finGlisse);
+  canvas.addEventListener('pointercancel', finGlisse);
+  canvas.addEventListener(
+    'wheel',
+    (e) => {
+      if (!actif) return;
+      e.preventDefault();
+      distance = THREE.MathUtils.clamp(distance * (1 + Math.sign(e.deltaY) * 0.1), 0.35, 3);
+    },
+    { passive: false },
+  );
 
   // joystick tactile : on glisse le pouce dans le rond
   let doigt = null;
@@ -220,13 +268,17 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     const departs = [[1.0, 1.4], [0.9, 1.0], [1.0, 2.9], [1.5, 1.2], [2.0, 1.4]];
     const [x, z] = departs.find(([x, z]) => libre(x, z)) ?? departs[0];
     pos.set(x, 0, z);
+    alt = vy = 0;
+    saute = false;
+    tangage = 0.3;
+    distance = 0.82;
     cap = capCamera = Math.atan2(W / 2 - x, D / 2 - z);
     perso.position.copy(pos);
     perso.rotation.y = cap;
     perso.visible = true;
     el.aide.hidden = false;
     el.quitter.hidden = false;
-    if (touches) el.stick.hidden = el.agir.hidden = false;
+    if (touches) el.stick.hidden = el.agir.hidden = el.saut.hidden = false;
     el.aide.classList.remove('estompee');
     setTimeout(() => el.aide.classList.add('estompee'), 7000);
   }
@@ -237,7 +289,7 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     stick.x = stick.y = 0;
     document.body.classList.remove('perso');
     perso.visible = false;
-    el.aide.hidden = el.quitter.hidden = el.stick.hidden = el.agir.hidden = el.action.hidden = true;
+    el.aide.hidden = el.quitter.hidden = el.stick.hidden = el.agir.hidden = el.saut.hidden = el.action.hidden = true;
     controls.enabled = true;
     controls.minDistance = minDistanceAvant;
     controls.maxPolarAngle = maxPolaireAvant;
@@ -248,22 +300,25 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     camera.updateProjectionMatrix();
   }
 
-  // --- Caméra derrière lui ---
-  function suivreCamera(dt, brusque = false) {
-    const k = brusque ? 1 : 1 - Math.exp(-9 * dt);
-    const ecart = THREE.MathUtils.euclideanModulo(cap - capCamera + Math.PI, Math.PI * 2) - Math.PI;
-    capCamera += ecart * (brusque ? 1 : 1 - Math.exp(-4.5 * dt));
-    const [sx, cz] = [Math.sin(capCamera), Math.cos(capCamera)];
-    const tete = { x: pos.x, y: 0.22, z: pos.z };
-    // on recule derrière lui, en se rapprochant tant que la caméra serait dans un mur ou un meuble
-    const recul = 0.82;
-    const hauteur = 0.5;
-    let t = 1;
-    for (; t > 0.25; t -= 0.08) {
-      if (cameraLibre(tete.x - sx * recul * t, hauteur, tete.z - cz * recul * t)) break;
+  // --- Caméra autour de lui ---
+  // Elle se place derrière lui, à la distance et à la hauteur choisies à la souris. `suit` : elle revient
+  // doucement derrière son dos quand il marche ou tourne, sauf juste après un glissé de souris.
+  function suivreCamera(dt, suit) {
+    const k = 1 - Math.exp(-9 * dt);
+    if (suit && temps - dernierGlisse > 1) {
+      const ecart = THREE.MathUtils.euclideanModulo(cap - capCamera + Math.PI, Math.PI * 2) - Math.PI;
+      capCamera += ecart * (1 - Math.exp(-3.2 * dt));
     }
-    cameraVoulue.set(tete.x - sx * recul * t, hauteur * (0.6 + 0.4 * t), tete.z - cz * recul * t).add(racine.position);
-    regardVoulu.set(pos.x + sx * 0.3, 0.2, pos.z + cz * 0.3).add(racine.position);
+    const [sx, cz] = [Math.sin(capCamera), Math.cos(capCamera)];
+    const hy = 0.22 + alt * 0.5; // le point visé : sa tête
+    const [horiz, vert] = [Math.cos(tangage) * distance, Math.sin(tangage) * distance];
+    // on se rapproche de lui tant que la caméra serait dans un mur, sous le toit ou dans un meuble
+    let t = 1;
+    for (; t > 0.2; t -= 0.07) {
+      if (cameraLibre(pos.x - sx * horiz * t, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t)) break;
+    }
+    cameraVoulue.set(pos.x - sx * horiz * t, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t).add(racine.position);
+    regardVoulu.set(pos.x + sx * 0.18, hy - 0.02, pos.z + cz * 0.18).add(racine.position);
     camera.position.lerp(cameraVoulue, k);
     controls.target.lerp(regardVoulu, k);
     camera.fov += (62 - camera.fov) * k;
@@ -299,6 +354,7 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
   // --- À chaque image ---
   function maj(dt) {
     if (!actif) return;
+    temps += dt;
     let avance = (presse('haut') ? 1 : 0) - (presse('bas') ? 0.5 : 0) - stick.y;
     let tourne = (presse('gauche') ? 1 : 0) - (presse('droite') ? 1 : 0) - stick.x;
     avance = THREE.MathUtils.clamp(avance, -0.5, 1);
@@ -323,11 +379,38 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     bras[1].rotation.x = balance * 0.9;
     corps.position.y = Math.abs(Math.sin(phase)) * 0.008 * allure;
     corps.rotation.z = Math.sin(phase) * 0.05 * allure;
-    perso.position.copy(pos);
+    // saut : une impulsion vers le haut, puis la pesanteur ; on peut bouger en l'air
+    if (saute && alt === 0) {
+      vy = 2.5;
+      alt = 0.0001;
+    }
+    saute = false;
+    if (alt > 0) {
+      vy -= 9.8 * dt;
+      alt += vy * dt;
+      if (alt <= 0) {
+        alt = 0;
+        vy = 0;
+        atterri = 0; // petit écrasement à l'arrivée
+      }
+    }
+    airLisse += ((alt > 0.004 ? 1 : 0) - airLisse) * (1 - Math.exp(-16 * dt));
+    atterri = Math.min(1, atterri + dt / 0.16);
+    // en l'air : les bras levés, les jambes un peu écartées
+    bras[0].rotation.x += (-2.4 - bras[0].rotation.x) * airLisse;
+    bras[1].rotation.x += (-2.4 - bras[1].rotation.x) * airLisse;
+    jambes[0].rotation.x += (0.45 - jambes[0].rotation.x) * airLisse;
+    jambes[1].rotation.x += (-0.25 - jambes[1].rotation.x) * airLisse;
+    corps.position.y *= 1 - airLisse;
+    // il s'étire en montant et s'écrase en retombant
+    const ecrase = Math.sin(Math.PI * atterri) * 0.16 * (atterri < 1 ? 1 : 0);
+    const etire = airLisse * 0.07 * THREE.MathUtils.clamp(Math.abs(vy) / 2.5, 0, 1);
+    perso.scale.set(1 + ecrase * 0.6 - etire * 0.4, 1 - ecrase + etire, 1 + ecrase * 0.6 - etire * 0.4);
+    perso.position.set(pos.x, alt, pos.z);
     // tourne sans à-coup vers la direction voulue
     perso.rotation.y = cap;
 
-    suivreCamera(dt);
+    suivreCamera(dt, enMarche === 1 || tourne !== 0);
 
     delaiCible -= dt;
     if (delaiCible <= 0) {

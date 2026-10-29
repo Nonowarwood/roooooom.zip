@@ -273,10 +273,11 @@ html, body {
 .soleil-heures { font-size: 12px; opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px #0006; }
 
 /* --- Mode secret : le petit bonhomme --- */
-.perso-quitter[hidden], .perso-aide[hidden], .perso-action[hidden], .perso-stick[hidden], .perso-agir[hidden] { display: none; }
+.perso-quitter[hidden], .perso-aide[hidden], .perso-action[hidden], .perso-stick[hidden], .perso-agir[hidden], .perso-saut[hidden] { display: none; }
 body.perso .vues, body.perso .commandes { display: none; }
 .perso-quitter,
-.perso-agir {
+.perso-agir,
+.perso-saut {
   position: absolute;
   z-index: 11;
   color: #fff;
@@ -339,4 +340,5 @@ body.perso .vues, body.perso .commandes { display: none; }
 }
 .perso-pomme { width: 46px; height: 46px; border-radius: 50%; background: #f4c9c2; box-shadow: 0 2px 10px #0006; pointer-events: none; }
 .perso-agir { right: 28px; bottom: calc(52px + env(safe-area-inset-bottom)); padding: 18px 24px; border-radius: 50%; opacity: 0.6; }
+.perso-saut { right: 110px; bottom: calc(40px + env(safe-area-inset-bottom)); padding: 18px 20px; border-radius: 50%; background: var(--prune); }
 .perso-agir.pret { opacity: 1; background: var(--prune); }
