@@ -22,12 +22,21 @@
 
     <div class="lumieres" id="lumieres" role="group" aria-label="Lumières et appareils"></div>
 
-    <div class="soleil">
-      <span id="heure">12:00</span>
-      <input id="curseur" type="range" min="0" max="24" step="0.05" value="12" aria-label="Heure du jour" />
-      <button id="live" type="button">Heure réelle</button>
-      <span id="soleil-heures" class="soleil-heures" title="Lever et coucher du soleil réels du jour"></span>
-    </div>
+    <header class="ville" id="ville" aria-label="Lieu et heure">
+      <div class="ville-tete" id="ville-tete" tabindex="0">
+        <span class="ville-nom" id="ville-nom">Paris</span>
+        <span class="ville-heure" id="heure">12:00</span>
+      </div>
+      <div class="ville-panneau">
+        <div class="ville-interieur">
+          <div class="ville-reglage">
+            <input id="curseur" type="range" min="0" max="24" step="0.05" value="12" aria-label="Heure du jour" />
+            <button id="live" type="button">Heure réelle</button>
+          </div>
+          <span id="soleil-heures" class="soleil-heures" title="Lever et coucher du soleil réels du jour"></span>
+        </div>
+      </div>
+    </header>
 
     <div id="chargement" class="chargement">Chargement…</div>
 

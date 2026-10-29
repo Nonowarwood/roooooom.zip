@@ -55,14 +55,57 @@ html, body {
   display: block;
 }
 
-.soleil {
+/* --- Lieu et heure, en haut : « Paris » et l'heure ; au survol, le curseur se déplie --- */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/instrument-serif-italic.woff2') format('woff2');
+}
+.ville {
   position: absolute;
-  bottom: calc(20px + env(safe-area-inset-bottom));
+  top: calc(14px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-style: italic;
+}
+.ville-tete {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 18px 6px;
+  cursor: default;
+  outline: none;
+  filter: drop-shadow(0 2px 12px #0000004d);
+}
+.ville-nom { font-size: clamp(38px, 5.4vw, 58px); line-height: 1; letter-spacing: 0.01em; }
+.ville-heure { font-size: 20px; line-height: 1; opacity: 0.8; letter-spacing: 0.02em; transition: opacity 0.25s; }
+.ville:hover .ville-heure,
+.ville:focus-within .ville-heure,
+.ville.ouvert .ville-heure { opacity: 1; }
+
+/* le panneau se déplie sous l'heure : on anime sa hauteur de 0 à sa taille */
+.ville-panneau {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.3s ease, opacity 0.25s ease;
+  font-family: Inter, system-ui, sans-serif;
+  font-style: normal;
+}
+.ville-interieur { overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 0; }
+.ville-reglage {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-top: 6px;
   padding: 10px 16px;
   background: #302139ed;
   border: 1px solid #ffffff30;
@@ -71,11 +114,11 @@ html, body {
   font-size: 13px;
   max-width: calc(100vw - 32px);
 }
-
-.soleil input { width: min(260px, 40vw); accent-color: var(--rose); }
-.soleil #heure { min-width: 44px; font-variant-numeric: tabular-nums; }
-
-.soleil button {
+.ville:hover .ville-panneau,
+.ville:focus-within .ville-panneau,
+.ville.ouvert .ville-panneau { grid-template-rows: 1fr; opacity: 1; }
+.ville-reglage input { width: min(260px, 50vw); accent-color: var(--rose); }
+.ville-reglage button {
   color: #fff;
   background: var(--prune);
   border: 1px solid #ffffff60;
@@ -83,11 +126,12 @@ html, body {
   padding: 6px 12px;
   font: inherit;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .aide {
   position: absolute;
-  top: calc(66px + env(safe-area-inset-top));
+  top: calc(112px + env(safe-area-inset-top));
   left: 0;
   right: 0;
   text-align: center;
@@ -108,15 +152,15 @@ html, body {
 }
 .chargement.fini { opacity: 0; pointer-events: none; }
 
-/* --- Vues prédéfinies, en haut --- */
+/* --- Vues prédéfinies, en bas au centre, sous les interrupteurs --- */
 .vues {
   position: absolute;
-  top: calc(20px + env(safe-area-inset-top));
+  bottom: calc(20px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
-  max-width: calc(100vw - 32px);
+  max-width: calc(100vw - 360px); /* entre la croix et les boutons de zoom */
   overflow-x: auto;
   padding: 4px;
   scrollbar-width: none;
@@ -141,10 +185,10 @@ html, body {
 .lumieres button:hover { border-color: #ffffff80; }
 .vues button.actif { background: var(--prune); border-color: #ffffff60; }
 
-/* --- Interrupteurs, au-dessus de la barre de l'heure --- */
+/* --- Interrupteurs, au-dessus des vues --- */
 .lumieres {
   position: absolute;
-  bottom: calc(78px + env(safe-area-inset-bottom));
+  bottom: calc(68px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -165,6 +209,7 @@ html, body {
 
 @media (max-width: 760px) {
   .aide { display: none; }
+  .vues { max-width: calc(100vw - 32px); }
 }
 
 /* --- Mouvement de la caméra : croix directionnelle, zoom, menu de vues, murs (comme la référence) --- */
@@ -228,6 +273,5 @@ html, body {
   .commandes-murs { top: calc(14px + env(safe-area-inset-top)); left: 12px; }
 }
 
-/* lever et coucher du soleil réels, à droite de la barre de l'heure */
-.soleil-heures { font-size: 12px; opacity: 0.75; white-space: nowrap; font-variant-numeric: tabular-nums; }
-@media (max-width: 760px) { .soleil-heures { display: none; } }
+/* lever et coucher du soleil réels, sous le curseur */
+.soleil-heures { font-size: 12px; opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px #0006; }

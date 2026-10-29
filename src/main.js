@@ -1489,6 +1489,15 @@ const clamp01 = (v) => Math.min(1, Math.max(0, v));
 const elHeure = document.getElementById('heure');
 const elCurseur = document.getElementById('curseur');
 const elLive = document.getElementById('live');
+// « Paris » en haut ; l'heure et le curseur se déplient au survol (au toucher : un appui sur l'heure)
+document.getElementById('ville-nom').textContent = lieu.nom;
+const elVille = document.getElementById('ville');
+document.getElementById('ville-tete').addEventListener('click', () => elVille.classList.toggle('ouvert'));
+addEventListener('pointerdown', (e) => {
+  if (!elVille.contains(e.target)) elVille.classList.remove('ouvert');
+});
+// une fois le curseur lâché on le relâche aussi, sinon le panneau resterait ouvert tant qu'on ne clique pas ailleurs
+elCurseur.addEventListener('pointerup', () => elCurseur.blur());
 let manuel = false;
 
 // Lumière du jour qui entre par le Velux : la partie « jour » de l'éclairage (soleil, ambiante, dôme
@@ -1511,7 +1520,7 @@ function majSoleilReel() {
   if (jour === soleilReel.jour) return;
   const { lever, coucher } = heuresSoleil(maintenant, lieu.lat, lieu.lon);
   soleilReel = { jour, lever, coucher };
-  elSoleil.textContent = `☀ ${formatHeure(lever)} → ${formatHeure(coucher)} · ${lieu.nom}`;
+  elSoleil.textContent = `☀ lever ${formatHeure(lever)} · coucher ${formatHeure(coucher)}`;
 }
 
 function appliquerHeure(heure) {
@@ -1643,6 +1652,7 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   document.getElementById('chargement').classList.add('fini');
 });
+
 
 
 
