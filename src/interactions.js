@@ -280,7 +280,7 @@ export function initialiserInteractions({
   // lumière douce, sans ombre, les éclaire. Elle s'éteint si on clique ailleurs, si on choisit une vue ou si
   // on s'éloigne. Elle reste dans la scène en permanence (intensité 0 quand elle est éteinte) : ajouter ou
   // retirer une lumière obligerait à recompiler tous les matériaux.
-  const projecteur = new THREE.SpotLight('#fff0dc', 0, 0, 0.4, 0.95, 2);
+  const projecteur = new THREE.SpotLight('#fff0dc', 0, 0, 0.4, 1, 2);
   const scene = racine.parent;
   scene.add(projecteur, projecteur.target);
   const eclat = { v: 0, cible: 0, info: null, intensite: 0, pos: new THREE.Vector3(), centre: new THREE.Vector3(), rayon: 0, angle: 0.4 };
@@ -295,8 +295,8 @@ export function initialiserInteractions({
     eclat.centre.copy(centre);
     eclat.pos.copy(position).y += 0.3; // un peu au-dessus de l'œil, comme une lampe de tableau
     const d = eclat.pos.distanceTo(centre);
-    eclat.angle = THREE.MathUtils.clamp(Math.atan((eclat.rayon * 1.25) / d), 0.1, 0.8);
-    eclat.intensite = 3 * d * d; // l'éclairement au centre reste le même quelle que soit la distance
+    eclat.angle = THREE.MathUtils.clamp(Math.atan((eclat.rayon * 2.4) / d), 0.15, 1.1); // cône large, pénombre totale : la lumière s'estompe doucement jusqu'au bord
+    eclat.intensite = 1.8 * d * d; // l'éclairement au centre reste le même quelle que soit la distance
     eclat.cible = 1;
     if (eclat.v < 0.03) {
       projecteur.position.copy(eclat.pos);

@@ -421,7 +421,7 @@ function animerMurs(dt) {
     if (a.ecraser) a.enveloppe.scale.y = Math.max(h / HAUTEUR_MUR, 0.001);
     const [bas, haut] = a.fondu;
     const fondu = THREE.MathUtils.clamp((h - bas) / (haut - bas), 0, 1) * (a.facteur ? a.facteur(dt) : 1);
-    for (const { materiau, opacite } of a.materiaux) materiau.opacity = opacite * fondu;
+    for (const { materiau, opacite } of a.materiaux) materiau.opacity = opacite * fondu * (materiau.userData.facteur ?? 1);
     a.enveloppe.visible = fondu > 0.001;
   }
 }
@@ -862,10 +862,11 @@ for (const d of decors) {
         .catch((err) => console.warn(`Modèle introuvable pour « ${d.nom} » :`, err.message)),
     );
   } else if (d.pages) {
-    // décor à pages : la page du dessous est fixe, la page du dessus se tourne autour de sa charnière et
-    // s'aplatit derrière. Calendrier : charnière en haut, la page part vers le haut ; couvertures
-    // (`sens: 'gauche'`) : charnière sur le bord gauche, la page s'ouvre comme celle d'un livre.
-    const gauche = d.sens === 'gauche';
+    // décor à pages : la page du dessous est fixe, celle du dessus part et laisse voir la suivante.
+    // Calendrier : elle se tourne vers le haut autour de sa charnière et s'aplatit derrière ;
+    // couvertures (`sens: 'chute'`) : elle s'affaisse vers son bord bas avec le ressort des murs qui
+    // s'abaissent (petit rebond, puis elle s'écrase et s'efface).
+    const chute = d.sens === 'chute';
     const [w, h] = d.taille;
     const e = d.epaisseur;
     const chassis = new THREE.Mesh(new THREE.BoxGeometry(w, h, e), mat('#ece6e2'));
@@ -884,42 +885,62 @@ for (const d of decors) {
     g.add(dessous);
 
     const charniere = new THREE.Group();
-    charniere.position.set(gauche ? -w / 2 : 0, gauche ? 0 : h / 2, e + 0.0015); // le haut (ou le bord gauche) de la page
+    charniere.position.set(0, chute ? -h / 2 : h / 2, e + 0.0015); // le haut de la page (le bas pour une chute)
     const devant = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDessus);
-    devant.position.set(gauche ? w / 2 : 0, gauche ? 0 : -h / 2, 0);
+    devant.position.set(0, chute ? h / 2 : -h / 2, 0);
     devant.castShadow = true;
     devant.receiveShadow = true;
     const dos = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matDos);
-    dos.position.set(gauche ? w / 2 : 0, gauche ? 0 : -h / 2, -0.0004);
+    dos.position.set(0, -h / 2, -0.0004);
     dos.rotation.y = Math.PI;
-    charniere.add(devant, dos);
+    charniere.add(devant);
+    if (!chute) charniere.add(dos);
     g.add(charniere);
 
-    const cal = { i: 0, t: -1, n: textes.length };
+    const cal = { i: 0, t: -1, n: textes.length, tombe: false, r: { h: HAUTEUR_MUR, v: 0, cible: HAUTEUR_MUR } };
     const tourner = () => {
+      if (chute) {
+        if (cal.tombe) return;
+        cal.tombe = true;
+        cal.r.v += 2.6; // le même petit rebond avant de descendre que les murs
+        cal.r.cible = HAUTEUR_BORDURE;
+        return;
+      }
       if (cal.t >= 0) return; // une page est déjà en train de tourner
       cal.t = 0;
     };
+    const passerALaSuivante = () => {
+      cal.i = (cal.i + 1) % cal.n;
+      matDessus.map = textes[cal.i];
+      matDessous.map = textes[(cal.i + 1) % cal.n];
+      matDessus.needsUpdate = true;
+      matDessous.needsUpdate = true;
+    };
     calendriers.push((dt) => {
+      if (cal.tombe) {
+        ressort(cal.r, Math.min(dt, 1) * 0.45); // plus lent que pour un mur : l'affiche doit se voir tomber
+        charniere.scale.y = Math.max(cal.r.h / HAUTEUR_MUR, 0.001);
+        matDessus.userData.facteur = THREE.MathUtils.clamp((cal.r.h - HAUTEUR_BORDURE) / 1.1, 0, 1); // s'efface comme un décor de mur, un peu plus tôt
+        if (cal.r.h < HAUTEUR_BORDURE + 0.04) {
+          // écrasée : la page suivante prend la place du dessus, une nouvelle apparaît dessous
+          passerALaSuivante();
+          cal.r = { h: HAUTEUR_MUR, v: 0, cible: HAUTEUR_MUR };
+          charniere.scale.y = 1;
+          matDessus.userData.facteur = 1;
+          cal.tombe = false;
+        }
+        return;
+      }
       if (cal.t < 0) return;
       cal.t = Math.min(1, cal.t + dt / 0.85);
       const k = cal.t;
       const lisse = k * k * (3 - 2 * k);
       // dans la dernière partie, la page s'aplatit contre le mur et disparaît
       const aplat = 1 - THREE.MathUtils.smoothstep(k, 0.72, 1);
-      if (gauche) {
-        charniere.rotation.y = -Math.PI * lisse; // vers la pièce puis rabattue à gauche
-        charniere.scale.x = aplat;
-      } else {
-        charniere.rotation.x = -Math.PI * lisse; // vers l'avant puis par-dessus le haut
-        charniere.scale.y = aplat;
-      }
+      charniere.rotation.x = -Math.PI * lisse; // vers l'avant puis par-dessus le haut
+      charniere.scale.y = aplat;
       if (cal.t >= 1) {
-        cal.i = (cal.i + 1) % cal.n;
-        matDessus.map = textes[cal.i];
-        matDessous.map = textes[(cal.i + 1) % cal.n];
-        matDessus.needsUpdate = true;
-        matDessous.needsUpdate = true;
+        passerALaSuivante();
         charniere.rotation.set(0, 0, 0);
         charniere.scale.set(1, 1, 1);
         cal.t = -1;
