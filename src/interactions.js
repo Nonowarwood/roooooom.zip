@@ -395,11 +395,13 @@ export function initialiserInteractions({
   }
 
   let appui = null;
+  let bloque = false; // mode du petit bonhomme : la caméra est pilotée ailleurs, plus de clic sur les objets
   canvas.addEventListener('pointerdown', (e) => {
+    if (bloque) return;
     appui = { x: e.clientX, y: e.clientY, t: performance.now() };
   });
   canvas.addEventListener('pointerup', (e) => {
-    if (!appui) return;
+    if (bloque || !appui) return;
     const court = performance.now() - appui.t < 600;
     const immobile = Math.hypot(e.clientX - appui.x, e.clientY - appui.y) < 6;
     appui = null;
@@ -415,7 +417,7 @@ export function initialiserInteractions({
   // le curseur devient une main au-dessus de ce qu'on peut cliquer
   let dernierSurvol = 0;
   canvas.addEventListener('pointermove', (e) => {
-    if (e.buttons || performance.now() - dernierSurvol < 60) return;
+    if (bloque || e.buttons || performance.now() - dernierSurvol < 60) return;
     dernierSurvol = performance.now();
     placerPointeur(e);
     const info = viser();
@@ -427,6 +429,7 @@ export function initialiserInteractions({
   let signature = '';
   function maj(dt) {
     temps += dt;
+    if (bloque) return;
 
     // projecteur : fondu, léger glissement vers le nouvel objet, et extinction si on s'en éloigne
     if (eclat.cible > 0 && !focus && !vers) {
@@ -494,5 +497,16 @@ export function initialiserInteractions({
     bAuto.classList.toggle('actif', Object.values(commandes).every((c) => c.manuel === null));
   }
 
-  return { maj };
+  // le mode du petit bonhomme prend la main sur la caméra et sur les clics
+  function bloquer(oui) {
+    bloque = oui;
+    if (oui) {
+      annuler();
+      eteindre();
+      appui = null;
+      canvas.style.cursor = '';
+    }
+  }
+
+  return { maj, bloquer };
 }

@@ -21,6 +21,7 @@ import {
   lieu,
 } from './chambre.js';
 import { initialiserInteractions } from './interactions.js';
+import { creerPerso } from './perso.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -637,6 +638,11 @@ function biplan() {
   boite(0.004, 0.026, 0.022, boisAvion, 0, 0.012, -0.043); // dérive
   boite(0.045, 0.003, 0.016, boisClair, 0, 0.002, -0.043); // plan fixe arrière
   boite(0.003, 0.034, 0.006, boisAvion, 0, 0, 0.047); // hélice
+  a.userData.avion = true;
+  // zone de clic invisible, bien plus large que l'avion (il bouge et il est tout petit)
+  const zone = new THREE.Mesh(new THREE.SphereGeometry(0.075, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
+  zone.position.y = 0.008;
+  a.add(zone);
   return a;
 }
 function formeBois(forme, mat, echelle) {
@@ -699,15 +705,19 @@ for (const [dz, fil, objet, lacet, phase] of [
   objet.rotation.y = lacet + (objet.userData.plat ? Math.PI / 2 : 0); // nuages et cœur : la face plate regarde la pièce
   pivot.add(cordon, objet);
   mobile.add(pivot);
-  pendules.push({ pivot, phase, amplitude: 0.05 + 0.03 * ((pendules.length * 7) % 3) / 3 });
+  pendules.push({ pivot, objet, phase, amplitude: 0.05 + 0.03 * ((pendules.length * 7) % 3) / 3, impulsion: 0 });
 }
 charpente.add(mobile);
 let tempsMobile = 0;
 function animerMobile(dt) {
   tempsMobile += dt;
-  for (const { pivot, phase, amplitude } of pendules) {
-    pivot.rotation.x = amplitude * Math.sin(tempsMobile * 0.9 + phase);
-    pivot.rotation.z = amplitude * 0.6 * Math.cos(tempsMobile * 0.7 + phase);
+  for (const p of pendules) {
+    const { pivot, phase, amplitude } = p;
+    const a = amplitude + p.impulsion; // un clic sur un avion le fait se balancer plus fort, un instant
+    pivot.rotation.x = a * Math.sin(tempsMobile * 0.9 + phase);
+    pivot.rotation.z = a * 0.6 * Math.cos(tempsMobile * 0.7 + phase);
+    p.objet.rotation.y += p.impulsion * dt * 5;
+    p.impulsion *= Math.exp(-1.4 * dt);
   }
 }
 
@@ -850,6 +860,32 @@ const cliquables = [];
   };
   veluxObjet.userData.info = infoVelux;
   cliquables.push(infoVelux);
+}
+// Mode secret : trois clics rapides sur un des petits avions du mobile font apparaître le petit bonhomme
+// (src/perso.js). Un clic seul fait juste se balancer l'avion.
+{
+  let clics = [];
+  for (const p of pendules) {
+    if (!p.objet.userData.avion) continue;
+    const info = {
+      nom: 'petit avion',
+      groupe: p.objet,
+      secret: true, // ni cadrage, ni projecteur, et le bonhomme n'agit pas dessus
+      sansRecentrage: true,
+      auClic: () => {
+        p.impulsion = 0.14;
+        const t = performance.now();
+        clics = clics.filter((c) => t - c < 2200);
+        clics.push(t);
+        if (clics.length >= 3) {
+          clics = [];
+          perso.activer();
+        }
+      },
+    };
+    p.objet.userData.info = info;
+    cliquables.push(info);
+  }
 }
 const calendriers = []; // animations des pages qui tournent (calendrier, couvertures), appelées à chaque image
 const promessesDecors = [];
@@ -1829,6 +1865,7 @@ const interactions = initialiserInteractions({
   reglages,
   limitePolaire: LIMITE_POLAIRE,
 });
+const perso = creerPerso({ racine, camera, controls, interactions, contour, meubles, cliquables, basculer, piece });
 const horloge = new THREE.Clock();
 let dernierEcran = -1;
 let derniereMinute = -1;
@@ -1845,6 +1882,7 @@ renderer.setAnimationLoop(() => {
   animerMurs(dt);
   majLumieres(dt);
   interactions.maj(dt);
+  perso.maj(dt);
   for (const f of calendriers) f(dt);
   animerMobile(dt);
   animerStore(dt);
