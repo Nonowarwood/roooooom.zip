@@ -1870,7 +1870,7 @@ const fixesPerso = [
   { x0: 0, x1: poutre.profondeur + 0.01, z0: poutre.poteau.z - poutre.poteau.largeur / 2, z1: poutre.poteau.z + poutre.poteau.largeur / 2, bas: 0, haut: 1.7 },
   { x0: 0, x1: poutre.profondeur + 0.01, z0: poutre.poteau.z, z1: poutre.entrait.zFin, bas: poutre.entrait.y - poutre.entrait.hauteur / 2, haut: poutre.entrait.y + poutre.entrait.hauteur / 2 },
 ];
-const perso = creerPerso({ racine, camera, controls, interactions, contour, meubles, fixes: fixesPerso, cliquables, basculer, piece });
+const perso = creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes: fixesPerso, cliquables, basculer, piece });
 const horloge = new THREE.Clock();
 let dernierEcran = -1;
 let derniereMinute = -1;

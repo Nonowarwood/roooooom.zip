@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { chemin } from './textures.js';
 
 // Mode secret : un tout petit bonhomme qu'on promène dans la chambre, vue de derrière.
@@ -22,7 +23,7 @@ const TOURNE = 2.7; // rad/s
 const TAILLE = 0.3; // hauteur du bonhomme, en mètres
 // ↑↑↑
 
-export function creerPerso({ racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece }) {
+export function creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece }) {
   const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
   const RAYON = 0.1; // épaisseur du bonhomme pour les collisions (les bras dépassent un peu du corps)
   const CORPS = TAILLE + 0.03; // hauteur occupée, pour passer sous un meuble ou se cogner la tête
@@ -34,7 +35,31 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
   perso.visible = false;
   const corps = new THREE.Group(); // pivote autour des pieds : c'est lui qui se dandine
   perso.add(corps);
-  const matPerso = new THREE.MeshStandardMaterial({ color: '#46c964', roughness: 0.28, metalness: 0.05, emissive: '#0a3a14' });
+  // Look « Frutiger aero » : une gelée verte translucide et brillante, avec des reflets de studio (une
+  // carte d'environnement réservée à ce matériau, la pièce n'en a pas), un vernis, et un bord plus lumineux
+  // et plus opaque que le centre (effet de Fresnel) comme sur une bille de verre.
+  const matPerso = new THREE.MeshPhysicalMaterial({
+    color: '#14c23e',
+    roughness: 0.06,
+    metalness: 0,
+    clearcoat: 1,
+    clearcoatRoughness: 0.03,
+    envMapIntensity: 1.25, // la carte d'environnement est créée à la première entrée dans le mode (voir activer)
+    emissive: '#0a8a2c',
+    emissiveIntensity: 0.7,
+    transparent: true,
+    opacity: 0.9,
+    depthWrite: false, // le corps se voit à travers la tête, et inversement
+  });
+  matPerso.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <dithering_fragment>',
+      `#include <dithering_fragment>
+      float fresnelPerso = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 2.2);
+      gl_FragColor.rgb += vec3(0.3, 1.0, 0.6) * fresnelPerso * 0.3;
+      gl_FragColor.a = clamp(gl_FragColor.a * mix(0.7, 1.15, fresnelPerso), 0.0, 1.0);`,
+    );
+  };
   const reservePerso = new THREE.Mesh(new THREE.SphereGeometry(TAILLE / 2, 16, 12), matPerso); // le temps du chargement
   reservePerso.position.y = TAILLE / 2;
   corps.add(reservePerso);
@@ -46,6 +71,7 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
         o.material = matPerso;
         o.castShadow = true;
         o.receiveShadow = true;
+        o.renderOrder = o.geometry.attributes.position.count > 1000 ? 1 : 2; // le corps d'abord, puis la tête devant
       });
       // à l'échelle de la chambre : TAILLE de haut, les pieds au sol, centré sur son axe
       const boite = new THREE.Box3().setFromObject(modele);
@@ -256,6 +282,10 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
   function activer() {
     if (actif) return;
     actif = true;
+    if (!matPerso.envMap) {
+      matPerso.envMap = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+      matPerso.needsUpdate = true;
+    }
     document.activeElement?.blur?.();
     document.body.classList.add('perso');
     interactions.bloquer(true);
