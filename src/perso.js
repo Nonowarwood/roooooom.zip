@@ -35,7 +35,7 @@ const TAILLE = 0.3; // hauteur du bonhomme, en mètres
 
 export function creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece }) {
   const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
-  const RAYON = 0.1; // épaisseur du bonhomme pour les collisions (les bras dépassent un peu du corps)
+  const RAYON = 0.085; // épaisseur du bonhomme pour les collisions (les bras dépassent un peu du corps)
   const CORPS_DEBOUT = TAILLE + 0.03; // hauteur occupée, pour passer sous un meuble ou se cogner la tête
   let CORPS = CORPS_DEBOUT; // plus basse pendant une glissade
   const MARCHE = 0.08; // il monte tout seul une marche de cette hauteur
@@ -153,11 +153,30 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     return !solides.some((s) => x > s.x0 - 0.04 && x < s.x1 + 0.04 && z > s.z0 - 0.04 && z < s.z1 + 0.04 && s.bas < y + 0.02 && s.haut > y - 0.04);
   };
 
+  // coins de la pièce où il apparaît, et où il retourne si on ne lui trouve aucune place libre
+  const DEPARTS = [[1.0, 1.4], [0.9, 1.0], [1.0, 2.9], [1.5, 1.2], [2.0, 1.4]];
+  // la place libre la plus proche de (x, z) : des cercles de plus en plus larges autour de lui. Sert à le
+  // sortir d'un meuble où il est resté coincé (les boîtes de collision sont approximatives).
+  function trouverLibre(x, z, y, rmax = 1.6) {
+    for (let r = 0; r <= rmax; r += 0.05) {
+      const n = r === 0 ? 1 : Math.ceil(r * 40);
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2;
+        const [cx, cz] = [x + Math.cos(a) * r, z + Math.sin(a) * r];
+        const hauteur = solSous(cx, cz, y + MARCHE); // au niveau où il est, ou sur le meuble qui est là
+        if (libre(cx, cz, hauteur)) return { x: cx, z: cz, alt: hauteur };
+      }
+    }
+    const [dx, dz] = DEPARTS.find(([dx, dz]) => libre(dx, dz, 0)) ?? DEPARTS[0];
+    return { x: dx, z: dz, alt: 0 };
+  }
+
   // --- Interface et commandes ---
   const el = {
     aide: document.getElementById('perso-aide'),
     action: document.getElementById('perso-action'),
     quitter: document.getElementById('perso-quitter'),
+    debloquer: document.getElementById('perso-debloquer'),
     stick: document.getElementById('perso-stick'),
     pomme: document.getElementById('perso-pomme'),
     agir: document.getElementById('perso-agir'),
@@ -177,6 +196,8 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   let doubleFait = false; // le double saut n'a lieu qu'une fois par vol
   let glisseEn = 0; // temps restant de la glissade
   let veutGlisser = false;
+  let coince = 0; // depuis combien de temps il est dans un meuble
+  let sansProgres = 0; // depuis combien de temps il pousse sans avancer
   let squat = 1; // 1 debout, ~0,5 en glissade (lissé)
   let fovVoulu = 62;
   const vit = new THREE.Vector2(); // vitesse horizontale (x, z), avec son inertie
@@ -224,6 +245,11 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       if (!e.repeat) sauts = Math.min(2, sauts + 1);
       return;
     }
+    if (k === 'r') {
+      e.preventDefault();
+      debloquer();
+      return;
+    }
     if (k === 'e' || k === 'enter') {
       e.preventDefault();
       if (!e.repeat) agir();
@@ -237,10 +263,11 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   window.addEventListener('keyup', (e) => touche.delete(e.key.toLowerCase()));
   window.addEventListener('blur', () => touche.clear());
   el.quitter.addEventListener('click', () => desactiver());
+  el.debloquer.addEventListener('click', () => debloquer());
   el.agir.addEventListener('click', agir);
   el.saut.addEventListener('click', () => (sauts = Math.min(2, sauts + 1)));
   // les boutons ne gardent pas le focus : Espace ne doit pas les « cliquer » à la place du saut
-  for (const b of [el.quitter, el.agir, el.saut]) b.addEventListener('pointerdown', (e) => e.preventDefault());
+  for (const b of [el.quitter, el.debloquer, el.agir, el.saut]) b.addEventListener('pointerdown', (e) => e.preventDefault());
 
   // la souris oriente la caméra (un clic dans la scène la capte) ; sans souris captée ou au doigt, on glisse ;
   // la molette change la distance
@@ -293,8 +320,8 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   );
   function texteAide() {
     el.aide.textContent = verrou
-      ? 'ZQSD : bouger · Souris : caméra · Maj : sprint · Espace : sauter (2×) · Ctrl : glisser · E : agir · Échap : libérer la souris'
-      : (touches ? 'Joystick : bouger · Glisse le doigt : regarder' : 'Clique dans la scène pour piloter la caméra à la souris · ZQSD : bouger · Maj : sprint · Espace : sauter (2×) · Ctrl : glisser · E : agir · Échap : quitter');
+      ? 'ZQSD : bouger · Souris : caméra · Maj : sprint · Espace : sauter (2×) · Ctrl : glisser · E : agir · R : débloquer · Échap : libérer la souris'
+      : (touches ? 'Joystick : bouger · Glisse le doigt : regarder' : 'Clique dans la scène pour piloter la caméra à la souris · ZQSD : bouger · Maj : sprint · Espace : sauter (2×) · Ctrl : glisser · E : agir · R : débloquer · Échap : quitter');
   }
 
   // joystick tactile : on glisse le pouce dans le rond
@@ -345,8 +372,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     controls.minDistance = 0.05;
     controls.maxPolarAngle = Math.PI;
     // départ : un coin libre, tourné vers le centre de la pièce
-    const departs = [[1.0, 1.4], [0.9, 1.0], [1.0, 2.9], [1.5, 1.2], [2.0, 1.4]];
-    const [x, z] = departs.find(([x, z]) => libre(x, z, 0)) ?? departs[0];
+    const [x, z] = DEPARTS.find(([x, z]) => libre(x, z, 0)) ?? DEPARTS[0];
     pos.set(x, 0, z);
     alt = vy = 0;
     enAir = false;
@@ -365,6 +391,8 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     texteAide();
     el.aide.hidden = false;
     el.quitter.hidden = false;
+    el.debloquer.hidden = false;
+    coince = sansProgres = 0;
     if (touches) el.stick.hidden = el.agir.hidden = el.saut.hidden = false;
     el.aide.classList.remove('estompee');
     setTimeout(() => el.aide.classList.add('estompee'), 7000);
@@ -376,7 +404,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     stick.x = stick.y = 0;
     document.body.classList.remove('perso');
     perso.visible = false;
-    el.aide.hidden = el.quitter.hidden = el.stick.hidden = el.agir.hidden = el.saut.hidden = el.action.hidden = true;
+    el.aide.hidden = el.quitter.hidden = el.debloquer.hidden = el.stick.hidden = el.agir.hidden = el.saut.hidden = el.action.hidden = true;
     controls.enabled = true;
     controls.minDistance = minDistanceAvant;
     controls.maxPolarAngle = maxPolaireAvant;
@@ -437,6 +465,20 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     const texte = typeof a === 'function' ? a() : a;
     return texte ?? info.nom;
   };
+
+  // Débloquer (touche R ou bouton) : on le remet sur la place libre la plus proche, à l'arrêt
+  function debloquer() {
+    if (!actif) return;
+    const p = trouverLibre(pos.x, pos.z, alt);
+    pos.set(p.x, 0, p.z);
+    alt = p.alt;
+    vy = 0;
+    enAir = false;
+    vit.set(0, 0);
+    glisseEn = 0;
+    atterri = 0; // un petit « plop » pour qu'on voie qu'il a bougé
+    coince = sansProgres = 0;
+  }
 
   // --- À chaque image ---
   function maj(dt) {
@@ -552,6 +594,15 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       alt = Math.max(0, neuve);
     }
 
+    // coincé dans un meuble (une boîte de collision approximative, un atterrissage de travers) : au bout d'un
+    // instant, on le remet tout seul sur la place libre la plus proche
+    if (!libre(pos.x, pos.z, alt)) {
+      coince += dt;
+      if (coince > 0.3) debloquer();
+    } else coince = 0;
+    // il pousse sans avancer : on lui rappelle la touche R
+    sansProgres = intention > 0.4 && vitH < 0.08 && !enAir ? sansProgres + dt : 0;
+
     // démarche : il se dandine au rythme des pas, se penche en courant, se couche en glissant
     const enMarche = vitH > 0.2 && !enAir && glisseEn <= 0 ? 1 : 0;
     allure += (enMarche - allure) * (1 - Math.exp(-12 * dt));
@@ -579,8 +630,10 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     if (delaiCible <= 0) {
       delaiCible = 0.15;
       cible = chercherCible();
-      el.action.hidden = !cible;
+      const bloque = !cible && sansProgres > 1.2;
+      el.action.hidden = !cible && !bloque;
       if (cible) el.action.textContent = `${touches ? '' : 'E · '}${libelle(cible)}`;
+      else if (bloque) el.action.textContent = touches ? 'Bloqué ? Touche « Débloquer »' : 'Bloqué ? Appuie sur R pour te débloquer';
       el.agir.classList.toggle('pret', !!cible);
     }
   }

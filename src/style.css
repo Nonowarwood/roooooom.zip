@@ -273,9 +273,10 @@ html, body {
 .soleil-heures { font-size: 12px; opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px #0006; }
 
 /* --- Mode secret : le petit bonhomme --- */
-.perso-quitter[hidden], .perso-aide[hidden], .perso-action[hidden], .perso-stick[hidden], .perso-agir[hidden], .perso-saut[hidden] { display: none; }
+.perso-quitter[hidden], .perso-debloquer[hidden], .perso-aide[hidden], .perso-action[hidden], .perso-stick[hidden], .perso-agir[hidden], .perso-saut[hidden] { display: none; }
 body.perso .vues, body.perso .commandes { display: none; }
 .perso-quitter,
+.perso-debloquer,
 .perso-agir,
 .perso-saut {
   position: absolute;
@@ -290,7 +291,9 @@ body.perso .vues, body.perso .commandes { display: none; }
   backdrop-filter: blur(8px);
 }
 .perso-quitter { top: calc(20px + env(safe-area-inset-top)); left: 20px; }
-.perso-quitter:hover { border-color: #ffffff80; }
+.perso-debloquer { top: calc(20px + env(safe-area-inset-top)); left: 108px; }
+.perso-quitter:hover,
+.perso-debloquer:hover { border-color: #ffffff80; }
 .perso-aide {
   position: absolute;
   z-index: 11;
