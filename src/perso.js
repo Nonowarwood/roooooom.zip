@@ -1,88 +1,82 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { chemin } from './textures.js';
 
-// Mode secret : un tout petit bonhomme pastel qu'on promène dans la chambre, vue de derrière.
+// Mode secret : un tout petit bonhomme qu'on promène dans la chambre, vue de derrière.
 // On y entre par trois clics rapides sur un des petits avions du mobile (voir main.js).
 // Flèches ou ZQSD pour marcher (haut/bas avance, gauche/droite tourne), Espace pour sauter, E pour agir
 // sur ce qui est devant lui (porte, lumières, store, calendrier…), Échap pour sortir. La souris (ou le
 // doigt) fait tourner la caméra autour de lui, la molette règle la distance. Sur téléphone : un joystick et
 // deux boutons « Agir » et « Saut ». Le personnage vit dans le repère de la pièce (x ouest→est, z nord→sud).
-export function creerPerso({ racine, camera, controls, interactions, contour, meubles, cliquables, basculer, piece }) {
+//
+// Le modèle est « Frutiger aero character v2 » (public/models/perso.glb), un bonhomme vert brillant sans
+// squelette : le dandinement, l'inclinaison et l'écrasement sont faits ici, en code.
+
+// ↓↓↓ À RÉGLER ↓↓↓
+// Hauteur maximale d'un saut, en mètres. Pour monter dessus : la chaise (0,45), le lit (0,6), le bureau
+// (0,75) et la commode (1,0) demandent un saut d'au moins leur hauteur.
+const HAUTEUR_SAUT = 1.15;
+const GRAVITE = 9.8; // m/s² : moins = des sauts plus longs et plus flottants
+const VITESSE = 0.95; // m/s à pied
+const TOURNE = 2.7; // rad/s
+const TAILLE = 0.3; // hauteur du bonhomme, en mètres
+// ↑↑↑
+
+export function creerPerso({ racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece }) {
   const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
-  const RAYON = 0.075; // épaisseur du bonhomme pour les collisions
-  const VITESSE = 0.95; // m/s
-  const TOURNE = 2.7; // rad/s
+  const RAYON = 0.1; // épaisseur du bonhomme pour les collisions (les bras dépassent un peu du corps)
+  const CORPS = TAILLE + 0.03; // hauteur occupée, pour passer sous un meuble ou se cogner la tête
+  const MARCHE = 0.08; // il monte tout seul une marche de cette hauteur
 
-  // --- Le bonhomme : formes rondes, couleurs pastel, comme le reste de la pièce ---
-  const mat = (couleur, extra = {}) => new THREE.MeshStandardMaterial({ color: couleur, roughness: 0.85, ...extra });
-  const corpsMat = mat('#a6dcc8');
-  const peauMat = mat('#ffe2cf');
-  const cheveuxMat = mat('#5e4866');
-  const piedMat = mat('#f0a8b0');
-  const noir = mat('#2a2230', { roughness: 0.5 });
-  const joueMat = mat('#f6b0b8');
-
-  const ombrer = (m) => {
-    m.castShadow = true;
-    m.receiveShadow = true;
-    return m;
-  };
-  const forme = (geo, materiau, x, y, z) => {
-    const m = ombrer(new THREE.Mesh(geo, materiau));
-    m.position.set(x, y, z);
-    return m;
-  };
-
+  // --- Le bonhomme ---
   const perso = new THREE.Group();
   perso.name = 'petit bonhomme';
   perso.visible = false;
-  const corps = new THREE.Group(); // tout ce qui se balance, au-dessus des pieds
+  const corps = new THREE.Group(); // pivote autour des pieds : c'est lui qui se dandine
   perso.add(corps);
-  corps.add(forme(new THREE.CapsuleGeometry(0.05, 0.07, 4, 12), corpsMat, 0, 0.135, 0));
-  corps.add(forme(new THREE.SphereGeometry(0.068, 20, 16), peauMat, 0, 0.255, 0));
-  // calotte de cheveux, un petit épi et une frange
-  const calotte = forme(new THREE.SphereGeometry(0.073, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.52), cheveuxMat, 0, 0.262, -0.004);
-  calotte.rotation.x = -0.25;
-  corps.add(calotte);
-  corps.add(forme(new THREE.SphereGeometry(0.02, 10, 8), cheveuxMat, 0.012, 0.335, -0.005));
-  // visage vers +z : deux yeux, deux joues
-  for (const sx of [-1, 1]) {
-    corps.add(forme(new THREE.SphereGeometry(0.0085, 8, 8), noir, sx * 0.027, 0.252, 0.062));
-    const joue = forme(new THREE.SphereGeometry(0.011, 8, 6), joueMat, sx * 0.043, 0.234, 0.053);
-    joue.scale.set(1, 0.7, 0.4);
-    corps.add(joue);
-  }
-  // bras et jambes : un pivot à l'épaule / à la hanche, pour balancer
-  const membre = (rayon, longueur, materiau, x, y) => {
-    const pivot = new THREE.Group();
-    pivot.position.set(x, y, 0);
-    pivot.add(forme(new THREE.CapsuleGeometry(rayon, longueur, 3, 8), materiau, 0, -longueur / 2 - rayon * 0.5, 0));
-    return pivot;
-  };
-  const bras = [membre(0.0165, 0.05, corpsMat, -0.064, 0.17), membre(0.0165, 0.05, corpsMat, 0.064, 0.17)];
-  const jambes = [membre(0.02, 0.04, peauMat, -0.027, 0.075), membre(0.02, 0.04, peauMat, 0.027, 0.075)];
-  for (const j of jambes) j.add(forme(new THREE.SphereGeometry(0.026, 10, 8), piedMat, 0, -0.074, 0.012));
-  corps.add(...bras);
-  perso.add(...jambes);
+  const matPerso = new THREE.MeshStandardMaterial({ color: '#46c964', roughness: 0.28, metalness: 0.05, emissive: '#0a3a14' });
+  const reservePerso = new THREE.Mesh(new THREE.SphereGeometry(TAILLE / 2, 16, 12), matPerso); // le temps du chargement
+  reservePerso.position.y = TAILLE / 2;
+  corps.add(reservePerso);
+  new GLTFLoader().loadAsync(chemin('/models/perso.glb')).then(
+    (gltf) => {
+      const modele = gltf.scene;
+      modele.traverse((o) => {
+        if (!o.isMesh) return;
+        o.material = matPerso;
+        o.castShadow = true;
+        o.receiveShadow = true;
+      });
+      // à l'échelle de la chambre : TAILLE de haut, les pieds au sol, centré sur son axe
+      const boite = new THREE.Box3().setFromObject(modele);
+      const echelle = TAILLE / (boite.max.y - boite.min.y);
+      const enveloppe = new THREE.Group();
+      enveloppe.scale.setScalar(echelle);
+      enveloppe.position.set(-((boite.min.x + boite.max.x) / 2) * echelle, -boite.min.y * echelle, -((boite.min.z + boite.max.z) / 2) * echelle);
+      enveloppe.add(modele);
+      corps.remove(reservePerso);
+      corps.add(enveloppe);
+    },
+    (err) => console.warn('Modèle du petit bonhomme introuvable :', err.message),
+  );
   racine.add(perso);
 
-  // --- Où il peut marcher : le contour de la pièce, moins les meubles posés au sol ---
-  // Pour chaque meuble : le rectangle des pièces qui touchent le bas (moins de 40 cm du sol) et la hauteur
-  // de son sommet (la caméra, derrière lui, ne doit pas entrer dans un meuble plus haut qu'elle).
-  const obstacles = [];
+  // --- Le sol, les meubles et ce sur quoi il peut grimper ---
+  // Chaque forme d'un meuble devient un solide : son rectangle au sol, son bas et son dessus. Un solide
+  // arrête le bonhomme s'il touche son corps plus haut qu'une marche ; son dessus le porte s'il est assez
+  // large (`marche`). Les murs ne sont pas des solides : le contour de la pièce s'en charge.
+  const solides = [];
+  const ajouter = (x0, x1, z0, z1, bas, haut, marche) => solides.push({ x0, x1, z0, z1, bas, haut, marche });
   for (const m of meubles) {
-    let [x0, x1, z0, z1, haut] = [Infinity, -Infinity, Infinity, -Infinity, 0];
     for (const p of m.parties ?? []) {
       const [l, h, pr] = p.forme === 'cylindre' ? [p.taille[0], p.taille[1], p.taille[0]] : p.forme === 'sphere' || p.forme === 'tore' ? [p.taille[0], p.taille[0], p.taille[0]] : p.taille;
       const bas = p.centre ? p.pos[1] - h / 2 : p.pos[1];
-      haut = Math.max(haut, bas + h);
-      if (bas > 0.4) continue;
-      x0 = Math.min(x0, m.pos[0] + p.pos[0] - l / 2);
-      x1 = Math.max(x1, m.pos[0] + p.pos[0] + l / 2);
-      z0 = Math.min(z0, m.pos[1] + p.pos[2] - pr / 2);
-      z1 = Math.max(z1, m.pos[1] + p.pos[2] + pr / 2);
+      const [x, z] = [m.pos[0] + p.pos[0], m.pos[1] + p.pos[2]];
+      const portant = !p.verre && !p.rot && p.forme !== 'sphere' && p.forme !== 'tore' && Math.min(l, pr) >= 0.07;
+      ajouter(x - l / 2, x + l / 2, z - pr / 2, z + pr / 2, bas, bas + h, portant);
     }
-    if (x0 < x1) obstacles.push({ nom: m.nom, x0, x1, z0, z1, haut });
   }
+  for (const f of fixes) ajouter(f.x0, f.x1, f.z0, f.z1, f.bas, f.haut, false);
 
   const dansContour = (x, z) => {
     let dedans = false;
@@ -104,16 +98,22 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     }
     return d;
   };
-  const libre = (x, z, r = RAYON) => {
-    if (!dansContour(x, z) || distanceAuxBords(x, z) < r) return false;
-    return !obstacles.some((o) => x > o.x0 - r && x < o.x1 + r && z > o.z0 - r && z < o.z1 + r);
+  // son corps, à la hauteur y, touche-t-il un solide plus haut qu'une marche ?
+  const bute = (x, z, y) =>
+    solides.some((s) => x > s.x0 - RAYON && x < s.x1 + RAYON && z > s.z0 - RAYON && z < s.z1 + RAYON && s.haut > y + MARCHE && s.bas < y + CORPS);
+  const libre = (x, z, y) => dansContour(x, z) && distanceAuxBords(x, z) >= RAYON * 0.8 && !bute(x, z, y);
+  // le dessus le plus haut qui le porterait en (x, z), sans dépasser `max`
+  const solSous = (x, z, max) => {
+    let h = 0;
+    for (const s of solides) if (s.marche && s.haut <= max && s.haut > h && x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1) h = s.haut;
+    return h;
   };
   // hauteur du plafond au-dessus de z (la pente descend vers le sud)
   const plafond = (z) => (z <= D - R ? H : Math.max(K, H - ((z - (D - R)) * (H - K)) / R));
-  // la caméra, elle, doit rester dans la pièce, sous le toit et hors des meubles plus hauts qu'elle
+  // la caméra doit rester dans la pièce, sous le toit et hors des meubles
   const cameraLibre = (x, y, z) => {
     if (!dansContour(x, z) || distanceAuxBords(x, z) < 0.12 || y > plafond(z) - 0.08) return false;
-    return !obstacles.some((o) => o.haut > y - 0.04 && x > o.x0 - 0.05 && x < o.x1 + 0.05 && z > o.z0 - 0.05 && z < o.z1 + 0.05);
+    return !solides.some((s) => x > s.x0 - 0.04 && x < s.x1 + 0.04 && z > s.z0 - 0.04 && z < s.z1 + 0.04 && s.bas < y + 0.02 && s.haut > y - 0.04);
   };
 
   // --- Interface et commandes ---
@@ -131,9 +131,10 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
   const stick = { x: 0, y: 0 }; // -1…1, haut = avancer
   let actif = false;
   let temps = 0;
-  let alt = 0; // hauteur du saut
+  let alt = 0; // hauteur de ses pieds
   let vy = 0;
-  let airLisse = 0; // 0 au sol, 1 en l'air (lissé, pour les bras et les jambes)
+  let enAir = false;
+  let airLisse = 0; // 0 au sol, 1 en l'air (lissé, pour l'étirement)
   let atterri = 1; // chronomètre de l'écrasement à l'arrivée (1 = terminé)
   let saute = false;
   let tangage = 0.3; // hauteur de la caméra autour de lui (radians au-dessus de l'horizontale)
@@ -266,9 +267,10 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     controls.maxPolarAngle = Math.PI;
     // départ : un coin libre, tourné vers le centre de la pièce
     const departs = [[1.0, 1.4], [0.9, 1.0], [1.0, 2.9], [1.5, 1.2], [2.0, 1.4]];
-    const [x, z] = departs.find(([x, z]) => libre(x, z)) ?? departs[0];
+    const [x, z] = departs.find(([x, z]) => libre(x, z, 0)) ?? departs[0];
     pos.set(x, 0, z);
     alt = vy = 0;
+    enAir = false;
     saute = false;
     tangage = 0.3;
     distance = 0.82;
@@ -310,7 +312,7 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
       capCamera += ecart * (1 - Math.exp(-3.2 * dt));
     }
     const [sx, cz] = [Math.sin(capCamera), Math.cos(capCamera)];
-    const hy = 0.22 + alt * 0.5; // le point visé : sa tête
+    const hy = alt + TAILLE * 0.75; // le point visé : sa tête
     const [horiz, vert] = [Math.cos(tangage) * distance, Math.sin(tangage) * distance];
     // on se rapproche de lui tant que la caméra serait dans un mur, sous le toit ou dans un meuble
     let t = 1;
@@ -318,7 +320,7 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
       if (cameraLibre(pos.x - sx * horiz * t, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t)) break;
     }
     cameraVoulue.set(pos.x - sx * horiz * t, Math.max(0.06, hy + vert * t), pos.z - cz * horiz * t).add(racine.position);
-    regardVoulu.set(pos.x + sx * 0.18, hy - 0.02, pos.z + cz * 0.18).add(racine.position);
+    regardVoulu.set(pos.x + sx * 0.18, hy - 0.04, pos.z + cz * 0.18).add(racine.position);
     camera.position.lerp(cameraVoulue, k);
     controls.target.lerp(regardVoulu, k);
     camera.fov += (62 - camera.fov) * k;
@@ -364,50 +366,70 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
     if (pas !== 0) {
       const [nx, nz] = [pos.x + Math.sin(cap) * pas, pos.z + Math.cos(cap) * pas];
       // si le chemin est bloqué on glisse le long de l'obstacle, un axe après l'autre
-      if (libre(nx, nz)) pos.set(nx, 0, nz);
-      else if (libre(nx, pos.z)) pos.x = nx;
-      else if (libre(pos.x, nz)) pos.z = nz;
+      if (libre(nx, nz, alt)) pos.set(nx, 0, nz);
+      else if (libre(nx, pos.z, alt)) pos.x = nx;
+      else if (libre(pos.x, nz, alt)) pos.z = nz;
     }
-    // démarche : les jambes et les bras se balancent selon la distance parcourue
-    const enMarche = pas !== 0 ? 1 : 0;
-    allure += (enMarche - allure) * (1 - Math.exp(-12 * dt));
-    phase += Math.abs(pas) * 26 + (tourne !== 0 && !enMarche ? dt * 6 : 0);
-    const balance = Math.sin(phase) * 0.85 * (enMarche ? allure : Math.min(1, Math.abs(tourne)) * 0.4);
-    jambes[0].rotation.x = balance;
-    jambes[1].rotation.x = -balance;
-    bras[0].rotation.x = -balance * 0.9;
-    bras[1].rotation.x = balance * 0.9;
-    corps.position.y = Math.abs(Math.sin(phase)) * 0.008 * allure;
-    corps.rotation.z = Math.sin(phase) * 0.05 * allure;
-    // saut : une impulsion vers le haut, puis la pesanteur ; on peut bouger en l'air
-    if (saute && alt === 0) {
-      vy = 2.5;
-      alt = 0.0001;
+
+    // verticalement : à pied il suit le sol (il monte une marche, ou tombe d'un rebord) ; en l'air, la pesanteur
+    if (saute && !enAir) {
+      enAir = true;
+      vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT);
     }
     saute = false;
-    if (alt > 0) {
-      vy -= 9.8 * dt;
-      alt += vy * dt;
-      if (alt <= 0) {
-        alt = 0;
+    if (!enAir) {
+      const sol = solSous(pos.x, pos.z, alt + MARCHE);
+      if (sol < alt - 0.01) {
+        enAir = true; // plus rien sous ses pieds
         vy = 0;
-        atterri = 0; // petit écrasement à l'arrivée
+      } else {
+        alt += (sol - alt) * (1 - Math.exp(-30 * dt));
+        if (Math.abs(sol - alt) < 0.002) alt = sol;
       }
     }
-    airLisse += ((alt > 0.004 ? 1 : 0) - airLisse) * (1 - Math.exp(-16 * dt));
-    atterri = Math.min(1, atterri + dt / 0.16);
-    // en l'air : les bras levés, les jambes un peu écartées
-    bras[0].rotation.x += (-2.4 - bras[0].rotation.x) * airLisse;
-    bras[1].rotation.x += (-2.4 - bras[1].rotation.x) * airLisse;
-    jambes[0].rotation.x += (0.45 - jambes[0].rotation.x) * airLisse;
-    jambes[1].rotation.x += (-0.25 - jambes[1].rotation.x) * airLisse;
-    corps.position.y *= 1 - airLisse;
+    if (enAir) {
+      vy -= GRAVITE * dt;
+      let neuve = alt + vy * dt;
+      if (vy > 0) {
+        // il se cogne la tête contre le dessous d'un meuble ou le plafond
+        for (const s of solides) {
+          if (s.bas > alt + CORPS - 0.01 && s.bas < neuve + CORPS && pos.x > s.x0 - RAYON * 0.6 && pos.x < s.x1 + RAYON * 0.6 && pos.z > s.z0 - RAYON * 0.6 && pos.z < s.z1 + RAYON * 0.6) {
+            neuve = s.bas - CORPS;
+            vy = 0;
+          }
+        }
+        const toit = plafond(pos.z) - CORPS;
+        if (neuve > toit) {
+          neuve = toit;
+          vy = 0;
+        }
+      } else {
+        const sol = solSous(pos.x, pos.z, alt + 0.03);
+        if (neuve <= sol) {
+          neuve = sol;
+          enAir = false;
+          vy = 0;
+          atterri = 0; // petit écrasement à l'arrivée
+        }
+      }
+      alt = Math.max(0, neuve);
+    }
+
+    // démarche : il se dandine, pivote autour des pieds au rythme des pas et se penche en avançant
+    const enMarche = pas !== 0 && !enAir ? 1 : 0;
+    allure += (enMarche - allure) * (1 - Math.exp(-12 * dt));
+    phase += Math.abs(pas) * 26 + (tourne !== 0 && !enMarche ? dt * 6 : 0);
+    const balance = Math.sin(phase) * (enMarche ? allure : Math.min(1, Math.abs(tourne)) * 0.35);
+    corps.rotation.z = balance * 0.16;
+    corps.rotation.x = 0.1 * allure * Math.sign(avance || 1);
+    corps.position.y = Math.abs(Math.sin(phase)) * 0.012 * allure;
     // il s'étire en montant et s'écrase en retombant
-    const ecrase = Math.sin(Math.PI * atterri) * 0.16 * (atterri < 1 ? 1 : 0);
-    const etire = airLisse * 0.07 * THREE.MathUtils.clamp(Math.abs(vy) / 2.5, 0, 1);
+    airLisse += ((enAir ? 1 : 0) - airLisse) * (1 - Math.exp(-16 * dt));
+    atterri = Math.min(1, atterri + dt / 0.16);
+    const ecrase = Math.sin(Math.PI * atterri) * 0.18 * (atterri < 1 ? 1 : 0);
+    const etire = airLisse * 0.1 * THREE.MathUtils.clamp(Math.abs(vy) / 3, 0, 1);
     perso.scale.set(1 + ecrase * 0.6 - etire * 0.4, 1 - ecrase + etire, 1 + ecrase * 0.6 - etire * 0.4);
     perso.position.set(pos.x, alt, pos.z);
-    // tourne sans à-coup vers la direction voulue
     perso.rotation.y = cap;
 
     suivreCamera(dt, enMarche === 1 || tourne !== 0);
@@ -421,6 +443,7 @@ export function creerPerso({ racine, camera, controls, interactions, contour, me
       el.agir.classList.toggle('pret', !!cible);
     }
   }
+
 
   return { activer, desactiver, maj, get actif() { return actif; } };
 }
