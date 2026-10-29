@@ -1870,7 +1870,9 @@ const lampes = lumieres.map((l) => {
     for (const p of l.ampoules ?? [l.pos]) {
       const a = new THREE.Mesh(geoAmpoule, materiauAmpoule);
       a.position.set(...p);
-      a.add(creerHalo(matHalo, 0.6));
+      const taille = l.tailleAmpoule ?? 1;
+      a.scale.setScalar(taille);
+      a.add(creerHalo(matHalo, 0.6 / taille)); // le halo garde sa taille, quelle que soit l'ampoule
       racine.add(a);
       if (l.mur) accrocher(l.mur, a);
     }

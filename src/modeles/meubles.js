@@ -120,25 +120,29 @@ function lit() {
   );
 }
 
-// --- Commode à 4 tiroirs sans poignée (prise en creux en haut de chaque tiroir), plateau nu ---
+// --- Commode MALM à 4 tiroirs, en chêne, d'après tes photos ---
+// Flancs lisses ; quatre grandes façades pleine largeur, épaisses, qui avancent devant le caisson et
+// ne se touchent pas : entre deux façades, une fente d'ombre (c'est par là qu'on tire le tiroir, il n'y a
+// pas de poignée). Plateau fin qui déborde un peu, socle en retrait. La face avant regarde -x.
 function commode() {
   const m = creerMateriaux();
+  const FACE = -0.25; // plan de la face avant du caisson
+  const EP = 0.02; // épaisseur d'une façade
   const tiroirs = [];
-  for (let i = 0; i < 4; i++) {
-    const bas = 0.045 + i * 0.236;
-    tiroirs.push(boite([0.014, 0.226, 0.77], m.cheneClair, [-0.257, bas, 0], { r: 0.006 }));
-    // creux de préhension le long du bord haut
-    tiroirs.push(boite([0.004, 0.008, 0.66], m.noirMat, [-0.263, bas + 0.205, 0], { r: 0.001 }));
+  const hauteurs = [0.222, 0.222, 0.222, 0.222]; // de 5 cm à 97,4 cm : une fente d'ombre reste sous le plateau
+  let bas = 0.05;
+  for (const h of hauteurs) {
+    tiroirs.push(boite([EP, h, 0.8], m.commode, [FACE - EP / 2, bas, 0], { r: 0.004 }));
+    bas += h + 0.012; // fente d'ombre entre deux façades
   }
-
   return groupe(
     'commode',
-    boite([0.46, 0.03, 0.76], m.cheneFonce, [0, 0, 0], { r: 0.004 }), // socle en retrait
-    boite([0.5, 0.95, 0.8], m.commode, [0, 0.03, 0], { r: 0.01 }),
-    boite([0.52, 0.02, 0.82], m.commode, [0, 0.98, 0], { r: 0.008 }), // plateau qui déborde
-    // panneaux encastrés sur les côtés
-    boite([0.36, 0.75, 0.004], m.cheneFonce, [0, 0.12, 0.402], { r: 0.002 }),
-    boite([0.36, 0.75, 0.004], m.cheneFonce, [0, 0.12, -0.402], { r: 0.002 }),
+    boite([0.44, 0.045, 0.76], m.cheneFonce, [0.02, 0, 0], { r: 0.004 }), // socle en retrait
+    boite([0.5, 0.935, 0.8], m.commode, [0, 0.045, 0], { r: 0.006 }), // caisson, flancs lisses
+    // le fond des fentes : la face du caisson, plus sombre, derrière les façades
+    boite([0.004, 0.93, 0.79], m.cheneFonce, [FACE - 0.002, 0.048, 0], { r: 0.001 }),
+    boite([0.52, 0.02, 0.81], m.commode, [-0.01, 0.98, 0], { r: 0.006 }), // plateau qui déborde devant
+    boite([0.004, 0.012, 0.81], m.cheneFonce, [-0.272, 0.984, 0], { r: 0.001 }), // chant du plateau
     ...tiroirs,
   );
 }
@@ -317,15 +321,83 @@ function bureau() {
     // panneau de retrait blanc, en haut au fond, sans descendre jusqu'au sol
     boite([1.35, 0.17, 0.016], m.creme, [0, 0.55, -0.22], { r: 0.003 }),
     ...macbook(m, 0.12, 0.756, 0.02),
-    // carton avec son ruban adhésif, sa languette et ses poignées
-    boite([0.4, 0.3, 0.4], m.carton, [0.15, 0, -0.05], { r: 0.006 }),
-    boite([0.402, 0.004, 0.004], m.cartonFonce, [0.15, 0.299, -0.05], { r: 0.001 }),
-    boite([0.06, 0.003, 0.404], m.ruban, [0.15, 0.3, -0.05], { r: 0.001 }),
-    boite([0.1, 0.03, 0.004], m.cartonFonce, [0.15, 0.2, 0.152], { r: 0.012 }),
-    boite([0.1, 0.03, 0.004], m.cartonFonce, [0.15, 0.2, -0.252], { r: 0.012 }),
-    boite([0.004, 0.03, 0.1], m.cartonFonce, [-0.052, 0.2, -0.05], { r: 0.012 }),
-    boite([0.004, 0.03, 0.1], m.cartonFonce, [0.352, 0.2, -0.05], { r: 0.012 }),
+    ...boiteArchives(m, [-0.25, 0, -0.08]),
+    ...panierFleuriste(m, [0.19, 0, -0.1]),
   );
+}
+
+// Sous le bureau, d'après ta photo : la boîte d'archives Lyreco, blanche à liseré bleu. Sur la face avant
+// (qui regarde +z) : une rangée d'étiquettes bleues à bandeau blanc sous le couvercle et un cadre bleu
+// imprimé. [x, y, z] = centre du dessous.
+function boiteArchives(m, [x, y, z]) {
+  const bleu = m.uni('#8aa6e4');
+  const [L, H, P] = [0.5, 0.29, 0.36];
+  const avant = z + P / 2 + 0.001;
+  const etiquettes = [-0.18, -0.09, 0, 0.09, 0.18].flatMap((dx) => [
+    boite([0.07, 0.035, 0.003], bleu, [x + dx, y + H - 0.075, avant], { r: 0.001 }),
+    boite([0.044, 0.008, 0.002], m.blanc, [x + dx, y + H - 0.062, avant + 0.002], { r: 0.001 }), // « Lyreco »
+  ]);
+  // cadre imprimé : quatre filets bleus
+  const cadre = [
+    boite([L - 0.06, 0.004, 0.002], bleu, [x, y + 0.04, avant]),
+    boite([L - 0.06, 0.004, 0.002], bleu, [x, y + H - 0.1, avant]),
+    boite([0.004, H - 0.14, 0.002], bleu, [x - L / 2 + 0.03, y + 0.04, avant]),
+    boite([0.004, H - 0.14, 0.002], bleu, [x + L / 2 - 0.03, y + 0.04, avant]),
+  ];
+  // poignées découpées dans les petits côtés
+  const poignees = [x - L / 2 - 0.001, x + L / 2 + 0.001].map((px) => boite([0.002, 0.025, 0.09], m.noirMat, [px, y + H - 0.09, z], { r: 0.001 }));
+  return [
+    boite([L, H, P], m.blanc, [x, y, z], { r: 0.004 }),
+    boite([L + 0.01, 0.035, P + 0.01], m.blanc, [x, y + H - 0.03, z], { r: 0.004 }), // couvercle
+    boite([L + 0.002, 0.018, P + 0.002], bleu, [x, y + 0.008, z], { r: 0.002 }), // liseré bleu du bas
+    ...etiquettes,
+    ...cadre,
+    ...poignees,
+  ];
+}
+
+// Le panier « Flower Shop » : un coffre en osier tressé en forme de petite boutique, toit vert arrondi,
+// deux fenêtres en arc et une porte rose sur la face avant (+z). [x, y, z] = centre du dessous.
+function panierFleuriste(m, [x, y, z]) {
+  const vert = m.uni('#7f9e83');
+  const vertFonce = m.uni('#5f7f66');
+  const rose = m.uni('#eeb2c2');
+  const [L, H, P] = [0.32, 0.26, 0.24];
+  const avant = z + P / 2 + 0.002;
+  const rangs = [];
+  for (let k = 0; k < 9; k++) rangs.push(boite([L + 0.004, 0.012, P + 0.004], k % 2 ? m.osierPaille : m.osierFonce, [x, y + 0.012 + k * 0.028, z], { r: 0.003 }));
+  // une fenêtre en arc : cadre vert, carreaux clairs et croisillon
+  const fenetre = (dx) => [
+    boite([0.07, 0.07, 0.003], vert, [x + dx, y + 0.09, avant], { r: 0.002 }),
+    cylindre(0.07, 0.003, vert, [x + dx, y + 0.16, avant + 0.0015], { rot: axeZ, centre: true, segments: 18 }), // l'arc
+    boite([0.052, 0.06, 0.002], m.creme, [x + dx, y + 0.098, avant + 0.003]),
+    cylindre(0.052, 0.002, m.creme, [x + dx, y + 0.158, avant + 0.0035], { rot: axeZ, centre: true, segments: 18 }),
+    boite([0.004, 0.09, 0.002], vert, [x + dx, y + 0.098, avant + 0.005]),
+    boite([0.052, 0.004, 0.002], vert, [x + dx, y + 0.13, avant + 0.005]),
+  ];
+  // le tressage du toit : des joncs plus foncés qui en font le tour
+  const joncs = [-0.12, -0.06, 0, 0.06, 0.12].map((dx) => cylindre(P + 0.006, 0.01, vertFonce, [x + dx, y + H, z], { rot: axeX, centre: true, segments: 28 }));
+  // du lierre peint qui grimpe aux coins de la façade
+  const lierre = [-1, 1].flatMap((s) => [0.05, 0.1, 0.15, 0.2].map((h, i) => sphere(0.024 - i * 0.003, vertFonce, [x + s * (L / 2 - 0.02), y + h, avant + 0.004], { echelle: [1, 1, 0.3] })));
+  // anses en jonc sur les petits côtés
+  const anses = [x - L / 2 - 0.006, x + L / 2 + 0.006].map((px) => tore(0.07, 0.006, m.osierFonce, [px, y + H - 0.06, z], [0, PI / 2, 0]));
+  return [
+    boite([L, H, P], m.osierPaille, [x, y, z], { r: 0.006 }),
+    ...rangs,
+    // toit arrondi : un demi-cylindre vert couché le long du coffre, avec son rebord
+    cylindre(P, L, vert, [x, y + H, z], { rot: axeX, centre: true, segments: 28 }),
+    ...joncs,
+    boite([L + 0.012, 0.014, P + 0.012], vertFonce, [x, y + H - 0.007, z], { r: 0.003 }),
+    // l'enseigne « FLOWER SHOP » et son lettrage clair
+    boite([0.2, 0.026, 0.003], vertFonce, [x, y + H - 0.045, avant], { r: 0.002 }),
+    boite([0.15, 0.008, 0.002], m.creme, [x, y + H - 0.036, avant + 0.002]),
+    ...fenetre(-0.1),
+    ...fenetre(0.1),
+    boite([0.06, 0.12, 0.004], rose, [x, y + 0.02, avant + 0.001], { r: 0.003 }), // la porte
+    sphere(0.008, m.laiton, [x + 0.018, y + 0.08, avant + 0.004]), // sa poignée
+    ...lierre,
+    ...anses,
+  ];
 }
 
 // --- Chaise « luge » : assise en hêtre, tube gris continu de chaque côté, dossier gris ---

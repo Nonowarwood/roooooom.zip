@@ -587,6 +587,7 @@ export const meubles = [
 //  - `spots: true` : chaque entrée de `ampoules` ([x, y, z], x = 0 contre le mur) devient un vrai
 //    spot (platine, bras, douille, ampoule en verre) avec sa propre lumière, `intensite` par spot.
 //  - sinon `ampoules` = petites sphères lumineuses ; sans elles, une ampoule posée en `pos`.
+//    `tailleAmpoule` réduit (ou grossit) ces sphères (1 = 10 cm de diamètre).
 export const lumieres = [
   {
     // trois spots collés au mur ouest, au-dessus de l'affiche Harper's Bazaar (qui finit à 2,0 m)
@@ -603,7 +604,8 @@ export const lumieres = [
       [0, 2.2, 1.7],
     ],
   },
-  { nom: 'lampadaire', pos: [3.05, 1.85, 0.35], couleur: '#ffd9a0', intensite: 3.5, portee: 4 },
+  // l'ampoule est au fond de la vasque (de 1,74 à 1,81 m), assez petite pour ne pas dépasser du bord
+  { nom: 'lampadaire', pos: [3.05, 1.772, 0.35], tailleAmpoule: 0.35, couleur: '#ffd9a0', intensite: 3.5, portee: 4 },
 ];
 
 // Boutons marche/arrêt en bas de l'écran. `lumieres` = noms des lumières
