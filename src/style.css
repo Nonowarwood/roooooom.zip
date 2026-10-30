@@ -178,6 +178,110 @@ html, body {
 }
 .chargement-texte { font-size: 12px; letter-spacing: 0.08em; opacity: 0.75; font-variant-numeric: tabular-nums; }
 
+/* --- Menu d'accueil : un carrousel des pièces, au-dessus de l'écran de chargement ---
+   La miniature de la pièce au centre, son nom en arc au-dessus, un sous-titre en arc dessous, le bouton
+   « Visiter », des flèches rondes sur les côtés et la pièce voisine floutée qui dépasse du bord. */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.accueil {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+  background: var(--degrade);
+  user-select: none;
+  touch-action: pan-y;
+  transition: opacity 0.6s ease, visibility 0.6s;
+}
+.accueil.fini { opacity: 0; visibility: hidden; pointer-events: none; }
+.accueil-scene { position: absolute; inset: 0; }
+/* une pièce du carrousel : son image détourée, puis sa vraie scène 3D (une iframe) par-dessus, en fondu */
+.accueil-piece {
+  position: absolute;
+  top: 48%;
+  left: 50%;
+  width: min(560px, 82vw);
+  aspect-ratio: 1.4;
+  transform: translate(-50%, -50%);
+  transition: left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.6s, filter 0.6s;
+}
+.accueil-piece img,
+.accueil-piece iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+.accueil-piece img { object-fit: contain; filter: drop-shadow(0 18px 30px #0000004d); }
+.accueil-piece iframe { opacity: 0; background: transparent; color-scheme: normal; }
+.accueil-piece.vivante iframe { opacity: 1; }
+.accueil-piece.vivante img { opacity: 0; }
+/* les voisines : plus petites, floutées, à moitié hors de l'écran ; un clic dessus y mène */
+.accueil-piece.gauche,
+.accueil-piece.droite { width: min(400px, 60vw); opacity: 0.55; filter: blur(9px) brightness(0.85); cursor: pointer; }
+.accueil-piece.droite { left: calc(100% + 2vw); }
+.accueil-piece.gauche { left: -2vw; }
+.accueil-piece.cachee { opacity: 0; pointer-events: none; }
+/* changement de pièce : le nom et le sous-titre arrivent du côté d'où l'on vient */
+.accueil.glisse .accueil-arc { animation: arriver 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.accueil.glisse[data-sens='gauche'] { --depart: -40px; }
+.accueil.glisse[data-sens='droite'] { --depart: 40px; }
+@keyframes arriver { from { opacity: 0; transform: translateX(calc(-50% + var(--depart, 0px))); } }
+.accueil-textes { position: absolute; inset: 0; pointer-events: none; }
+
+/* --- Dans l'iframe d'une miniature : la scène seule, sur fond transparent --- */
+body.miniature,
+html:has(body.miniature) { background: transparent; }
+body.miniature > *:not(#scene) { display: none !important; }
+.accueil-arc { position: absolute; left: 50%; width: min(460px, 82vw); transform: translateX(-50%); overflow: visible; }
+.accueil-arc text { font-family: 'Milky Boba', Georgia, serif; fill: #fff; filter: drop-shadow(0 2px 10px #0000004d); }
+.accueil-arc.haut { top: calc(48% - min(250px, 37vw) - min(70px, 12vw)); }
+.accueil-arc.haut text { font-size: 62px; }
+.accueil-arc.bas { top: calc(48% + min(185px, 27vw)); }
+.accueil-arc.bas text { font-size: 66px; letter-spacing: 0.02em; }
+.accueil-visiter {
+  position: absolute;
+  top: calc(48% + min(185px, 27vw) + min(136px, 24vw)); /* sous le creux de l'arc du sous-titre */
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 11px 36px;
+  color: #fff;
+  background: #ffffff1c;
+  border: 1px solid #ffffff80;
+  border-radius: 30px;
+  backdrop-filter: var(--flou);
+  font: 600 14px/1 Inter, system-ui, sans-serif;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.2s, border-color 0.2s;
+}
+.accueil-visiter:hover { background: #ffffff2e; border-color: #fff; }
+.accueil-fleche {
+  position: absolute;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #fff;
+  background: #ffffff14;
+  border: 1px solid #ffffff60;
+  border-radius: 50%;
+  backdrop-filter: var(--flou);
+  transform: translateY(-50%);
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+.accueil-fleche.gauche { left: clamp(14px, 4vw, 56px); }
+.accueil-fleche.droite { right: clamp(14px, 4vw, 56px); }
+.accueil-fleche:hover:not(:disabled) { background: #ffffff2a; border-color: #fff; }
+.accueil-fleche:disabled { opacity: 0.35; cursor: default; }
+
 /* --- Vues prédéfinies, en bas au centre, sous les interrupteurs --- */
 .vues {
   position: absolute;

@@ -86,13 +86,13 @@ function etoile(g, x, y, rayon) {
   g.fill();
 }
 
-// Pente du toit : plâtre rose très clair avec les étoiles autocollantes d'un jaune pâle.
-export function etoiles() {
+// Pente du toit : plâtre rose très clair (ou `fond`) avec les étoiles autocollantes d'un jaune pâle.
+export function etoiles(fond = '#f1d8d9') {
   return creer(
     1024,
     563,
     (g, w, h) => {
-      g.fillStyle = '#f1d8d9';
+      g.fillStyle = fond;
       g.fillRect(0, 0, w, h);
       const r = aleatoire(11);
       g.fillStyle = '#f7e7ae';

@@ -34,7 +34,7 @@ const SENSIBILITE = 0.0022; // souris, radians par pixel
 const TAILLE = 0.3; // hauteur du bonhomme, en mètres
 // ↑↑↑
 
-export function creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece }) {
+export function creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes = [], cliquables, basculer, piece, profondeurNord = 0 }) {
   const { largeur: W, profondeur: D, hauteur: H, hauteurMurBas: K, penteProfondeur: R } = piece;
   const RAYON = 0.085; // épaisseur du bonhomme pour les collisions (les bras dépassent un peu du corps)
   const CORPS_DEBOUT = TAILLE + 0.03; // hauteur occupée, pour passer sous un meuble ou se cogner la tête
@@ -146,8 +146,14 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     for (const s of solides) if (s.marche && s.haut <= max && s.haut > h && x > s.x0 && x < s.x1 && z > s.z0 && z < s.z1) h = s.haut;
     return h;
   };
-  // hauteur du plafond au-dessus de z (la pente descend vers le sud)
-  const plafond = (z) => (z <= D - R ? H : Math.max(K, H - ((z - (D - R)) * (H - K)) / R));
+  // hauteur du plafond au-dessus de z : la pente descend vers le sud, et dans la chambre de rêve
+  // (profondeurNord > 0) une seconde pente descend vers le nord
+  const D2 = profondeurNord;
+  const plafond = (z) => {
+    if (z > D - R) return Math.max(K, H - ((z - (D - R)) * (H - K)) / R);
+    if (D2 > 0 && z < -D2 + R) return Math.max(K, H - ((-D2 + R - z) * (H - K)) / R);
+    return H;
+  };
   // la caméra doit rester dans la pièce, sous le toit et hors des meubles
   const cameraLibre = (x, y, z) => {
     if (!dansContour(x, z) || distanceAuxBords(x, z) < 0.12 || y > plafond(z) - 0.08) return false;

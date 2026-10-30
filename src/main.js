@@ -19,7 +19,11 @@ import {
   objetsVitrine,
   magazinesCommode,
   lieu,
+  voisine,
+  paletteReve,
+  agencementReve,
 } from './chambre.js';
+import { reve, miniature } from './mode.js';
 import { initialiserInteractions } from './interactions.js';
 import { creerPerso } from './perso.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
@@ -30,7 +34,7 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
 renderer.setClearColor(0x000000, 0); // le fond dégradé est dessiné en CSS (voir style.css)
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, miniature ? 1.5 : 2)); // une miniature est petite : moins de pixels
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -55,14 +59,22 @@ const LP = Math.hypot(H - K, R); // longueur de la pente
 const cosP = R / LP; // cosinus et sinus de l'angle de la pente
 const sinP = (H - K) / LP;
 const { P1, P2, P3 } = renfoncement; // points du renfoncement de la porte
+// Chambre de rêve : la chambre voisine s'ajoute au nord, de z = -DN à 0 (DN = 0 pour ma chambre seule).
+const DN = reve ? voisine.profondeur : 0;
+const DEMI_X = W / 2; // demi-dimensions de l'ensemble, autour de son centre
+const DEMI_Z = (D + DN) / 2;
+// les couleurs de la pièce : celles de la chambre de rêve (murs blancs, sol bleu) remplacent les nôtres
+const couleurs = reve ? { ...palette, ...paletteReve } : palette;
 
 // Le centre de la pièce est à l'origine pour que la caméra tourne autour.
 const racine = new THREE.Group();
-racine.position.set(-W / 2, 0, -D / 2);
+racine.position.set(-W / 2, 0, -(D - DN) / 2);
 scene.add(racine);
 
 const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-camera.position.set(-4.6, 7.6, -6.2); // depuis le nord-ouest : on voit le mur est et le toit
+// depuis le nord-ouest : on voit le mur est et le toit (de plus loin pour la chambre de rêve, deux fois plus longue)
+if (reve) camera.position.set(-5.75, 9.28, -7.75); // la vue d'ensemble de la chambre de rêve (voir vuesPiece)
+else camera.position.set(-4.6, 7.6, -6.2);
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 0.9, 0);
@@ -75,11 +87,22 @@ controls.enablePan = true;
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.minDistance = 1.2;
-controls.maxDistance = 16;
+controls.maxDistance = reve ? 20 : 16;
 controls.minPolarAngle = 0;
 controls.maxPolarAngle = LIMITE_POLAIRE;
-const LIMITE_CIBLE = { min: new THREE.Vector3(-2.6, 0, -2.6), max: new THREE.Vector3(2.6, 2.4, 2.6) }; // en repère scène
+const LIMITE_CIBLE = { min: new THREE.Vector3(-DEMI_X - 0.8, 0, -DEMI_Z - 0.75), max: new THREE.Vector3(DEMI_X + 0.8, 2.4, DEMI_Z + 0.75) }; // en repère scène
 const reglages = { murs: 'auto' }; // 'auto' | 'up' (tous levés) | 'down' (tous baissés) : boutons en haut à gauche
+// Miniature du menu d'accueil : la caméra recule un peu pour que le diorama tienne entier dans son cadre
+// pendant qu'elle tourne lentement autour, et on ne peut pas la piloter.
+if (miniature) {
+  // on vise le milieu du diorama, socle compris (un peu plus bas que d'habitude), avec de la marge tout autour
+  controls.target.y = 0;
+  camera.position.y -= 0.9;
+  camera.position.sub(controls.target).multiplyScalar(reve ? 1.24 : 1.02).add(controls.target);
+  controls.enabled = false;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = 0.55;
+}
 controls.update();
 
 const mat =(couleur, extra = {}) =>
@@ -101,16 +124,17 @@ function surface(points, materiau) {
 
 // --- Sol et dalle ---
 // Contour du sol dans le plan (x, z) : le coin nord-ouest est remplacé par le
-// renfoncement de la porte (triangle P1, P2, P3).
+// renfoncement de la porte (triangle P1, P2, P3). Dans la chambre de rêve, la chambre voisine
+// s'y ajoute au nord, sans le renfoncement ni la colonne : un grand rectangle.
 const { largeur: CL, profondeur: CP } = colonne; // colonne de l'angle nord-est
-const contour = [P3, [W - CL, 0], [W - CL, CP], [W, CP], [W, D], [0, D], P1, P2];
+const contour = reve ? [[0, -DN], [W, -DN], [W, D], [0, D]] : [P3, [W - CL, 0], [W - CL, CP], [W, CP], [W, D], [0, D], P1, P2];
 // Les formes sont dessinées en (x, -z) puis couchées à plat avec rotation.x.
 const versPlan = (pts) => pts.map(([x, z]) => new THREE.Vector2(x, -z));
 const formeSol = new THREE.Shape(versPlan(contour));
 
 const sol = new THREE.Mesh(
   new THREE.ShapeGeometry(formeSol),
-  new THREE.MeshStandardMaterial({ map: textures.sol(palette.sol, palette.solLigne), roughness: 0.9 }),
+  new THREE.MeshStandardMaterial({ map: textures.sol(couleurs.sol, couleurs.solLigne), roughness: 0.9 }),
 );
 sol.rotation.x = -Math.PI / 2;
 sol.receiveShadow = true;
@@ -173,10 +197,10 @@ const HAUTEUR_MIN = 0.04; // hauteur minimale d'une tuile
 const DY_TOIT = (EPAISSEUR_MUR * LP) / R;
 const ECART_FAITE = (DY_TOIT * R) / (H - K);
 
-const papierUni = new THREE.MeshStandardMaterial({ color: palette.mur, roughness: 0.9 });
-const papierAlt = new THREE.MeshStandardMaterial({ color: palette.murAlt, roughness: 0.9 });
+const papierUni = new THREE.MeshStandardMaterial({ color: couleurs.mur, roughness: 0.9 });
+const papierAlt = new THREE.MeshStandardMaterial({ color: couleurs.murAlt, roughness: 0.9 });
 const papierMarques = papierUni; // (ancien nom, tous les murs sont désormais unis)
-const tranche = new THREE.MeshStandardMaterial({ color: palette.murBord, roughness: 0.9 }); // dessus et côtés des murs
+const tranche = new THREE.MeshStandardMaterial({ color: couleurs.murBord, roughness: 0.9 }); // dessus et côtés des murs
 
 const murs = {};
 
@@ -273,78 +297,107 @@ function creerMur(nom, { pos, angle, haut, materiau, regle, angles = [Math.PI / 
 }
 
 // Mur ouest (TV) : pignon dont le haut suit la pente. u = z.
-// Il commence où le « retour » du renfoncement le quitte (z = P1[1]).
+// Il commence où le « retour » du renfoncement le quitte (z = P1[1]). Dans la chambre de rêve, il n'y a plus
+// de renfoncement : c'est un seul long pignon, d'un mur bas à l'autre, qui descend vers le nord et vers le sud.
 creerMur('ouest', {
-  angles: [(5 * Math.PI) / 4, Math.PI / 2],
+  angles: reve ? [Math.PI / 2, Math.PI / 2] : [(5 * Math.PI) / 4, Math.PI / 2],
   pos: [0, 0],
   angle: -Math.PI / 2,
-  haut: [[P1[1], H], [D - R + ECART_FAITE, H], [D, K + DY_TOIT]],
+  haut: reve
+    ? [[-DN, K + DY_TOIT], [-DN + R - ECART_FAITE, H], [D - R + ECART_FAITE, H], [D, K + DY_TOIT]]
+    : [[P1[1], H], [D - R + ECART_FAITE, H], [D, K + DY_TOIT]],
   materiau: papierMarques,
 });
 
-// Retour du renfoncement : de P2 vers P1, sortie vers le sud-ouest. Vu depuis
-// l'ouest il cacherait la TV, donc il s'abaisse aussi dans ce cas.
-creerMur('retour', {
-  angles: [Math.PI / 2, (5 * Math.PI) / 4],
-  pos: P2,
-  angle: -Math.PI / 4,
-  haut: [[0, H], [renfoncement.retour, H]],
-  materiau: papierMarques,
-  regle: (cam) => cam.x < 0,
-});
+if (!reve) {
+  // Retour du renfoncement : de P2 vers P1, sortie vers le sud-ouest. Vu depuis
+  // l'ouest il cacherait la TV, donc il s'abaisse aussi dans ce cas.
+  creerMur('retour', {
+    angles: [Math.PI / 2, (5 * Math.PI) / 4],
+    pos: P2,
+    angle: -Math.PI / 4,
+    haut: [[0, H], [renfoncement.retour, H]],
+    materiau: papierMarques,
+    regle: (cam) => cam.x < 0,
+  });
 
-// Pan de la porte : de P3 vers P2, sortie vers le nord-ouest.
-creerMur('pan', {
-  angles: [(3 * Math.PI) / 4, Math.PI / 2],
-  pos: P3,
-  angle: (-3 * Math.PI) / 4,
-  haut: [[0, H], [renfoncement.pan, H]],
-  materiau: papierMarques,
-});
+  // Pan de la porte : de P3 vers P2, sortie vers le nord-ouest.
+  creerMur('pan', {
+    angles: [(3 * Math.PI) / 4, Math.PI / 2],
+    pos: P3,
+    angle: (-3 * Math.PI) / 4,
+    haut: [[0, H], [renfoncement.pan, H]],
+    materiau: papierMarques,
+  });
+}
 
-// Mur est (lit, commode) : u = D - z. Il commence après la colonne (z = profondeur).
+// Mur est (lit, commode) : u = D - z. Il commence après la colonne (z = profondeur). Dans la chambre de rêve,
+// sans colonne, c'est lui aussi un seul long pignon, jusqu'au mur bas du nord.
 creerMur('est', {
   pos: [W, D],
   angle: Math.PI / 2,
-  haut: [[0, K + DY_TOIT], [R - ECART_FAITE, H], [D - colonne.profondeur, H]],
+  haut: reve
+    ? [[0, K + DY_TOIT], [R - ECART_FAITE, H], [D + DN - R + ECART_FAITE, H], [D + DN, K + DY_TOIT]]
+    : [[0, K + DY_TOIT], [R - ECART_FAITE, H], [D - colonne.profondeur, H]],
   materiau: papierUni,
 });
 
 // Mur nord (bureau, vitrine) : u = (W - largeur de la colonne) - x. Il va de la
-// colonne au début du pan de la porte.
-creerMur('nord', {
-  angles: [Math.PI / 2, (3 * Math.PI) / 4],
-  pos: [W - colonne.largeur, 0],
-  angle: Math.PI,
-  haut: [[0, H], [W - colonne.largeur - P3[0], H]],
-  materiau: papierMarques,
-});
+// colonne au début du pan de la porte. C'est le mur abattu dans la chambre de rêve.
+if (!reve) {
+  creerMur('nord', {
+    angles: [Math.PI / 2, (3 * Math.PI) / 4],
+    pos: [W - colonne.largeur, 0],
+    angle: Math.PI,
+    haut: [[0, H], [W - colonne.largeur - P3[0], H]],
+    materiau: papierMarques,
+  });
+}
 
 // Mur bas au sud, sous la pente.
 creerMur('sud', { pos: [0, D], angle: 0, haut: [[0, K], [W, K]], materiau: papierMarques });
 
 // La colonne de l'angle nord-est fait partie des murs : deux faces tournées
-// vers la pièce, qui s'abaissent comme les autres.
-creerMur('colonneSud', {
-  angles: [Math.PI / 2, (3 * Math.PI) / 2],
-  pos: [W, colonne.profondeur],
-  angle: Math.PI,
-  haut: [[0, H], [colonne.largeur, H]],
-  materiau: papierMarques,
-});
-creerMur('colonneOuest', {
-  angles: [(3 * Math.PI) / 2, Math.PI / 2],
-  pos: [W - colonne.largeur, colonne.profondeur],
-  angle: Math.PI / 2,
-  haut: [[0, H], [colonne.profondeur, H]],
-  materiau: papierMarques,
-});
+// vers la pièce, qui s'abaissent comme les autres. (Abattue dans la chambre de rêve.)
+if (!reve) {
+  creerMur('colonneSud', {
+    angles: [Math.PI / 2, (3 * Math.PI) / 2],
+    pos: [W, colonne.profondeur],
+    angle: Math.PI,
+    haut: [[0, H], [colonne.largeur, H]],
+    materiau: papierMarques,
+  });
+  creerMur('colonneOuest', {
+    angles: [(3 * Math.PI) / 2, Math.PI / 2],
+    pos: [W - colonne.largeur, colonne.profondeur],
+    angle: Math.PI / 2,
+    haut: [[0, H], [colonne.profondeur, H]],
+    materiau: papierMarques,
+  });
+}
+
+// Chambre de rêve : le mur bas du fond de la chambre voisine, qui porte la pente nord. Il monte jusqu'au
+// plafond de la lucarne là où elle s'ouvre (sa façade, avec la fenêtre). u = W - x ; la façade fait des
+// marches presque verticales dans le profil.
+if (reve) {
+  const { x: lx, largeur: ll, hauteur: lh } = voisine.lucarne;
+  const [ua, ub] = [W - lx - ll / 2, W - lx + ll / 2];
+  creerMur('nordFond', {
+    pos: [W, -DN],
+    angle: Math.PI,
+    haut: [[0, K], [ua, K], [ua + 0.001, lh], [ub - 0.001, lh], [ub, K], [W, K]],
+    materiau: papierMarques,
+  });
+}
 
 // Tout ce qui est accroché à un ou plusieurs murs : décors, ampoules, mais aussi
 // les éléments « permanents » (poutre, toit, plafond) qui n'ont pas de sens sans
 // leurs murs. Ils suivent la hauteur de leurs murs : écrasés ou non, puis
 // effacés quand les murs sont abaissés.
 const accroches = [];
+// Ce sur quoi on peut cliquer : meubles, décors, fenêtres, avec leur nom, leur description
+// et l'éventuel interrupteur qu'ils commandent.
+const cliquables = [];
 
 // `noms` = un mur ou une liste de murs qui portent l'objet (déjà enfant de
 // `racine`, position en repère de la pièce).
@@ -414,7 +467,6 @@ function ressort(t, dt) {
 let temps = 0;
 const cam = new THREE.Vector3();
 const versToit = new THREE.Vector3();
-const appuisToit = [murs.sud]; // le mur qui porte la pente : elle est posée dessus
 
 function animerMurs(dt) {
   temps += dt;
@@ -432,10 +484,10 @@ function animerMurs(dt) {
     if (mur.regle?.(cam)) cible = HAUTEUR_BORDURE;
     if (reglages.murs === 'up') cible = HAUTEUR_MUR;
     else if (reglages.murs === 'down') cible = HAUTEUR_BORDURE;
-    // le mur bas du sud porte la pente : il attend qu'elle se soit repliée et effacée pour descendre ; il part
+    // un mur bas porte une pente : il attend qu'elle se soit repliée et effacée pour descendre ; il part
     // dès qu'elle est à moitié effacée : les deux mouvements se tuilent
     mur.souhait = cible;
-    if (appuisToit.includes(mur) && toit.init && toit.opacite > 0.5) cible = HAUTEUR_MUR;
+    if (pentes.some((p) => p.appui === mur && p.init && p.opacite > 0.5)) cible = HAUTEUR_MUR;
 
     if (!mur.init) {
       // au chargement : pas d'animation, les murs prennent directement leur place
@@ -462,48 +514,7 @@ function animerMurs(dt) {
 
   }
 
-  // la pente : repliée quand la caméra passe de l'autre côté du plan du toit ou quand le mur bas du sud veut
-  // descendre. « Monter tous les murs » ne la relève pas : vue du dessus, elle cacherait toute la pièce.
-  // Les étapes s'enchaînent :
-  //   pour la replier : elle se replie en vague, puis s'efface ; ensuite seulement le mur sud descend ;
-  //   pour la déplier : le mur sud remonte, puis elle se dessine, puis elle se déplie en vague.
-  const dToit = toit.n.dot(versToit.copy(cam).sub(toit.p));
-  if (dToit > 0.1) toit.souhait = BORDURE_TOIT;
-  else if (dToit < -0.1) toit.souhait = LP;
-  const souhait = reglages.murs === 'down' || appuisToit.some((m) => m.souhait === HAUTEUR_BORDURE) ? BORDURE_TOIT : toit.souhait;
-  const hSud = hauteurSupport({ mur: murs.sud, u: null });
-  const appuisDebout = appuisToit.every((m) => hauteurSupport({ mur: m, u: null }) > HAUTEUR_MUR * 0.97);
-  // le bas de la pente est posé sur le mur bas du sud : il suit sa hauteur
-  pente.position.y = (K * hSud) / HAUTEUR_MUR;  let cibleToit = BORDURE_TOIT;
-  if (!toit.init) {
-    toit.opacite = souhait === LP && appuisDebout ? 1 : 0;
-    cibleToit = toit.opacite ? LP : BORDURE_TOIT;
-  } else if (souhait === LP && appuisDebout) {
-    toit.opacite = Math.min(1, toit.opacite + dt / FONDU_TOIT);
-    if (toit.opacite >= 1) cibleToit = LP;
-  } else if (toit.tuiles.every((t) => t.h < REPLIEE)) {
-    toit.opacite = Math.max(0, toit.opacite - dt / FONDU_TOIT);
-  }
-  appliquerOpacitePente(toit.opacite);
-  if (!toit.init) {
-    toit.init = true;
-    toit.cible = cibleToit;
-    for (const t of toit.tuiles) t.h = t.cible = cibleToit;
-  } else if (cibleToit !== toit.cible) {
-    toit.cible = cibleToit;
-    toit.changement = temps;
-    toit.depuisOuest = cam.x < W / 2; // la vague part du côté de la caméra
-    sons.mur(cibleToit === BORDURE_TOIT);
-  }
-  for (const t of toit.tuiles) {
-    const distance = toit.depuisOuest ? t.u : W - t.u;
-    if (temps >= toit.changement + distance * RETARD_TOIT && t.cible !== toit.cible) {
-      t.v += toit.cible < t.h ? 2.6 : 1.4;
-      t.cible = toit.cible;
-    }
-    ressort(t, Math.min(dt * VITESSE_TOIT, 1));
-    couperBande(t);
-  }
+  for (const p of pentes) animerPente(p, dt);
 
   // décors et éléments permanents : hauteur du mur qui les porte (le plus bas s'il y en a plusieurs)
   for (const a of accroches) {
@@ -516,11 +527,58 @@ function animerMurs(dt) {
   }
 }
 
-// Plafond plat, du mur nord jusqu'au début de la pente.
-const plafond = new THREE.Mesh(
-  new THREE.ShapeGeometry(new THREE.Shape(versPlan([P3, [W - CL, 0], [W - CL, CP], [W, CP], [W, D - R], [0, D - R], P1, P2]))),
-  interieur({ color: palette.plafond }),
-);
+// Une pente : repliée quand la caméra passe de l'autre côté du plan du toit ou quand le mur bas qui la porte
+// veut descendre. « Monter tous les murs » ne la relève pas : vue du dessus, elle cacherait toute la pièce.
+// Les étapes s'enchaînent :
+//   pour la replier : elle se replie en vague, puis s'efface ; ensuite seulement son mur bas descend ;
+//   pour la déplier : son mur bas remonte, puis elle se dessine, puis elle se déplie en vague.
+function animerPente(p, dt) {
+  const dToit = p.n.dot(versToit.copy(cam).sub(p.p));
+  if (dToit > 0.1) p.souhait = BORDURE_TOIT;
+  else if (dToit < -0.1) p.souhait = LP;
+  const souhait = reglages.murs === 'down' || p.appui.souhait === HAUTEUR_BORDURE ? BORDURE_TOIT : p.souhait;
+  const hAppui = hauteurSupport({ mur: p.appui, u: null });
+  const appuiDebout = hAppui > HAUTEUR_MUR * 0.97;
+  // le bas de la pente est posé sur son mur bas : il suit sa hauteur
+  p.groupe.position.y = (K * hAppui) / HAUTEUR_MUR;
+  let cible = BORDURE_TOIT;
+  if (!p.init) {
+    p.opacite = souhait === LP && appuiDebout ? 1 : 0;
+    cible = p.opacite ? LP : BORDURE_TOIT;
+  } else if (souhait === LP && appuiDebout) {
+    p.opacite = Math.min(1, p.opacite + dt / FONDU_TOIT);
+    if (p.opacite >= 1) cible = LP;
+  } else if (p.tuiles.every((t) => t.h < REPLIEE)) {
+    p.opacite = Math.max(0, p.opacite - dt / FONDU_TOIT);
+  }
+  appliquerOpacitePente(p);
+  if (!p.init) {
+    p.init = true;
+    p.cible = cible;
+    for (const t of p.tuiles) t.h = t.cible = cible;
+  } else if (cible !== p.cible) {
+    p.cible = cible;
+    p.changement = temps;
+    p.depuisOuest = cam.x < W / 2; // la vague part du côté de la caméra
+    sons.mur(cible === BORDURE_TOIT);
+  }
+  for (const t of p.tuiles) {
+    const x = p.versEst ? t.u : W - t.u; // position de la bande d'ouest en est
+    const distance = p.depuisOuest ? x : W - x;
+    if (temps >= p.changement + distance * RETARD_TOIT && t.cible !== p.cible) {
+      t.v += p.cible < t.h ? 2.6 : 1.4;
+      t.cible = p.cible;
+    }
+    ressort(t, Math.min(dt * VITESSE_TOIT, 1));
+    couperBande(t);
+  }
+}
+
+// Plafond plat, du mur nord jusqu'au début de la pente (dans la chambre de rêve : d'une pente à l'autre).
+const contourPlafond = reve
+  ? [[0, -DN + R], [W, -DN + R], [W, D - R], [0, D - R]]
+  : [P3, [W - CL, 0], [W - CL, CP], [W, CP], [W, D - R], [0, D - R], P1, P2];
+const plafond = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape(versPlan(contourPlafond))), interieur({ color: couleurs.plafond }));
 plafond.rotation.x = -Math.PI / 2;
 plafond.position.y = H;
 plafond.receiveShadow = true;
@@ -552,11 +610,8 @@ const [vy0, vy1] = [I0, I1];
 // même ressort et le même petit rebond, jusqu'à une bordure. Une bande est coupée net à sa longueur (les
 // étoiles restent à leur place au lieu de s'écraser). Les bords du trou du Velux sont des bords de bandes :
 // une bande est pleine, ou trouée (deux morceaux, sous et au-dessus de l'ouverture).
-const texPente = textures.etoiles();
+const texPente = reve ? textures.etoiles(couleurs.pente) : textures.etoiles();
 texPente.repeat.set(1 / W, 1 / LP);
-// matériaux propres à la pente (la tranche des murs est partagée) : ils s'effacent quand elle est repliée
-const papierPente = new THREE.MeshStandardMaterial({ map: texPente, roughness: 0.9 });
-const tranchePente = tranche.clone();
 const BORDURE_TOIT = HAUTEUR_BORDURE; // ce qui reste de la pente repliée, mesuré le long de la pente
 const FONDU_TOIT = 0.25; // s : la pente repliée apparaît / disparaît en fondu
 // la pente bouge plus vite que les murs (ressort accéléré, vague plus serrée) : elle passe avant le mur sud,
@@ -564,52 +619,61 @@ const FONDU_TOIT = 0.25; // s : la pente repliée apparaît / disparaît en fond
 const VITESSE_TOIT = 1.45;
 const RETARD_TOIT = 0.08; // s par mètre de pente
 const REPLIEE = BORDURE_TOIT + 0.35; // presque repliée : elle commence déjà à s'effacer
-const toit = {
-  n: new THREE.Vector3(0, R, H - K).normalize(), // normale extérieure du toit (repère de la pièce)
-  p: new THREE.Vector3(0, K, D), // un point du toit : le bas de la pente
-  tuiles: [],
-  souhait: LP, // dépliée ou repliée, d'après la caméra
-  cible: LP, // ce que font les bandes en ce moment
-  opacite: 1,
-  changement: -999,
-  depuisOuest: true,
-  init: false,
-};
-{
+// Le trou des bandes est 3 mm plus large que l'ouverture qu'il laisse (côtés et haut) : leurs bords ne sont
+// pas dans le même plan que les joues de la fenêtre, qui sinon scintillaient l'une dans l'autre.
+const JEU = 0.003;
+
+// Construit une pente. `groupe` = son repère (x le long de la pente, de 0 à W ; y vers le haut de la pente ;
+// z vers l'extérieur), `n` et `p` = sa normale extérieure et un point de son plan (repère de la pièce),
+// `appui` = le mur bas qui la porte, `versEst` = son x va d'ouest en est (sinon d'est en ouest).
+// `trou` = l'ouverture d'une fenêtre, dans son repère : { x0, x1, y0, y1 } (y0 = 0 : elle part du bas de la
+// pente, comme une lucarne) et, pour le Velux, `sousRebord` (voir plus bas).
+// Ses matériaux lui sont propres (la tranche des murs est partagée) : ils s'effacent quand elle est repliée.
+function creerPente({ groupe, n, p, appui, trou = null, versEst = true }) {
+  const pente = {
+    groupe, n, p, appui, versEst,
+    papier: new THREE.MeshStandardMaterial({ map: texPente, roughness: 0.9 }),
+    tranche: tranche.clone(),
+    tuiles: [],
+    souhait: LP, // dépliée ou repliée, d'après la caméra
+    cible: LP, // ce que font les bandes en ce moment
+    opacite: 1,
+    changement: -999,
+    depuisOuest: true,
+    init: false,
+  };
   const E = EPAISSEUR_MUR;
-  // Le trou des bandes est 3 mm plus large que l'ouverture du plâtre (côtés et haut) : leurs bords ne sont
-  // pas dans le même plan que les joues du Velux, qui sinon scintillaient l'une dans l'autre.
-  const JEU = 0.003;
   const bords = [];
   const decouper = (a, b) => {
     const nb = Math.max(1, Math.round((b - a) / LONGUEUR_TUILE));
     for (let i = 0; i < nb; i++) bords.push(a + ((b - a) * i) / nb);
   };
   // la pente va d'un pignon à l'autre ; le haut des pignons monte jusqu'à sa face extérieure
-  decouper(0, vx0 - JEU);
-  decouper(vx0 - JEU, vx1 + JEU);
-  decouper(vx1 + JEU, W);
+  if (trou) {
+    decouper(0, trou.x0 - JEU);
+    decouper(trou.x0 - JEU, trou.x1 + JEU);
+    decouper(trou.x1 + JEU, W);
+  } else decouper(0, W);
   bords.push(W);
-  // Le rebord du Velux est horizontal : il plonge dans l'épaisseur de la pente. Sous l'ouverture, le dos
-  // de la bande est donc taillé en biais, juste sous le rebord, pour ne pas le traverser.
-  const sousRebord = I0 - ((I0 - yBas) * E) / T - JEU;
   // Les deux bouts de la pente sont recoupés pour se raccorder sans marche (z = 0 côté pièce, E dehors) :
-  //   en bas, à la verticale, dans le plan de la face extérieure du mur sud (elle se pose sur lui) ;
+  //   en bas, à la verticale, dans le plan de la face extérieure du mur bas (elle se pose sur lui) ;
   //   en haut, à l'horizontale, à la hauteur du plafond (comme le dessus des murs).
   const basVertical = (z) => (z * sinP - E) / cosP;
   const hautHorizontal = (z) => LP - (z * cosP) / sinP;
   for (let i = 0; i < bords.length - 1; i++) {
     const [ua, ub] = [bords[i], bords[i + 1]];
     const rect = (y0, y1) => new THREE.Shape([[ua, y0], [ub, y0], [ub, y1], [ua, y1]].map(([x, y]) => new THREE.Vector2(x, y)));
-    const troue = ua >= vx0 - JEU - 1e-6 && ub <= vx1 + JEU + 1e-6;
+    const troue = !!trou && ua >= trou.x0 - JEU - 1e-6 && ub <= trou.x1 + JEU + 1e-6;
+    // une bande trouée : un morceau sous l'ouverture (s'il y en a un) et un au-dessus
+    const morceaux = troue ? [...(trou.y0 > 0 ? [rect(0, trou.y0)] : []), rect(trou.y1 + JEU, LP)] : [rect(0, LP)];
     // extrudée vers l'extérieur (z local) : la face côté pièce reste dans le plan de la pente
-    const geo = new THREE.ExtrudeGeometry(troue ? [rect(0, vy0), rect(vy1 + JEU, LP)] : [rect(0, LP)], { depth: E, bevelEnabled: false });
+    const geo = new THREE.ExtrudeGeometry(morceaux, { depth: E, bevelEnabled: false });
     const pos = geo.attributes.position;
     for (let k = 0; k < pos.count; k++) {
       const [y, z] = [pos.getY(k), pos.getZ(k)];
       if (Math.abs(y) < 1e-6) pos.setY(k, basVertical(z));
       else if (Math.abs(y - LP) < 1e-6) pos.setY(k, hautHorizontal(z));
-      else if (troue && Math.abs(y - vy0) < 1e-6 && z > E / 2) pos.setY(k, sousRebord);
+      else if (troue && trou.sousRebord !== undefined && Math.abs(y - trou.y0) < 1e-6 && z > E / 2) pos.setY(k, trou.sousRebord);
     }
     geo.computeVertexNormals();
     // les faces avant et arrière (groupes du matériau 0) ont pour coordonnées de texture (x, y) : on les
@@ -617,12 +681,43 @@ const toit = {
     const face = new Uint8Array(pos.count);
     for (const g of geo.groups) if (g.materialIndex === 0) face.fill(1, g.start, g.start + g.count);
     for (let k = 0; k < pos.count; k++) if (face[k]) geo.attributes.uv.setY(k, pos.getY(k));
-    const mesh = new THREE.Mesh(geo, [papierPente, tranchePente]);
+    const mesh = new THREE.Mesh(geo, [pente.papier, pente.tranche]);
     mesh.receiveShadow = true;
-    pente.add(mesh);
-    toit.tuiles.push({ mesh, u: (ua + ub) / 2, troue, face, y0: geo.attributes.position.array.slice(), h: LP, v: 0, cible: LP, coupe: LP });
+    groupe.add(mesh);
+    pente.tuiles.push({ mesh, u: (ua + ub) / 2, troue, face, y0: geo.attributes.position.array.slice(), h: LP, v: 0, cible: LP, coupe: LP });
   }
+  return pente;
 }
+
+// La pente du sud, avec le Velux. Son rebord est horizontal : il plonge dans l'épaisseur de la pente. Sous
+// l'ouverture, le dos de la bande est donc taillé en biais, juste sous le rebord, pour ne pas le traverser.
+const toit = creerPente({
+  groupe: pente,
+  n: new THREE.Vector3(0, R, H - K).normalize(),
+  p: new THREE.Vector3(0, K, D), // le bas de la pente
+  appui: murs.sud,
+  trou: { x0: vx0, x1: vx1, y0: vy0, y1: vy1, sousRebord: I0 - ((I0 - yBas) * EPAISSEUR_MUR) / T - JEU },
+});
+
+// Chambre de rêve : la pente du nord, en miroir (son repère est tourné d'un demi-tour : son x va d'est en
+// ouest), percée de la lucarne de la chambre voisine depuis le bas de la pente jusqu'à son plafond.
+let toitNord = null;
+if (reve) {
+  const groupe = new THREE.Group();
+  groupe.position.set(W, K, -DN);
+  groupe.rotation.set(-Math.atan2(R, H - K), Math.PI, 0, 'YXZ');
+  racine.add(groupe);
+  const { x: lx, largeur: ll, hauteur: lh } = voisine.lucarne;
+  toitNord = creerPente({
+    groupe,
+    n: new THREE.Vector3(0, R, -(H - K)).normalize(),
+    p: new THREE.Vector3(0, K, -DN),
+    appui: murs.nordFond,
+    trou: { x0: W - lx - ll / 2, x1: W - lx + ll / 2, y0: 0, y1: (lh - K) / sinP },
+    versEst: false,
+  });
+}
+const pentes = [toit, toitNord].filter(Boolean);
 // Coupe une bande à sa longueur actuelle (seulement si elle a bougé).
 function couperBande(t) {
   if (t.coupe === t.h) return;
@@ -636,9 +731,10 @@ function couperBande(t) {
   position.needsUpdate = true;
   uv.needsUpdate = true;
 }
-// Opacité de la pente : transparente seulement pendant le fondu (sinon elle reste un objet opaque ordinaire).
-function appliquerOpacitePente(o) {
-  for (const m of [papierPente, tranchePente]) {
+// Opacité d'une pente : transparente seulement pendant le fondu (sinon elle reste un objet opaque ordinaire).
+function appliquerOpacitePente(p) {
+  const o = p.opacite;
+  for (const m of [p.papier, p.tranche]) {
     m.opacity = o;
     const transparent = o < 0.999;
     if (m.transparent !== transparent) {
@@ -646,7 +742,7 @@ function appliquerOpacitePente(o) {
       m.needsUpdate = true;
     }
   }
-  for (const t of toit.tuiles) t.mesh.visible = o > 0.001;
+  for (const t of p.tuiles) t.mesh.visible = o > 0.001;
 }
 
 // --- Le Velux, d'après tes photos : plâtre d'aplomb, cadre en chêne en gradins, battant blanc ---
@@ -711,7 +807,7 @@ charpente.name = 'charpente';
 const boisPoutre = new THREE.MeshStandardMaterial({ color: poutre.couleur, roughness: 0.85 });
 const veinePoutre = new THREE.MeshStandardMaterial({ color: new THREE.Color(poutre.couleur).multiplyScalar(0.72), roughness: 0.9 });
 const metalPoutre = new THREE.MeshStandardMaterial({ color: '#cfc8c0', roughness: 0.5, metalness: 0.2 });
-const D2 = poutre.profondeur;
+const DP = poutre.profondeur;
 
 function morceau(geo, mat, x, y, z) {
   const m = new THREE.Mesh(geo, mat);
@@ -745,15 +841,15 @@ const profilChevron = [
   versPiece(surfaceP(-0.02), poutre.epaisseur),
 ];
 const formeChevron = new THREE.Shape(profilChevron.map(([z, y]) => new THREE.Vector2(z, y)));
-const geoChevron = new THREE.ExtrudeGeometry(formeChevron, { depth: D2, bevelEnabled: false });
+const geoChevron = new THREE.ExtrudeGeometry(formeChevron, { depth: DP, bevelEnabled: false });
 geoChevron.rotateY(-Math.PI / 2); // l'extrusion part vers -x : on la ramène dans la pièce
-geoChevron.translate(D2 + 0.002, 0, 0);
+geoChevron.translate(DP + 0.002, 0, 0);
 const chevron = morceau(geoChevron, boisPoutre, 0, 0, 0);
 // quelques veines le long de la pente, sur la face visible
 for (let i = 0; i < 3; i++) {
   const longueurV = LP * (0.55 + 0.4 * (((i * 37) % 10) / 10));
   const centreV = versPiece(surfaceP(LP * 0.55 + (((i * 13) % 7) / 7 - 0.5) * 0.4), poutre.epaisseur / 2 - (i - 1) * (poutre.epaisseur / 4));
-  const v = morceau(new THREE.BoxGeometry(0.002, longueurV, 0.004), veinePoutre, D2 + 0.0035, centreV[1], centreV[0]);
+  const v = morceau(new THREE.BoxGeometry(0.002, longueurV, 0.004), veinePoutre, DP + 0.0035, centreV[1], centreV[0]);
   v.rotation.x = Math.atan2(sinP, cosP) - Math.PI / 2;
   v.castShadow = false;
   charpente.add(v);
@@ -762,22 +858,22 @@ charpente.add(chevron);
 
 // poteau : du sol jusqu'sous le chevron
 const hauteurPoteau = 4.418 - poutre.poteau.z + 0.04; // dessous du chevron à cette position, + un peu pour s'y caler
-const poteau = morceau(new THREE.BoxGeometry(D2, hauteurPoteau, poutre.poteau.largeur), boisPoutre, D2 / 2 + 0.002, hauteurPoteau / 2, poutre.poteau.z);
-veines(poteau, hauteurPoteau, 3, poutre.poteau.largeur / 4, (v, dz, dy) => v.position.set(D2 / 2 + 0.001, dy * hauteurPoteau * 0.6, dz));
+const poteau = morceau(new THREE.BoxGeometry(DP, hauteurPoteau, poutre.poteau.largeur), boisPoutre, DP / 2 + 0.002, hauteurPoteau / 2, poutre.poteau.z);
+veines(poteau, hauteurPoteau, 3, poutre.poteau.largeur / 4, (v, dz, dy) => v.position.set(DP / 2 + 0.001, dy * hauteurPoteau * 0.6, dz));
 // le petit bouchon rond au pied du poteau
-const bouchon = morceau(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 14), new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 0.9 }), D2 + 0.006, 0.09, poutre.poteau.z);
+const bouchon = morceau(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 14), new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 0.9 }), DP + 0.006, 0.09, poutre.poteau.z);
 bouchon.rotation.z = Math.PI / 2;
 charpente.add(poteau, bouchon);
 
 // entrait : horizontal, du poteau jusqu'au coin du mur bas, avec son boulon
 const zDebut = poutre.poteau.z + poutre.poteau.largeur / 2 - 0.01;
 const longueurEntrait = poutre.entrait.zFin - zDebut;
-const entrait = morceau(new THREE.BoxGeometry(D2, poutre.entrait.hauteur, longueurEntrait), boisPoutre, D2 / 2 + 0.002, poutre.entrait.y, (zDebut + poutre.entrait.zFin) / 2);
+const entrait = morceau(new THREE.BoxGeometry(DP, poutre.entrait.hauteur, longueurEntrait), boisPoutre, DP / 2 + 0.002, poutre.entrait.y, (zDebut + poutre.entrait.zFin) / 2);
 veines(entrait, longueurEntrait, 3, poutre.entrait.hauteur / 4, (v, dy, dz) => {
   v.rotation.x = Math.PI / 2; // la veine suit la longueur de l'entrait (axe z)
-  v.position.set(D2 / 2 + 0.001, dy, dz * longueurEntrait * 0.3);
+  v.position.set(DP / 2 + 0.001, dy, dz * longueurEntrait * 0.3);
 });
-const boulon = morceau(new THREE.CylinderGeometry(0.019, 0.019, 0.012, 14), metalPoutre, D2 + 0.008, poutre.entrait.y, poutre.entrait.zFin - 0.07);
+const boulon = morceau(new THREE.CylinderGeometry(0.019, 0.019, 0.012, 14), metalPoutre, DP + 0.008, poutre.entrait.y, poutre.entrait.zFin - 0.07);
 boulon.rotation.z = Math.PI / 2;
 charpente.add(entrait, boulon);
 
@@ -840,7 +936,7 @@ function coeur() {
 const mobile = new THREE.Group();
 mobile.name = 'mobile avions';
 const zMobile = poutre.poteau.z - 0.13;
-mobile.position.set(D2 + 0.07, 1.68, zMobile);
+mobile.position.set(DP + 0.07, 1.68, zMobile);
 mobile.rotation.x = -0.1; // les baguettes montent un peu vers le fond de la pièce, comme sur la photo
 // deux baguettes parallèles, tenues au chevron par deux petits crochets
 for (const dy of [-0.014, 0.014]) {
@@ -954,10 +1050,13 @@ function basculerStore() {
   etatStore.ferme = !etatStore.ferme;
   sons.store(etatStore.ferme);
 }
-// la vitre est cachée par le store
+// la vitre est cachée par le store (celle de la lucarne aussi, dans la chambre de rêve : les stores des deux
+// fenêtres se ferment ensemble)
 function ajusterVitre() {
   veluxMat.emissiveIntensity = (veluxMat.userData.base ?? 0.8) * (1 - 0.95 * etatStore.f);
+  matFenetre.emissiveIntensity = veluxMat.emissiveIntensity;
 }
+let storeLucarne = null; // chambre de rêve : { toile, barre, haut, hauteur } de la fenêtre de la lucarne
 function animerStore(dt) {
   const cible = etatStore.ferme ? 1 : 0;
   if (etatStore.f === cible) return;
@@ -969,6 +1068,11 @@ function animerStore(dt) {
   texStore.repeat.set(1, NB_PLIS * f); // les plis gardent la même taille, seul leur nombre change
   texStore.offset.set(0, -NB_PLIS * f); // et restent alignés sur le haut
   barreStore.position.y = yHautStore - hStore * f - 0.008;
+  if (storeLucarne) {
+    storeLucarne.toile.visible = f > 0.004;
+    storeLucarne.toile.scale.y = Math.max(f, 0.001);
+    storeLucarne.barre.position.y = storeLucarne.haut - storeLucarne.hauteur * f;
+  }
   ajusterVitre();
   appliquerLumiereJour(); // fermer le store coupe la lumière du jour
 }
@@ -994,7 +1098,97 @@ function facteurPlafond(dt) {
   ciel.visible += ((cam.y > H + 0.05 ? 0 : 1) - ciel.visible) * Math.min(1, dt * 8);
   return ciel.visible;
 }
-accrocher(['nord', 'est', 'ouest', 'sud'], plafond, { ecraser: false, fondu: FONDU_PERMANENT, large: true, facteur: facteurPlafond });
+accrocher(reve ? ['ouest', 'est', 'sud', 'nordFond'] : ['nord', 'est', 'ouest', 'sud'], plafond, {
+  ecraser: false,
+  fondu: FONDU_PERMANENT,
+  large: true,
+  facteur: facteurPlafond,
+});
+
+// --- Chambre de rêve : la charpente et la lucarne de la chambre voisine ---
+// La charpente est la même que la nôtre, en miroir (son toit est le miroir du nôtre), sans le mobile.
+// La lucarne s'avance dans la pente nord : deux joues blanches, un petit plafond plat, et dans sa façade (le
+// mur bas qui monte jusqu'à ce plafond) une fenêtre en bois à deux battants. La vitre s'éclaire avec le jour.
+const matFenetre = new THREE.MeshStandardMaterial({ color: '#bfe3ff', emissive: '#bfe3ff', emissiveIntensity: 0.8, roughness: 0.2 });
+if (reve) {
+  const miroir = charpente.clone(true);
+  miroir.getObjectByName('mobile avions')?.removeFromParent();
+  miroir.traverse((o) => {
+    if (o.isMesh) o.material = o.material.clone(); // ses propres matériaux : elle s'efface avec son mur
+  });
+  miroir.scale.z = -1;
+  miroir.position.z = D - DN; // miroir par rapport au milieu de la grande pièce
+  accrocher('ouest', miroir, { ecraser: false, fondu: FONDU_PERMANENT, large: true });
+
+  const { x: lx, largeur: ll, hauteur: lh, fenetre: f } = voisine.lucarne;
+  const zHaut = -DN + ((lh - K) * R) / (H - K); // où la pente atteint le plafond de la lucarne
+  const platre = new THREE.MeshStandardMaterial({ color: couleurs.plafond, roughness: 0.95, side: THREE.DoubleSide });
+  const lucarne = new THREE.Group();
+  for (const x of [lx - ll / 2, lx + ll / 2]) {
+    const joue = new THREE.Mesh(new THREE.ShapeGeometry(new THREE.Shape([new THREE.Vector2(-DN, K), new THREE.Vector2(-DN, lh), new THREE.Vector2(zHaut, lh)])), platre);
+    joue.rotation.y = -Math.PI / 2; // la forme est dessinée en (z, y)
+    joue.position.x = x;
+    joue.receiveShadow = true;
+    lucarne.add(joue);
+  }
+  const ciel = new THREE.Mesh(new THREE.PlaneGeometry(ll, zHaut + DN), platre);
+  ciel.rotation.x = Math.PI / 2;
+  ciel.position.set(lx, lh, (zHaut - DN) / 2);
+  lucarne.add(ciel);
+  accrocher(null, lucarne, {
+    ecraser: false,
+    fondu: [0.3, (lh - K) / sinP],
+    hauteur: () => Math.min(...toitNord.tuiles.filter((t) => t.troue).map((t) => t.h)),
+    facteur: () => toitNord.opacite,
+  });
+
+  // la fenêtre : cadre dormant, deux battants, la vitre et les poignées, posée sur la façade (z = -DN)
+  const bois = new THREE.MeshStandardMaterial({ color: '#dcab72', roughness: 0.7 });
+  const fen = new THREE.Group();
+  const morceau = (l, h, p, mat, x, y, z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(l, h, p), mat);
+    m.position.set(x, y, z);
+    m.castShadow = m.receiveShadow = true;
+    fen.add(m);
+  };
+  const [yb, yh] = [f.bas, f.bas + f.hauteur];
+  const zf = -DN + 0.02;
+  const vitre = new THREE.Mesh(new THREE.PlaneGeometry(f.largeur - 0.08, f.hauteur - 0.08), matFenetre);
+  vitre.position.set(lx, (yb + yh) / 2, -DN + 0.006);
+  fen.add(vitre);
+  morceau(f.largeur, 0.05, 0.04, bois, lx, yh - 0.025, zf); // dormant : traverse haute, appui, montants
+  morceau(f.largeur + 0.04, 0.04, 0.07, bois, lx, yb - 0.01, zf + 0.012);
+  morceau(0.05, f.hauteur, 0.04, bois, lx - f.largeur / 2 + 0.025, (yb + yh) / 2, zf);
+  morceau(0.05, f.hauteur, 0.04, bois, lx + f.largeur / 2 - 0.025, (yb + yh) / 2, zf);
+  morceau(0.06, f.hauteur - 0.05, 0.035, bois, lx, (yb + yh) / 2 - 0.01, zf + 0.004); // les deux battants se rejoignent
+  for (const s of [-1, 1]) morceau(0.012, 0.09, 0.02, new THREE.MeshStandardMaterial({ color: '#e8e8ea', roughness: 0.4 }), lx + s * 0.04, (yb + yh) / 2, zf + 0.03);
+  // son store occultant, le même que celui du Velux : caisson en haut, toile plissée qui descend, barre en bas.
+  // Il se ferme et s'ouvre avec lui (voir animerStore).
+  const hToile = f.hauteur - 0.02;
+  const zs = zf + 0.04;
+  morceau(f.largeur + 0.02, 0.05, 0.05, alu, lx, yh + 0.035, zs); // caisson, au-dessus de la fenêtre
+  const geoToile = new THREE.PlaneGeometry(f.largeur, hToile);
+  geoToile.translate(0, -hToile / 2, 0); // le haut de la toile est l'origine : elle s'étire vers le bas
+  const toile = new THREE.Mesh(geoToile, matStore);
+  toile.position.set(lx, yh + 0.01, zs);
+  toile.visible = false;
+  const barre = new THREE.Mesh(new THREE.BoxGeometry(f.largeur, 0.016, 0.014), matBarre);
+  barre.position.set(lx, yh + 0.01, zs);
+  fen.add(toile, barre);
+  storeLucarne = { toile, barre, haut: yh + 0.01, hauteur: hToile };
+  accrocher('nordFond', fen);
+  // un clic sur la fenêtre ferme ou ouvre les stores, comme sur le Velux
+  const infoFenetre = {
+    nom: 'fenêtre de la lucarne',
+    description: "La fenêtre en bois à deux battants de la lucarne, dans la partie nouvelle de la chambre. Son store se ferme et s'ouvre avec celui du Velux : clique dessus pour fermer ou ouvrir les deux.",
+    groupe: fen,
+    auClic: () => basculerStore(),
+    sansRecentrage: true,
+    actions: [{ label: () => (etatStore.ferme ? 'Ouvrir les stores' : 'Fermer les stores'), fn: () => basculerStore() }],
+  };
+  fen.userData.info = infoFenetre;
+  cliquables.push(infoFenetre);
+}
 
 // --- Décors plaqués sur les murs (affiches, porte) ---
 const texturesNommees = {
@@ -1010,9 +1204,6 @@ draco.setDecoderPath(textures.chemin('/draco/'));
 chargeur.setDRACOLoader(draco);
 chargeur.setMeshoptDecoder(MeshoptDecoder);
 
-// Ce sur quoi on peut cliquer : meubles et décors, avec leur nom, leur description
-// et l'éventuel interrupteur qu'ils commandent.
-const cliquables = [];
 {
   const infoVelux = {
     nom: 'Velux',
@@ -1155,7 +1346,48 @@ function rectangle([w, h], couleur, texture, dx = 0, dy = 0, dz = 0) {
   return m;
 }
 
-for (const d of decors) {
+// Dans la chambre de rêve, le mur nord, la colonne et le renfoncement n'existent plus :
+//  - on entre par la porte de la chambre voisine, sur le grand mur ouest (elle remplace la nôtre), avec
+//    l'interrupteur des spots juste à côté ;
+//  - l'interrupteur du lampadaire passe sur le mur est ;
+//  - les neuf portraits restent au-dessus du bureau, qui est maintenant contre le mur est (voir meublesPiece).
+const decorsPiece = reve
+  ? decors.map((d) => {
+      if (d.nom === 'porte') return { ...d, sur: undefined, libre: undefined, mur: 'ouest', s: -0.6 };
+      if (d.nom === 'interrupteur du renfoncement') return { ...d, sur: undefined, libre: undefined, mur: 'ouest', s: -0.04 };
+      return d.mur === 'nord' ? { ...d, mur: 'est', s: 0.38 } : d;
+    })
+  : decors;
+const photosPiece = reve ? photosMur.map((g) => (g.mur === 'nord' ? { ...g, mur: 'est', s0: -1.35 } : g)) : photosMur;
+
+// La disposition de la chambre de rêve (agencementReve, dans chambre.js) : certains meubles changent de
+// place, et ce qui les accompagne les suit (la chaise, le contenu de la vitrine, la lumière du lampadaire, la
+// vue « Bureau ») ; de faux meubles provisoires s'ajoutent.
+const posesReve = agencementReve.poses;
+const poseOrigine = (nom) => meubles.find((m) => m.nom === nom);
+// le déplacement qui amène un meuble de sa place d'origine (`de` = { pos, rotation }) à sa nouvelle place
+// (`vers`), appliqué à un point [x, z] de la pièce
+function suivre([x, z], de, vers) {
+  const a = (vers.rotation ?? 0) - (de.rotation ?? 0);
+  const [dx, dz] = [x - de.pos[0], z - de.pos[1]];
+  return [vers.pos[0] + dx * Math.cos(a) + dz * Math.sin(a), vers.pos[1] - dx * Math.sin(a) + dz * Math.cos(a)];
+}
+const meublesPiece = reve
+  ? [
+      ...meubles.map((m) => {
+        if (posesReve[m.nom]) return { ...m, ...posesReve[m.nom] };
+        if (m.nom === 'chaise') {
+          const de = poseOrigine('bureau');
+          const vers = posesReve.bureau;
+          return { ...m, pos: suivre(m.pos, de, vers), rotation: (m.rotation ?? 0) + (vers.rotation ?? 0) - (de.rotation ?? 0) };
+        }
+        return m;
+      }),
+      ...agencementReve.provisoires.map((m) => ({ ...m, provisoire: true })),
+    ]
+  : meubles;
+
+for (const d of decorsPiece) {
   const g = new THREE.Group();
   let p;
   let r;
@@ -1363,7 +1595,7 @@ const adhesif = new THREE.MeshStandardMaterial({ color: '#efe3b8', roughness: 0.
 
 // tous les posters à créer, grilles et placements à la main confondus
 const posters = [];
-for (const groupe of photosMur) {
+for (const groupe of photosPiece) {
   if (groupe.posters) {
     for (const q of groupe.posters) posters.push({ lot: groupe, mur: groupe.mur, fichier: q.fichier, s: q.s, y: q.y, w: q.taille[0], h: q.taille[1] });
   } else {
@@ -1451,6 +1683,16 @@ posters.forEach((q, i) => {
 // juste le fond, sans le traverser.
 const Z_FOND = 0.02;
 const baseZ = {}; // z de la base de chaque objet, pour poser les petits objets devant les grands
+// tout le contenu de la vitrine est rangé ici : dans la chambre de rêve, il suit la vitrine à sa nouvelle place
+const contenuVitrine = new THREE.Group();
+racine.add(contenuVitrine);
+if (reve) {
+  const de = poseOrigine('vitrine');
+  const vers = posesReve.vitrine;
+  const [x, z] = suivre([0, 0], de, vers); // où arrive l'origine de la pièce
+  contenuVitrine.position.set(x, 0, z);
+  contenuVitrine.rotation.y = vers.rotation - (de.rotation ?? 0);
+}
 for (const o of objetsVitrine) {
   if (o.baton) {
     // light stick : un cône (large en haut, la tête, qui s'affine vers le manche), dont la matière est
@@ -1496,7 +1738,7 @@ for (const o of objetsVitrine) {
     g.position.set(o.pos[0], o.pos[1], z);
     g.rotation.y = angle;
     g.add(bras);
-    racine.add(g);
+    contenuVitrine.add(g);
     const info = { nom: o.nom, description: o.description, groupe: g };
     g.userData.info = info;
     cliquables.push(info);
@@ -1521,7 +1763,7 @@ for (const o of objetsVitrine) {
       m.receiveShadow = true;
       g.add(m);
     });
-    racine.add(g);
+    contenuVitrine.add(g);
     const info = { nom: o.nom, description: o.description, groupe: g };
     g.userData.info = info;
     cliquables.push(info);
@@ -1554,7 +1796,7 @@ for (const o of objetsVitrine) {
   g.rotation.y = lacet;
   g.rotation.x = -incl; // penche vers le fond de la vitrine
   g.add(boite);
-  racine.add(g);
+  contenuVitrine.add(g);
   const info = { nom: o.nom, description: o.description, groupe: g };
   g.userData.info = info;
   cliquables.push(info);
@@ -1701,13 +1943,46 @@ function ouvrantCliquable(nom, description, partie, groupe, basculer) {
   cliquables.push(info);
 }
 
-for (const m of meubles) {
+// L'étiquette flottante d'un faux meuble provisoire : son nom sur une pastille, au-dessus de lui.
+function etiquetteProvisoire(nom) {
+  const texte = nom.replace(/\s*\(provisoire\)/, '');
+  const tex = textures.creer(
+    512,
+    128,
+    (g, w, h) => {
+      g.fillStyle = 'rgba(48, 33, 57, 0.88)';
+      g.beginPath();
+      g.roundRect(8, 8, w - 16, h - 16, 48);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.font = '600 44px Inter, system-ui, sans-serif';
+      g.fillText(texte, w / 2, h / 2 - 12);
+      g.font = '500 26px Inter, system-ui, sans-serif';
+      g.fillStyle = '#f4c9c2';
+      g.fillText('provisoire', w / 2, h / 2 + 28);
+    },
+    false,
+  );
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+  s.scale.set(0.56, 0.14, 1);
+  return s;
+}
+
+for (const m of meublesPiece) {
   const groupe = new THREE.Group();
   groupe.name = m.nom;
   groupe.position.set(m.pos[0], 0, m.pos[1]);
   groupe.rotation.y = m.rotation ?? 0;
   m.parties.forEach((p) => groupe.add(creerPartie(p)));
   racine.add(groupe);
+  if (m.provisoire) {
+    const haut = new THREE.Box3().setFromObject(groupe).max.y;
+    const etiquette = etiquetteProvisoire(m.nom);
+    etiquette.position.y = haut + 0.16;
+    groupe.add(etiquette);
+  }
   if (m.mur) accrocher(m.mur, groupe);
   const info = { nom: m.nom, description: m.description, interrupteur: m.interrupteur, groupe };
   groupe.userData.info = info;
@@ -1836,7 +2111,16 @@ function creerHalo(materiau, taille) {
   return s;
 }
 
-const lampes = lumieres.map((l) => {
+// une lampe posée sur un meuble déplacé (le lampadaire dans la chambre de rêve) part avec lui
+const lumieresPiece = reve
+  ? lumieres.map((l) => {
+      const pose = posesReve[l.nom];
+      if (!pose || !l.pos) return l;
+      const [x, z] = suivre([l.pos[0], l.pos[2]], poseOrigine(l.nom), pose);
+      return { ...l, pos: [x, l.pos[1], z] };
+    })
+  : lumieres;
+const lampes = lumieresPiece.map((l) => {
   const materiauAmpoule = new THREE.MeshStandardMaterial({
     color: l.couleur,
     emissive: l.couleur,
@@ -2028,6 +2312,9 @@ function appliquerHeure(heure) {
   appliquerLumiereJour(); // les intensités de l'heure, réduites si le store est fermé en plein jour
   veluxMat.emissive.set(f > 0.3 ? '#bfe3ff' : '#0b1230');
   veluxMat.color.copy(veluxMat.emissive);
+  // la fenêtre de la lucarne (chambre de rêve) s'éclaire comme le Velux (son intensité : voir ajusterVitre)
+  matFenetre.emissive.copy(veluxMat.emissive);
+  matFenetre.color.copy(veluxMat.emissive);
 
   nuit = 1 - f;
   document.documentElement.style.setProperty('--nuit', nuit.toFixed(3));
@@ -2067,14 +2354,34 @@ addEventListener('resize', redimensionner);
 redimensionner();
 
 preparerMurs();
+// Vues de la chambre de rêve : la vue d'ensemble est centrée sur la grande pièce, un quart plus loin ; la vue
+// « Bureau » suit le bureau ; la vue « Porte » regarde la nouvelle porte
+const vuesPiece = reve
+  ? vues.map((v) => {
+      if (v.id === 'ensemble') {
+        const cible = [W / 2, 0.9, (D - DN) / 2];
+        return { ...v, cible, camera: v.camera.map((c, i) => cible[i] + (c - v.cible[i]) * 1.25) };
+      }
+      if (v.id === 'bureau') {
+        const sur = ([x, y, z]) => {
+          const [nx, nz] = suivre([x, z], poseOrigine('bureau'), posesReve.bureau);
+          return [nx, y, nz];
+        };
+        return { ...v, cible: sur(v.cible), camera: sur(v.camera) };
+      }
+      if (v.id === 'porte') return { ...v, cible: [0.05, 1.0, -0.6], camera: [2.4, 1.7, 1.4] };
+      return v;
+    })
+  : vues;
 const interactions = initialiserInteractions({
   canvas,
   camera,
   controls,
   racine,
+  etendue: { x: DEMI_X, z: DEMI_Z },
   murs,
   cliquables,
-  vues,
+  vues: vuesPiece,
   commandes,
   estAllume,
   basculer,
@@ -2083,12 +2390,26 @@ const interactions = initialiserInteractions({
   limitePolaire: LIMITE_POLAIRE,
 });
 creerBoutonSon(document.getElementById('cmd-murs')); // à côté des boutons des murs
+// changer de pièce : la page repart de zéro, sur le menu d'accueil
+{
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ctrl';
+  b.setAttribute('aria-label', 'Changer de pièce');
+  b.title = 'Changer de pièce';
+  b.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5"/></svg>';
+  b.addEventListener('click', () => location.reload());
+  document.getElementById('cmd-murs').append(b);
+}
 // ce qui bloque le petit bonhomme en plus des meubles : le poteau et l'entrait de la charpente
 const fixesPerso = [
   { x0: 0, x1: poutre.profondeur + 0.01, z0: poutre.poteau.z - poutre.poteau.largeur / 2, z1: poutre.poteau.z + poutre.poteau.largeur / 2, bas: 0, haut: 1.7 },
   { x0: 0, x1: poutre.profondeur + 0.01, z0: poutre.poteau.z, z1: poutre.entrait.zFin, bas: poutre.entrait.y - poutre.entrait.hauteur / 2, haut: poutre.entrait.y + poutre.entrait.hauteur / 2 },
 ];
-const perso = creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles, fixes: fixesPerso, cliquables, basculer, piece });
+// dans la chambre de rêve, la charpente en miroir de la chambre voisine bloque aussi
+if (reve) for (const f of [...fixesPerso]) fixesPerso.push({ ...f, z0: D - DN - f.z1, z1: D - DN - f.z0 });
+const perso = creerPerso({ renderer, racine, camera, controls, interactions, contour, meubles: meublesPiece, fixes: fixesPerso, cliquables, basculer, piece, profondeurNord: DN });
 const horloge = new THREE.Clock();
 let dernierEcran = -1;
 let derniereMinute = -1;
@@ -2130,6 +2451,8 @@ renderer.setAnimationLoop(() => {
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   afficherAvancement(1);
   // on laisse la barre finir de se remplir avant le fondu vers la chambre, qui arrive en vol
+  // une miniature prévient le menu d'accueil qu'elle est prête : il la fait apparaître en fondu
+  if (miniature) return parent.postMessage({ miniature: globalThis.PIECE }, location.origin);
   setTimeout(() => {
     document.getElementById('chargement').classList.add('fini');
     interactions.entree();

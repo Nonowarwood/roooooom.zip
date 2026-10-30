@@ -9,6 +9,7 @@ export function initialiserInteractions({
   camera,
   controls,
   racine,
+  etendue, // demi-dimensions de la pièce (x, z), autour de son centre
   murs,
   cliquables,
   vues,
@@ -266,8 +267,7 @@ export function initialiserInteractions({
   // côté opposé au mur le plus proche (un meuble regarde la pièce). Un décor plat est vu de face, un
   // meuble de trois quarts, du côté où se trouve déjà la caméra. La distance est calculée pour que
   // l'objet entier remplisse environ les trois quarts de l'écran.
-  const demiX = -racine.position.x;
-  const demiZ = -racine.position.z;
+  const { x: demiX, z: demiZ } = etendue;
   const HAUT = new THREE.Vector3(0, 1, 0);
   let dernierCentrage = null;
 

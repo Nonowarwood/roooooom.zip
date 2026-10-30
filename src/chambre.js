@@ -17,6 +17,16 @@ export const palette = {
   poutre: '#8a6450',
 };
 
+// Chambre de rêve : murs blancs, comme sur ta photo d'inspiration ; le plafond et la pente étoilée passent au
+// blanc aussi. Ce qui n'est pas redonné ici reste celui de `palette` (le sol rose, notamment).
+export const paletteReve = {
+  mur: '#f7f6f3',
+  murAlt: '#f1f0ec',
+  murBord: '#c9ced8',
+  plafond: '#fbfaf8',
+  pente: '#f6f3f0', // fond de la pente, sous les étoiles
+};
+
 export const piece = {
   largeur: 3.6, // x, mur ouest -> mur est
   profondeur: 3.7, // z, mur nord -> mur bas sud
@@ -43,6 +53,77 @@ export const renfoncement = { retour, pan, P1, P2, P3 };
 // Petite colonne qui sort du mur dans l'angle nord-est, à droite du bureau,
 // à côté du lampadaire. Collée au mur nord et au mur est.
 export const colonne = { largeur: 0.3, profondeur: 0.2 };
+
+// La chambre voisine, derrière le mur nord, d'après tes photos : la même largeur que la chambre et son toit
+// en miroir (plafond plat, puis une pente qui descend vers le nord jusqu'à un mur bas de la même hauteur),
+// avec une lucarne au milieu de la pente. Dans la chambre de rêve, le mur nord est abattu : les deux pièces
+// n'en font plus qu'une. La colonne et le renfoncement de la porte restent.
+//   profondeur : du mur abattu au mur bas du fond (z), la pente occupe ses `penteProfondeur` derniers mètres
+//   lucarne : x = centre (0 = mur ouest), largeur, hauteur = son plafond plat ; fenetre = la fenêtre en bois
+//   à deux battants dans sa façade, `bas` = hauteur de l'allège
+export const voisine = {
+  profondeur: 3.4,
+  lucarne: { x: 1.9, largeur: 1.0, hauteur: 2.15, fenetre: { largeur: 0.8, hauteur: 0.95, bas: 1.06 } },
+};
+
+// Disposition de la chambre de rêve, « Studio + coin nuit » (d'après ta photo d'inspiration) : la partie
+// nouvelle (z < 0) devient un studio, avec le bureau sous la fenêtre de la lucarne et un coin détente au
+// milieu ; ta chambre garde le lit, la commode et la TV.
+//   poses : nouvelle place des meubles existants ({ pos: [x, z], rotation }) ; ce qui les accompagne suit
+//           (la chaise du bureau, le contenu de la vitrine, la lumière du lampadaire) ;
+//   provisoires : de faux meubles, de simples blocs aux bonnes dimensions avec leur nom au-dessus, en
+//           attendant de vrais modèles (même format que `meubles` plus bas).
+export const agencementReve = {
+  poses: {
+    bureau: {
+      pos: [1.9, -3.09],
+      rotation: 0,
+      description: 'Bureau en bouleau clair avec un plateau de verre, sous la fenêtre de la lucarne : on travaille face à la pièce, la lumière du jour dans le dos. Dessous, la boîte d’archives Lyreco et le panier « Flower Shop ».',
+    },
+    vitrine: {
+      pos: [0.18, -1.55],
+      rotation: Math.PI / 2,
+      description: 'Vitrine à quatre étagères de verre, contre le mur ouest du studio, entre la porte et la charpente.',
+    },
+    lampadaire: { pos: [3.3, 0.22] },
+  },
+  provisoires: [
+    {
+      nom: 'canapé (provisoire)',
+      description: 'Faux meuble : un canapé deux places (160 × 80 cm), au cœur du coin détente, tourné vers le studio. En attendant le vrai modèle.',
+      pos: [2.2, 0.2],
+      rotation: Math.PI,
+      parties: [
+        { taille: [1.6, 0.42, 0.8], pos: [0, 0, 0], couleur: '#9fb4d8' }, // assise
+        { taille: [1.6, 0.42, 0.18], pos: [0, 0.42, -0.31], couleur: '#8ea4cb' }, // dossier
+        { taille: [0.16, 0.22, 0.8], pos: [-0.72, 0.42, 0], couleur: '#8ea4cb' }, // accoudoirs
+        { taille: [0.16, 0.22, 0.8], pos: [0.72, 0.42, 0], couleur: '#8ea4cb' },
+      ],
+    },
+    {
+      nom: 'tapis rond (provisoire)',
+      description: 'Faux meuble : un grand tapis rond noir (Ø 140 cm), comme sur la photo d’inspiration. En attendant le vrai modèle.',
+      pos: [1.75, -1.15],
+      parties: [{ forme: 'cylindre', taille: [1.4, 0.012], pos: [0, 0, 0], couleur: '#2f2f3a' }],
+    },
+    {
+      nom: 'bibliothèque basse (provisoire)',
+      description: 'Faux meuble : une bibliothèque basse à huit cases (147 × 77 × 39 cm) contre le mur est, sous les neuf portraits. En attendant le vrai modèle.',
+      pos: [3.395, -1.35],
+      rotation: -Math.PI / 2,
+      parties: [{ taille: [1.47, 0.77, 0.39], pos: [0, 0, 0], couleur: '#f2f0ea' }],
+    },
+    {
+      nom: 'grande plante (provisoire)',
+      description: 'Faux meuble : une grande plante verte dans un pot blanc, entre la bibliothèque et le lampadaire. En attendant le vrai modèle.',
+      pos: [3.25, -0.3],
+      parties: [
+        { forme: 'cylindre', taille: [0.34, 0.32], pos: [0, 0, 0], couleur: '#f4f2ee' },
+        { forme: 'sphere', taille: [0.62], pos: [0, 0.3, 0], couleur: '#7fae7a' },
+      ],
+    },
+  ],
+};
 
 // Velux dans la pente, d'après tes photos. Le cadre est posé dans le plan extérieur du toit, le haut du cadre
 // touche le haut de l'ouverture (coupe perpendiculaire à la pente, invisible de dessous) et le bas est taillé

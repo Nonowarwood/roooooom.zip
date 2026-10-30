@@ -50,12 +50,36 @@
     <button class="perso-agir" id="perso-agir" type="button" hidden>Agir</button>
     <button class="perso-saut" id="perso-saut" type="button" hidden>Saut</button>
 
+    <!-- menu d'accueil : le choix de la pièce, à chaque arrivée (src/accueil.js) -->
+    <div id="accueil" class="accueil" aria-roledescription="carrousel">
+      <h1 class="sr-only" id="accueil-nom">Chambre</h1>
+      <!-- une miniature par pièce (créées par src/accueil.js) : la vraie scène 3D, dans une iframe -->
+      <div class="accueil-scene" id="accueil-scene"></div>
+      <div class="accueil-textes">
+        <svg class="accueil-arc haut" viewBox="0 0 600 160" aria-hidden="true">
+          <defs><path id="arc-haut" d="M 60 140 Q 300 55 540 140" fill="none" /></defs>
+          <text><textPath href="#arc-haut" startOffset="50%" text-anchor="middle" id="titre-arc">Chambre</textPath></text>
+        </svg>
+        <svg class="accueil-arc bas" viewBox="0 0 600 160" aria-hidden="true">
+          <defs><path id="arc-bas" d="M 45 12 A 300 300 0 0 0 555 12" fill="none" /></defs>
+          <text><textPath href="#arc-bas" startOffset="50%" text-anchor="middle" id="sous-titre-arc">Paris</textPath></text>
+        </svg>
+        <button type="button" class="accueil-visiter" id="visiter">Visiter</button>
+      </div>
+      <button type="button" class="accueil-fleche gauche" id="precedent" aria-label="Pièce précédente">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>
+      </button>
+      <button type="button" class="accueil-fleche droite" id="suivant" aria-label="Pièce suivante">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+      </button>
+    </div>
+
     <div id="chargement" class="chargement" role="status" aria-live="polite">
-      <div class="chargement-titre">Ma chambre</div>
+      <div class="chargement-titre">Chambre</div>
       <div class="chargement-barre"><div class="chargement-niveau" id="chargement-niveau"></div></div>
       <div class="chargement-texte" id="chargement-texte">Chargement…</div>
     </div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/accueil.js"></script>
   </body>
 </html>
