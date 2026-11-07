@@ -106,10 +106,16 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   const solides = [];
   const ajouter = (x0, x1, z0, z1, bas, haut, marche) => solides.push({ x0, x1, z0, z1, bas, haut, marche });
   for (const m of meubles) {
+    // un meuble tourné (`rotation`) : chaque forme tourne avec lui, son rectangle au sol devient celui qui
+    // l'englobe une fois tourné
+    const a = m.rotation ?? 0;
+    const [co, si] = [Math.cos(a), Math.sin(a)];
     for (const p of m.parties ?? []) {
-      const [l, h, pr] = p.forme === 'cylindre' ? [p.taille[0], p.taille[1], p.taille[0]] : p.forme === 'sphere' || p.forme === 'tore' ? [p.taille[0], p.taille[0], p.taille[0]] : p.taille;
+      const [l0, h, pr0] = p.forme === 'cylindre' ? [p.taille[0], p.taille[1], p.taille[0]] : p.forme === 'sphere' || p.forme === 'tore' ? [p.taille[0], p.taille[0], p.taille[0]] : p.taille;
+      const l = Math.abs(l0 * co) + Math.abs(pr0 * si);
+      const pr = Math.abs(l0 * si) + Math.abs(pr0 * co);
       const bas = p.centre ? p.pos[1] - h / 2 : p.pos[1];
-      const [x, z] = [m.pos[0] + p.pos[0], m.pos[1] + p.pos[2]];
+      const [x, z] = [m.pos[0] + p.pos[0] * co + p.pos[2] * si, m.pos[1] - p.pos[0] * si + p.pos[2] * co];
       const portant = !p.verre && !p.rot && p.forme !== 'sphere' && p.forme !== 'tore' && Math.min(l, pr) >= 0.07;
       ajouter(x - l / 2, x + l / 2, z - pr / 2, z + pr / 2, bas, bas + h, portant);
     }

@@ -1261,6 +1261,20 @@ const matEcranMac = new THREE.MeshStandardMaterial({
   roughness: 0.3,
 });
 matEcranMac.userData.sansSurbrillance = true;
+// Les écrans du bureau bas (chambre de rêve) : un fond d'écran chacun, allumé comme celui du Mac. Le programme
+// les repère par le nom de leur maillage dans le modèle (src/modeles/reve.js).
+const matsEcrans = Object.fromEntries(
+  Object.entries({ 'ecran-moniteur': '/textures/ecran-moniteur.jpg', 'ecran-thinkpad': '/textures/ecran-thinkpad.jpg' }).map(([nom, url]) => {
+    // polygonOffset : la dalle passe toujours devant le cadre de l'écran, même de loin (sans quoi elle scintille)
+    const materiau = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffffff', emissiveMap: textures.image(url), emissiveIntensity: 0.85, roughness: 0.3, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    materiau.userData.sansSurbrillance = true;
+    return [nom, materiau];
+  }),
+);
+// et le tapis de souris du bureau bas : son image imprimée, mate
+// le bandana du Season's Greetings de NMIXX, sous la tasse : son imprimé, sur un tissu mat
+matsEcrans['imprime-bandana'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/bandana-mixx.jpg'), roughness: 0.85 });
+matsEcrans['tapis-souris'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/tapis-souris.jpg'), roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 const matEcran = new THREE.MeshStandardMaterial({
   color: '#050507',
   emissive: '#ffffff',
@@ -1358,11 +1372,12 @@ const decorsPiece = reve
       return d.mur === 'nord' ? { ...d, mur: 'est', s: 0.38 } : d;
     })
   : decors;
-const photosPiece = reve ? photosMur.map((g) => (g.mur === 'nord' ? { ...g, mur: 'est', s0: -1.35 } : g)) : photosMur;
+// les neuf portraits, centrés au-dessus de la bibliothèque basse (centre en z = −1,35 : la colonne du milieu y est)
+const photosPiece = reve ? photosMur.map((g) => (g.mur === 'nord' ? { ...g, mur: 'est', s0: -1.35 - g.pas[0] } : g)).concat(agencementReve.photos ?? []) : photosMur;
 
 // La disposition de la chambre de rêve (agencementReve, dans chambre.js) : certains meubles changent de
 // place, et ce qui les accompagne les suit (la chaise, le contenu de la vitrine, la lumière du lampadaire, la
-// vue « Bureau ») ; de faux meubles provisoires s'ajoutent.
+// vue « Bureau ») ; les meubles neufs s'ajoutent, et de faux meubles provisoires en attendant les leurs.
 const posesReve = agencementReve.poses;
 const poseOrigine = (nom) => meubles.find((m) => m.nom === nom);
 // le déplacement qui amène un meuble de sa place d'origine (`de` = { pos, rotation }) à sa nouvelle place
@@ -1383,6 +1398,7 @@ const meublesPiece = reve
         }
         return m;
       }),
+      ...agencementReve.nouveaux,
       ...agencementReve.provisoires.map((m) => ({ ...m, provisoire: true })),
     ]
   : meubles;
@@ -2001,6 +2017,7 @@ for (const m of meublesPiece) {
             if (o.name === 'ecran') o.material = matEcran;
             // le Mac du bureau : une capture du site dans une fenêtre de navigateur
             if (o.name === 'ecran-mac') o.material = matEcranMac;
+            if (matsEcrans[o.name]) o.material = matsEcrans[o.name];
           });
           remplacerParModele(groupe, gltf.scene, m);
           if (m.nom === 'bureau') {
@@ -2010,6 +2027,24 @@ for (const m of meublesPiece) {
             if (capot && mac) {
               const bascule = creerOuvrant(capot, 'x', 0.034, -1.95, { ouvertAuDepart: true, son: 'mac' });
               ouvrantCliquable('MacBook', 'Le MacBook Air du bureau. Clique pour fermer ou rouvrir son capot.', mac, mac, bascule);
+            }
+          }
+          if (m.nom === 'bureau bas') {
+            // le ThinkPad : son écran se rabat sur le clavier ou se rouvre (ouvert à 115° sur son support)
+            const capot = groupe.getObjectByName('pivot_ecran_thinkpad');
+            const thinkpad = groupe.getObjectByName('objet_thinkpad');
+            if (capot && thinkpad) {
+              const bascule = creerOuvrant(capot, 'x', 0, -2.0, { ouvertAuDepart: true, son: 'mac' });
+              ouvrantCliquable('ThinkPad X201i', 'Le ThinkPad X201i, ouvert sur son support incliné à gauche de l’écran, branché à l’écran par son câble VGA. Clique pour rabattre ou rouvrir son écran.', thinkpad, thinkpad, bascule);
+            }
+            // les périphériques : chacun a sa fiche
+            for (const [objet, nom, description] of [
+              ['objet_clavier', 'Clavier MelGeek VIVA63 HE', 'Le clavier MelGeek VIVA63 HE, coloris « Proto » : boîtier transparent, touches noires au profil MCR, Échap et Entrée jaunes, molette, écran OLED tactile et lumière RGB sur trois côtés. Branché en USB-C au ThinkPad.'],
+              ['objet_souris', 'Souris Logitech G PRO 2 LIGHTSPEED', 'La souris Logitech G PRO 2 LIGHTSPEED noire, sans fil : symétrique, molette crantée, boutons latéraux côté pouce.'],
+              ['objet_tapis', 'Tapis de souris', 'Le grand tapis de souris noir à pivoines blanches, bordure cousue, sous le clavier et la souris.'],
+            ]) {
+              const o = groupe.getObjectByName(objet);
+              if (o) ouvrantCliquable(nom, description, o, o);
             }
           }
           if (m.nom === 'vitrine') {
@@ -2119,6 +2154,7 @@ const lumieresPiece = reve
       const [x, z] = suivre([l.pos[0], l.pos[2]], poseOrigine(l.nom), pose);
       return { ...l, pos: [x, l.pos[1], z] };
     })
+      .concat(agencementReve.lumieres ?? [])
   : lumieres;
 const lampes = lumieresPiece.map((l) => {
   const materiauAmpoule = new THREE.MeshStandardMaterial({
@@ -2138,7 +2174,28 @@ const lampes = lumieresPiece.map((l) => {
     lights.push(lumiere);
   };
 
-  if (l.spots) {
+  if (l.cible) {
+    // une lampe qui éclaire dans une direction (la lampe de bureau) : un projecteur à cône doux, et l'ampoule
+    // visible dans son abat-jour
+    const lumiere = new THREE.SpotLight(l.couleur, 0, l.portee ?? 3, l.angle ?? 0.8, l.penombre ?? 0.6, 1.5);
+    lumiere.position.set(...l.pos);
+    lumiere.target.position.set(...l.cible);
+    lumiere.castShadow = !!l.ombres;
+    if (l.ombres) {
+      lumiere.shadow.mapSize.set(1024, 1024);
+      lumiere.shadow.bias = -0.0004;
+      lumiere.shadow.normalBias = 0.01;
+    }
+    racine.add(lumiere, lumiere.target);
+    lights.push(lumiere);
+    for (const p of l.ampoules ?? [l.pos]) {
+      const a = new THREE.Mesh(geoAmpoule, materiauAmpoule);
+      a.position.set(...p);
+      a.scale.setScalar(l.tailleAmpoule ?? 1);
+      a.add(creerHalo(matHalo, (l.halo ?? 0.6) / (l.tailleAmpoule ?? 1))); // `halo` : sa largeur, en mètres
+      racine.add(a);
+    }
+  } else if (l.spots) {
     // un spot par ampoule : sa lumière est un peu en avant de l'ampoule pour éclairer la pièce sans cramer le mur
     l.ampoules.forEach(([, y, z], i) => {
       const spot = creerSpot(y, z, materiauAmpoule);
@@ -2184,7 +2241,8 @@ racine.add(haloTV);
 // choisi à la main. `niveau` va de 0 à 1 en douceur.
 let nuit = 0;
 const commandes = {};
-for (const i of interrupteurs) {
+const interrupteursPiece = reve ? [...interrupteurs, ...(agencementReve.interrupteurs ?? [])] : interrupteurs;
+for (const i of interrupteursPiece) {
   commandes[i.id] = {
     ...i,
     manuel: null,
@@ -2367,7 +2425,10 @@ const vuesPiece = reve
           const [nx, nz] = suivre([x, z], poseOrigine('bureau'), posesReve.bureau);
           return [nx, y, nz];
         };
-        return { ...v, cible: sur(v.cible), camera: sur(v.camera) };
+        // la caméra se décale de 40 cm vers la pièce : sans ça, elle se poserait dans les feuilles du monstera
+        // (dans le coin à gauche du bureau)
+        const [cx, cy, cz] = sur(v.camera);
+        return { ...v, cible: sur(v.cible), camera: [cx + 0.4, cy, cz] };
       }
       if (v.id === 'porte') return { ...v, cible: [0.05, 1.0, -0.6], camera: [2.4, 1.7, 1.4] };
       return v;

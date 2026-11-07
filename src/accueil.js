@@ -11,8 +11,12 @@ const chemin = (url) => import.meta.env.BASE_URL + url.slice(1); // comme dans t
 
 const pieces = [
   { piece: 'chambre', titre: 'Chambre', sousTitre: 'Paris', image: '/apercus/chambre.png' },
-  { piece: 'reve', titre: 'Chambre', sousTitre: 'Le mur abattu', image: '/apercus/reve.png' },
+  { piece: 'reve', titre: 'Chambre', sousTitre: 'Le mur abattu', image: '/apercus/reve.png', wip: true },
+  { piece: 'mantes', titre: 'Chambre', sousTitre: 'Mantes-la-Jolie', image: '/apercus/mantes.png', wip: true },
 ];
+
+// Chaque pièce a sa scène : Paris et la chambre de rêve partagent src/main.js, Mantes a la sienne.
+const scenePiece = (piece) => (piece === 'mantes' ? import('./mantes.js') : import('./main.js'));
 
 const pieceMiniature = new URLSearchParams(location.search).get('miniature');
 if (pieceMiniature) ouvrirMiniature(pieceMiniature);
@@ -23,7 +27,7 @@ function ouvrirMiniature(piece) {
   document.body.classList.add('miniature');
   globalThis.PIECE = piece;
   globalThis.MINIATURE = true;
-  import('./main.js');
+  scenePiece(piece);
 }
 
 // --- Le menu ---
@@ -38,7 +42,7 @@ function ouvrirMenu() {
     const div = document.createElement('div');
     div.className = 'accueil-piece';
     const img = document.createElement('img');
-    img.src = chemin(p.image);
+    if (p.image) img.src = chemin(p.image);
     img.alt = '';
     const iframe = document.createElement('iframe');
     iframe.src = `${location.pathname}?miniature=${p.piece}`;
@@ -65,6 +69,7 @@ function ouvrirMenu() {
     el('accueil-nom').textContent = p.titre;
     el('titre-arc').textContent = p.titre;
     el('sous-titre-arc').textContent = p.sousTitre;
+    el('accueil-wip').hidden = !p.wip;
     cases.forEach((c, i) => {
       c.classList.toggle('courante', i === index);
       c.classList.toggle('gauche', i === index - 1);
@@ -111,7 +116,7 @@ function ouvrirMenu() {
     globalThis.PIECE = p.piece;
     document.querySelector('.chargement-titre').textContent = p.titre;
     accueil.classList.add('fini');
-    import('./main.js');
+    scenePiece(p.piece);
     // une fois le menu effacé, les miniatures s'arrêtent : la carte graphique est pour la vraie scène
     setTimeout(() => scene.replaceChildren(), 700);
   });

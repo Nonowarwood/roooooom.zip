@@ -50,7 +50,7 @@ function bande(points, x, ep, larg, materiau) {
 
 // Oreiller : un coussin bombé au centre, aux bords et aux coins pincés (là où la taie est
 // cousue), avec de petits plis. Dimensions : l (x), h (hauteur au centre), p (z).
-function oreiller(l, h, p, materiau, [x, yBas, z], graine = 1) {
+export function oreiller(l, h, p, materiau, [x, yBas, z], graine = 1) {
   const geo = new THREE.BoxGeometry(l, h, p, 12, 4, 16);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
@@ -192,7 +192,7 @@ function lampadaire() {
 //    fente de ventilation sous la charnière ; trackpad large entouré d'un fin sillon ;
 //  - charnière cylindrique, capot arrondi avec la pomme, écran noir encadré avec encoche et caméra ;
 //  - quatre pieds en caoutchouc, ports sur le flanc gauche, prise casque à droite.
-function macbook(m, x, y, z) {
+export function macbook(m, x, y, z) {
   const L = 0.304;
   const P = 0.215;
   const EP = 0.0113; // épaisseur à la charnière

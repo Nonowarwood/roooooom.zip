@@ -71,8 +71,10 @@ export const voisine = {
 // milieu ; ta chambre garde le lit, la commode et la TV.
 //   poses : nouvelle place des meubles existants ({ pos: [x, z], rotation }) ; ce qui les accompagne suit
 //           (la chaise du bureau, le contenu de la vitrine, la lumière du lampadaire) ;
+//   nouveaux : les meubles neufs, modélisés en code dans src/modeles/reve.js et livrés en .glb (même format
+//           que `meubles` plus bas ; `parties` ne sert plus qu'aux collisions du petit bonhomme) ;
 //   provisoires : de faux meubles, de simples blocs aux bonnes dimensions avec leur nom au-dessus, en
-//           attendant de vrais modèles (même format que `meubles` plus bas).
+//           attendant de vrais modèles (même format que `meubles` plus bas). Vide pour l'instant.
 export const agencementReve = {
   poses: {
     bureau: {
@@ -86,43 +88,160 @@ export const agencementReve = {
       description: 'Vitrine à quatre étagères de verre, contre le mur ouest du studio, entre la porte et la charpente.',
     },
     lampadaire: { pos: [3.3, 0.22] },
+    // à gauche de la TV (vu du lit), entre son coffre et la charpente, tourné vers le lit
+    'ventilateur sur pied': {
+      pos: [0.4, 3.0],
+      rotation: 0.36,
+      description: 'Grand ventilateur sur pied, à gauche de la TV, tourné vers le lit, avec sa grille et ses cinq pales.',
+    },
   },
-  provisoires: [
+  nouveaux: [
     {
-      nom: 'canapé (provisoire)',
-      description: 'Faux meuble : un canapé deux places (160 × 80 cm), au cœur du coin détente, tourné vers le studio. En attendant le vrai modèle.',
-      pos: [2.2, 0.2],
-      rotation: Math.PI,
-      parties: [
-        { taille: [1.6, 0.42, 0.8], pos: [0, 0, 0], couleur: '#9fb4d8' }, // assise
-        { taille: [1.6, 0.42, 0.18], pos: [0, 0.42, -0.31], couleur: '#8ea4cb' }, // dossier
-        { taille: [0.16, 0.22, 0.8], pos: [-0.72, 0.42, 0], couleur: '#8ea4cb' }, // accoudoirs
-        { taille: [0.16, 0.22, 0.8], pos: [0.72, 0.42, 0], couleur: '#8ea4cb' },
-      ],
-    },
-    {
-      nom: 'tapis rond (provisoire)',
-      description: 'Faux meuble : un grand tapis rond noir (Ø 140 cm), comme sur la photo d’inspiration. En attendant le vrai modèle.',
-      pos: [1.75, -1.15],
-      parties: [{ forme: 'cylindre', taille: [1.4, 0.012], pos: [0, 0, 0], couleur: '#2f2f3a' }],
-    },
-    {
-      nom: 'bibliothèque basse (provisoire)',
-      description: 'Faux meuble : une bibliothèque basse à huit cases (147 × 77 × 39 cm) contre le mur est, sous les neuf portraits. En attendant le vrai modèle.',
+      nom: 'bibliothèque basse',
+      glb: '/models/bibliotheque.glb', ajuster: false,
+      description: 'Étagère à huit cases blanche (147 × 77 × 39 cm) contre le mur est, sous les neuf portraits. En bas : deux boîtes en tissu (lilas, vert sauge), un panier en osier avec un plaid crème et une pile de magazines. En haut : des albums, un cadre photo, un pothos dans un pot en terre cuite qui retombe, des classeurs de photocards et une petite enceinte. Dessus : une lampe champignon, deux livres et une bougie.',
       pos: [3.395, -1.35],
       rotation: -Math.PI / 2,
       parties: [{ taille: [1.47, 0.77, 0.39], pos: [0, 0, 0], couleur: '#f2f0ea' }],
     },
     {
-      nom: 'grande plante (provisoire)',
-      description: 'Faux meuble : une grande plante verte dans un pot blanc, entre la bibliothèque et le lampadaire. En attendant le vrai modèle.',
-      pos: [3.25, -0.3],
+      nom: 'tapis rond',
+      glb: '/models/tapis.glb', ajuster: false,
+      description: 'Grand tapis rond noir (Ø 140 cm), en laine épaisse à sillons concentriques, bordé d’un cordon tressé. Il marque le coin détente du studio.',
+      pos: [1.75, -1.15],
+      parties: [{ forme: 'cylindre', taille: [1.4, 0.012], pos: [0, 0, 0], couleur: '#2f2f3a' }],
+    },
+    {
+      nom: 'monstera',
+      glb: '/models/plante.glb', ajuster: false,
+      // dans le coin nord-ouest, à gauche du bureau de la lucarne, à côté de la charpente (en miroir du ventilateur) ;
+      // tourné d'un demi-tour pour que ses feuilles partent vers la pièce et pas vers le mur ouest
+      description: 'Un grand monstera de 1,30 m dans un cache-pot crème, qui grimpe le long d’un tuteur en fibre de coco, dans le coin à gauche du bureau de la lucarne, à côté de la charpente. Ses feuilles découpées partent toutes vers la pièce.',
+      pos: [0.4, -2.75],
+      rotation: Math.PI,
       parties: [
         { forme: 'cylindre', taille: [0.34, 0.32], pos: [0, 0, 0], couleur: '#f4f2ee' },
-        { forme: 'sphere', taille: [0.62], pos: [0, 0.3, 0], couleur: '#7fae7a' },
+        { forme: 'cylindre', taille: [0.06, 1.0], pos: [-0.02, 0.29, 0.01], couleur: '#b39477' }, // le tuteur
+      ],
+    },
+    {
+      // le dos contre le mur ouest (à 3 cm : la place de la pince du bras d'écran), entre le coffre de la TV et la porte
+      nom: 'bureau bas',
+      glb: '/models/bureau-bas.glb', ajuster: false,
+      description: 'Le deuxième bureau, à la japonaise : un plateau en chêne clair à cinq lames, à 44 cm du sol sur quatre pieds fins, contre le mur ouest entre la TV et la porte, sous l’affiche de Ningning. Un écran 27 pouces y flotte sur un bras articulé pincé au bord arrière, avec la barque sur l’étang aux nymphéas en fond d’écran ; à sa gauche, le ThinkPad X201i ouvert sur son support incliné, branché à l’écran par un câble VGA ; devant, le clavier VIVA63 et la souris G PRO 2 sur le tapis à pivoines.',
+      pos: [0.33, 0.77],
+      rotation: Math.PI / 2,
+      parties: [
+        { taille: [1.2, 0.028, 0.6], pos: [0, 0.412, 0], couleur: '#e3c08f' }, // plateau
+        { taille: [0.042, 0.412, 0.042], pos: [0.54, 0, 0.245], couleur: '#d8b483' }, // pieds
+        { taille: [0.042, 0.412, 0.042], pos: [-0.54, 0, 0.245], couleur: '#d8b483' },
+        { taille: [0.042, 0.412, 0.042], pos: [0.54, 0, -0.245], couleur: '#d8b483' },
+        { taille: [0.042, 0.412, 0.042], pos: [-0.54, 0, -0.245], couleur: '#d8b483' },
+        { taille: [0.62, 0.37, 0.06], pos: [0.12, 0.557, -0.14], couleur: '#2b2a36' }, // écran
+        { taille: [0.04, 0.37, 0.04], pos: [0.5, 0.44, -0.255], couleur: '#3d3b4c' }, // mât du bras
+        { taille: [0.3, 0.1, 0.24], pos: [-0.36, 0.44, 0.02], couleur: '#3a3846' }, // le ThinkPad sur son support
+        { taille: [0.33, 0.035, 0.115], pos: [0.1, 0.444, 0.135], couleur: '#2a2832' }, // le clavier
+      ],
+    },
+    {
+      // à angle droit avec le bureau bas, entre son bout (z = 1,37) et le coffre de la TV (z = 1,78) ; part du mur
+      // (x = 0,03) et avance jusqu'à x = 0,73, 10 cm plus loin que le bureau. Son devant regarde le siège.
+      nom: 'retour du bureau',
+      glb: '/models/bureau-retour.glb', ajuster: false,
+      description: 'Le retour d’angle du bureau bas : une plaque plus basse (34 cm du sol, 70 × 39 cm), du même chêne clair, à angle droit avec le bureau, entre lui et la TV. Elle avance 10 cm plus loin que le bureau dans la pièce.',
+      pos: [0.38, 1.575],
+      rotation: Math.PI,
+      parties: [
+        { taille: [0.7, 0.026, 0.39], pos: [0, 0.314, 0], couleur: '#e3c08f' }, // plaque
+        { taille: [0.042, 0.308, 0.042], pos: [0.29, 0, 0.14], couleur: '#d8b483' }, // pieds
+        { taille: [0.042, 0.308, 0.042], pos: [-0.29, 0, 0.14], couleur: '#d8b483' },
+        { taille: [0.042, 0.308, 0.042], pos: [0.29, 0, -0.14], couleur: '#d8b483' },
+        { taille: [0.042, 0.308, 0.042], pos: [-0.29, 0, -0.14], couleur: '#d8b483' },
+      ],
+    },
+    {
+      // sur le retour, côté mur : son bras passe au-dessus du bout du bureau bas et amène la tête au-dessus du
+      // ThinkPad et du clavier (la pose est dans TOLOMEO, src/modeles/reve.js)
+      nom: 'lampe Tolomeo',
+      glb: '/models/tolomeo.glb', ajuster: false,
+      interrupteur: 'tolomeo',
+      description: 'La lampe de bureau Artemide Tolomeo, en aluminium, posée sur le retour : ses deux bras équilibrés par des ressorts et des câbles d’acier amènent son diffuseur en cloche au-dessus du setup. Clique pour l’allumer ou l’éteindre.',
+      pos: [0.26, 1.53],
+      rotation: 2.795,
+      parties: [
+        { forme: 'cylindre', taille: [0.23, 0.02], pos: [0, 0.34, 0], couleur: '#d5dbe0' }, // la base
+        { forme: 'cylindre', taille: [0.03, 0.48], pos: [0, 0.36, -0.05], couleur: '#d5dbe0' }, // le bras bas
+      ],
+    },
+    {
+      // plié en deux sous la tasse, il passe par-dessus le bord avant du retour (x = 0,73) et pend vers la pièce ;
+      // son origine est ce bord, au milieu du tissu
+      nom: 'bandana NMIXX « Mixx on the Road »',
+      glb: '/models/bandana.glb', ajuster: false,
+      description: 'Le bandana (65 × 65 cm) du Season’s Greetings 2027 de NMIXX, « Mixx on the Road » : plié en quatre sous la tasse, avec son grand emblème sur le dessus.',
+      pos: [0.7, 1.575],
+      parties: [{ taille: [0.325, 0.003, 0.32], pos: [-0.1625, 0.34, 0], couleur: '#e8dfe4' }],
+    },
+    {
+      // sur le retour, devant la Tolomeo (côté pièce), l'anse tournée vers le siège
+      nom: 'tasse de matcha',
+      glb: '/models/tasse.glb', ajuster: false,
+      description: 'Une grande tasse vert matcha, pleine de matcha latte, avec une paille en papier à rayure verte. Posée sur le bandana NMIXX, au pied de la Tolomeo.',
+      pos: [0.53, 1.6],
+      rotation: 1.14,
+      parties: [{ forme: 'cylindre', taille: [0.095, 0.11], pos: [0, 0.3425, 0], couleur: '#c2d9a6' }],
+    },
+    {
+      // face au bureau bas, le devant de la coque juste sous le bord du plateau
+      nom: 'siège au sol',
+      glb: '/models/chaise-sol.glb', ajuster: false,
+      description: 'Le siège de sol (zaisu) du bureau bas : coque noire posée à plat avec sa poignée percée, coussin noir, dossier inclinable en maille grise et accoudoirs en boucle.',
+      pos: [0.91, 0.77],
+      rotation: -Math.PI / 2,
+      parties: [
+        { taille: [0.52, 0.12, 0.54], pos: [0, 0, 0.0], couleur: '#363443' }, // coque et coussin
+        { taille: [0.5, 0.6, 0.12], pos: [0, 0.1, -0.29], couleur: '#a6a3b4' }, // dossier
       ],
     },
   ],
+  // aucun faux meuble pour l'instant (le canapé a été retiré : plus de canapé dans la chambre de rêve)
+  provisoires: [],
+  // les lumières en plus de celles de la chambre (même format que `lumieres` plus bas) ; `cible` en fait un
+  // projecteur qui éclaire dans une direction (angle : demi-ouverture du cône, penombre : douceur du bord)
+  lumieres: [
+    {
+      // l'ampoule de la Tolomeo, dans son diffuseur (dont le bord est à 0.923 m) : la tête est en
+      // [0.479, 1.068, 0.924] (calculée d'après TOLOMEO, reve.js) ; elle éclaire le ThinkPad et le clavier
+      nom: 'lampe Tolomeo',
+      pos: [0.479, 0.958, 0.924],
+      ampoules: [[0.479, 0.98, 0.924]],
+      tailleAmpoule: 0.4,
+      halo: 0.14, // petit : il reste caché dans la cloche, on ne le voit que par en dessous
+      cible: [0.42, 0.44, 0.86],
+      angle: 0.8,
+      penombre: 0.7,
+      couleur: '#ffe2b8',
+      intensite: 1.6,
+      portee: 2.5,
+      ombres: true,
+    },
+  ],
+  // des posters en plus, scotchés (même format que `photosMur` plus bas) : au-dessus du bureau bas, à gauche de
+  // l'affiche W Korea (qui commence à z = 1,09)
+  photos: [
+    {
+      mur: 'ouest',
+      nom: 'posters au-dessus du bureau bas',
+      description: 'Trois posters scotchés au mur au-dessus du bureau bas : un grand en paysage en haut, deux portraits en dessous.',
+      posters: [
+        { fichier: '/photos/reve/b1.jpg', s: 0.55, y: 1.78, taille: [0.45, 0.36] },
+        { fichier: '/photos/reve/b2.jpg', s: 0.37, y: 1.3, taille: [0.28, 0.35] },
+        { fichier: '/photos/reve/b3.jpg', s: 0.73, y: 1.3, taille: [0.28, 0.35] },
+      ],
+    },
+  ],
+  // et leurs boutons (même format que `interrupteurs` plus bas)
+  interrupteurs: [{ id: 'tolomeo', label: 'Lampe de bureau', lumieres: ['lampe Tolomeo'] }],
 };
 
 // Velux dans la pente, d'après tes photos. Le cadre est posé dans le plan extérieur du toit, le haut du cadre
@@ -707,4 +826,98 @@ export const vues = [
   { id: 'tv', label: 'TV', cible: [0.25, 0.9, 2.2], camera: [2.4, 1.5, 2.2], fov: 58 },
   { id: 'porte', label: 'Porte', cible: [0.0, 1.0, 0.4], camera: [2.4, 1.7, 2.4], fov: 58 },
   { id: 'velux', label: 'Velux', cible: [1.85, 1.45, 3.35], camera: [1.85, 1.05, 1.5], fov: 58 },
+];
+
+// ===========================================================================================
+// Chambre de Mantes-la-Jolie (« Villa des Îles », chambre 2 du plan) : une pièce rectangulaire, plafond plat,
+// la fenêtre au NORD. Construite dans src/mantes.js, ses meubles dans src/modeles/mantes.js.
+// Repère identique aux autres pièces : x ouest -> est, z nord (fenêtre) -> sud (porte), y sol -> plafond.
+// Dimensions estimées d'après ta photo et le plan (12,15 m²), à confirmer avec un mètre.
+// ===========================================================================================
+export const mantes = {
+  lieu: { nom: 'Mantes-la-Jolie', lat: 48.9908, lon: 1.7172 },
+  largeur: 3.05, // x : mur ouest (bureau) -> mur est (lit)
+  profondeur: 4.0, // z : mur nord (fenêtre) -> mur sud (porte, penderie)
+  hauteur: 2.5,
+  palette: {
+    mur: '#f6f5f2',
+    murAlt: '#efeeea',
+    murBord: '#c9ced8',
+    sol: '#aaa093', // stratifié chêne gris
+    solLigne: '#968c80',
+    plafond: '#fbfaf8',
+  },
+  // fenêtre à deux vantaux gris anthracite avec son coffre de volet roulant au-dessus
+  fenetre: { x: 0.13, largeur: 1.3, bas: 0.65, haut: 2.1 },
+  // porte blanche vers le couloir, dans le mur sud, charnières côté ouest
+  porte: { x: 0.07, largeur: 0.83, hauteur: 2.04 },
+  // penderie à portes coulissantes, dans le mur sud côté est
+  penderie: { x: 1.75, largeur: 1.3, hauteur: 2.4 },
+};
+
+// Les meubles : `modele` = fonction de src/modeles/mantes.js ; `contre` = le mur contre lequel il est posé (son dos
+// en est tourné) ; `pos` = [x, z] du centre au sol ; `rotation` en plus de `contre`, pour un meuble libre.
+export const meublesMantes = [
+  {
+    nom: 'lit', modele: 'lit', contre: 'est', pos: [2.6, 1.1],
+    description: 'Banquette-lit blanche de 90 × 200 cm à deux tiroirs, pied et tête arrondis, drap housse gris foncé, oreiller à étoiles bleues et plaid vert d’eau plié au pied.',
+  },
+  {
+    nom: 'Kallax', modele: 'kallax', contre: 'est', pos: [2.855, 3.44],
+    description: 'Étagère à cases 3 × 4 blanche, trois casiers à trous en bas, albums, coffrets et figurines dans les cases. Dessus : le cube vitrine et sa figurine noire, la boîte Nike et la basket rouge.',
+  },
+  {
+    nom: 'lampadaire', modele: 'lampadaire', rotation: Math.PI, pos: [2.75, 2.5], interrupteur: 'lampadaire',
+    description: 'Le lampadaire argenté, entre le pied du lit et le Kallax.',
+  },
+  {
+    nom: 'bureau', modele: 'bureau', contre: 'ouest', pos: [0.4, 1.15],
+    description: 'Bureau blanc assis-debout : la tour PC vitrée aux ventilateurs bleus côté fenêtre, l’écran 27 pouces et son fond d’écran, le MacBook, les deux enceintes Logitech Z207, le tapis XXL noir à pivoines blanches et le porte-gobelet avec la bouteille d’eau.',
+  },
+  {
+    nom: 'chaise de bureau', modele: 'chaise', rotation: 0.15, pos: [1.2, 1.55],
+    description: 'Chaise de bureau noire à dossier filet et accoudoirs, avec un coussin jaune pâle dans le dos et un vert d’eau sur l’assise.',
+  },
+  {
+    nom: 'pouf', modele: 'pouf', contre: 'ouest', pos: [0.3, 2.3],
+    description: 'Pouf coffre vert d’eau à pieds en bois, contre le mur du bureau.',
+  },
+  {
+    nom: 'étagère à enceintes', modele: 'etagere', contre: 'sud', pos: [1.32, 3.82],
+    description: 'Étagère blanche à quatre plateaux : deux enceintes Edifier et le lecteur CD dessus, des figurines vertes, la boîte CORTIS, un éventail rond à photo, des albums à plat (le rose « NO LABELS »).',
+  },
+  {
+    nom: 'chevet à roulettes', modele: 'chevet', contre: 'nord', pos: [1.08, 0.2],
+    description: 'Petit chariot blanc à roulettes sous la fenêtre : mouchoirs, boîte noire et petit cadre dessus, un bac en bois clair au milieu, le casque accroché au côté.',
+  },
+  {
+    nom: 'radiateur', modele: 'radiateur', contre: 'nord', pos: [1.7, 0.045],
+    description: 'Radiateur électrique blanc, entre la fenêtre et le lit.',
+  },
+  {
+    nom: 'ventilateur', modele: 'ventilateur', rotation: Math.PI / 2, pos: [0.5, 0.25],
+    description: 'Le ventilateur sur pied, devant la fenêtre, à côté du PC.',
+  },
+];
+
+// Affiches et toiles collées au mur : aucune pour l'instant (toutes retirées à ta demande).
+// Format : { nom, description, mur: nord | est | ouest | sud, s: position le long du mur (x pour nord/sud, z pour
+// est/ouest), y: centre, taille: [l, h], image: nom d'un fichier de public/photos/mantes/ sans « .jpg » }.
+export const decorsMantes = [];
+
+// Lumières et interrupteurs (même principe que pour la chambre de Paris)
+export const lumieresMantes = [{ nom: 'lampadaire', pos: [2.75, 1.772, 2.5], tailleAmpoule: 0.35, couleur: '#ffd9a0', intensite: 3.5, portee: 4 }];
+export const interrupteursMantes = [
+  { id: 'lampadaire', label: 'Lampadaire', lumieres: ['lampadaire'] },
+  { id: 'tv', label: 'TV', tv: true },
+];
+
+// Vues prédéfinies (repère de la pièce)
+export const vuesMantes = [
+  { id: 'ensemble', label: "Vue d'ensemble", cible: [1.525, 0.9, 2.0], camera: [-2.7, 7.7, -4.0] },
+  { id: 'lit', label: 'Lit', cible: [2.6, 0.45, 1.1], camera: [0.95, 1.9, 3.3], fov: 58 },
+  { id: 'bureau', label: 'Bureau', cible: [0.35, 1.0, 1.15], camera: [2.2, 1.7, 2.7], fov: 58 },
+  { id: 'tv', label: 'TV', cible: [0.0, 1.55, 1.15], camera: [2.2, 1.4, 1.15], fov: 58 },
+  { id: 'porte', label: 'Porte et penderie', cible: [1.1, 1.0, 4.0], camera: [1.9, 1.7, 1.2], fov: 58 },
+  { id: 'fenetre', label: 'Fenêtre', cible: [0.8, 1.4, 0.0], camera: [1.6, 1.5, 2.7], fov: 58 },
 ];

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
-import { modeles } from './meubles.js';
+import { modeles as modelesParis } from './meubles.js';
+import { modelesReve } from './reve.js';
 
 // Page de travail : montre tous les modèles côte à côte (pour les regarder de
 // près) et les exporte en .glb. Le bouton télécharge les fichiers, à ranger dans
@@ -27,6 +28,9 @@ const sol = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStanda
 sol.rotation.x = -Math.PI / 2;
 sol.receiveShadow = true;
 scene.add(sol);
+
+// tous les modèles exportés en .glb : ceux de la chambre, puis les meubles neufs de la chambre de rêve
+const modeles = { ...modelesParis, ...modelesReve };
 
 // disposition en grille : chaque modèle dans sa case
 const noms = Object.keys(modeles);
@@ -99,6 +103,8 @@ window.exporterTous = async () => {
   for (const nom of noms) sortie[nom] = enBase64(await construireGlb(nom));
   return sortie;
 };
+// un seul modèle (pour regénérer juste celui qu'on vient de retoucher)
+window.exporterModele = async (nom) => enBase64(await construireGlb(nom));
 
 document.getElementById('exporter').addEventListener('click', async () => {
   const etat = document.getElementById('etat');
