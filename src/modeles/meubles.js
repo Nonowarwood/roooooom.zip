@@ -72,6 +72,34 @@ export function oreiller(l, h, p, materiau, [x, yBas, z], graine = 1) {
   return m;
 }
 
+// Un câble qui descend le long d'un fût, passe par-dessus le pied rond (il suit sa surface, sans le traverser) et
+// finit au sol. `haut` : ses points le long du fût, jusqu'au bas ; `dessus` : le dessus du pied (des points [rayon,
+// hauteur] de son profil de révolution) ; `fin` : ses points au sol après le pied ; `marge` : de combien il flotte
+// au-dessus (plus si le pied a un jonc ou une arête vive).
+function cableSurPied(haut, dessus, fin, rayon, materiau, marge = 0.003) {
+  const [x0, , z0] = haut[haut.length - 1];
+  const a = Math.atan2(z0, x0);
+  const r0 = Math.hypot(x0, z0);
+  const pts = [...dessus].sort((p, q) => p[0] - q[0]);
+  const h = (r) => {
+    if (r <= pts[0][0]) return pts[0][1];
+    for (let i = 1; i < pts.length; i++) {
+      if (r <= pts[i][0]) {
+        const [ra, ha] = pts[i - 1];
+        const [rb, hb] = pts[i];
+        return ha + ((hb - ha) * (r - ra)) / (rb - ra);
+      }
+    }
+    return 0;
+  };
+  const rBord = pts[pts.length - 1][0];
+  const surPied = [];
+  for (let r = r0; r < rBord; r += 0.012) surPied.push([r * Math.cos(a), h(r) + rayon + marge, r * Math.sin(a)]);
+  surPied.push([(rBord + 0.007) * Math.cos(a), h(rBord) + rayon * 0.8, (rBord + 0.007) * Math.sin(a)]);
+  surPied.push([(rBord + 0.02) * Math.cos(a), rayon + 0.001, (rBord + 0.02) * Math.sin(a)]);
+  return tube([...haut, ...surPied, ...fin], rayon, materiau, 90);
+}
+
 // --- Lit 160 × 210 : plateforme en chêne, couette à carreaux, tête de lit à deux lattes ---
 function lit() {
   const m = creerMateriaux();
@@ -168,8 +196,15 @@ function lampadaire() {
     cylindre(0.036, 0.012, m.noirMat, [0, 1.0, 0.031], { rot: axeZ, centre: true }),
     cylindre(0.012, 0.008, m.noirMat, [-0.012, 0.96, 0.032], { rot: axeZ, centre: true }),
     cylindre(0.012, 0.008, m.noirMat, [0.012, 0.96, 0.032], { rot: axeZ, centre: true }),
-    // câble qui descend le long du fût et part vers le mur
-    tube([[0, 0.95, -0.034], [0.012, 0.5, -0.045], [0.02, 0.06, -0.05], [0.05, 0.008, -0.12], [0.12, 0.008, -0.3]], 0.004, m.noirMat, 30),
+    // câble qui descend le long du fût, passe par-dessus le pied lesté (et son jonc) et part vers le mur
+    cableSurPied(
+      [[0, 0.95, -0.034], [0.004, 0.5, -0.042], [0, 0.12, -0.04]],
+      [[0.15, 0.01], [0.14, 0.02], [0.06, 0.03], [0.04, 0.05], [0.025, 0.055], [0.0175, 0.06]],
+      [[0.03, 0.008, -0.2], [0.07, 0.008, -0.25], [0.12, 0.008, -0.3]],
+      0.004,
+      m.noirMat,
+      0.007,
+    ),
     // grande vasque : coupe fine, jonc, trois rayons, capuchon
     tourne([[0.03, 0], [0.08, -0.012], [0.14, 0.002], [0.18, 0.04], [0.185, 0.065], [0.18, 0.066], [0.175, 0.04], [0.14, 0.02], [0.08, 0.012], [0.03, 0.008]], m.verreDepoli, [0, 1.74, 0]),
     tore(0.37, 0.004, m.metalClair, [0, 1.805, 0], [PI / 2, 0, 0]),
@@ -305,7 +340,7 @@ export function macbook(m, x, y, z) {
 }
 
 // --- Bureau en bouleau : deux flancs pleins, plateau et plaque de verre, retrait au dos ---
-function bureau() {
+function bureau({ mac = true } = {}) {
   const m = creerMateriaux();
   // petits patins de protection aux quatre coins de la plaque de verre
   const patins = [-0.66, 0.66].flatMap((x) => [-0.26, 0.26].map((z) => cylindre(0.022, 0.004, m.metalClair, [x, 0.7585, z], { segments: 12 })));
@@ -320,7 +355,7 @@ function bureau() {
     boite([0.025, 0.72, 0.6], m.bouleau, [0.6875, 0, 0], { r: 0.005 }),
     // panneau de retrait blanc, en haut au fond, sans descendre jusqu'au sol
     boite([1.35, 0.17, 0.016], m.creme, [0, 0.55, -0.22], { r: 0.003 }),
-    ...macbook(m, 0.12, 0.756, 0.02),
+    ...(mac ? macbook(m, 0.12, 0.756, 0.02) : []),
     ...boiteArchives(m, [-0.25, 0, -0.08]),
     ...panierFleuriste(m, [0.19, 0, -0.1]),
   );
@@ -628,8 +663,14 @@ function ventilateur() {
     cylindre(0.024, 0.012, m.metalFonce, [0, 1.2, -0.125], { rot: axeZ, centre: true }),
     cylindre(0.026, 0.03, m.plastique, [-0.02, 1.272, 0]),
     teteVentilateur({ rayon: 0.21, corps: m.plastique, lames: m.pale, treillis: m.grillage, y: 1.2, x: 0.03, nb: 5 }),
-    // câble qui longe la colonne puis traîne au sol
-    tube([[-0.1, 1.17, 0], [-0.06, 1.0, 0.03], [0.022, 0.6, 0.03], [0.03, 0.07, 0.025], [0.1, 0.008, 0.12], [0.3, 0.008, 0.35]], 0.004, m.noirMat, 36),
+    // câble qui sort de derrière le moteur, longe la colonne par l'arrière, passe par-dessus le pied et traîne au sol
+    cableSurPied(
+      [[-0.1, 1.17, 0], [-0.06, 1.0, 0.01], [-0.036, 0.62, 0.011], [-0.036, 0.3, 0.011], [-0.036, 0.11, 0.011]],
+      [[0.2, 0.012], [0.19, 0.02], [0.1, 0.03], [0.06, 0.045], [0.04, 0.06], [0.02, 0.065]],
+      [[-0.23, 0.005, 0.07], [-0.245, 0.006, 0.075]],
+      0.004,
+      m.noirMat,
+    ),
   );
 }
 
@@ -764,6 +805,9 @@ function interrupteur() {
     cylindre(0.008, 0.004, m.metalClair, [0, -0.07, 0.007], { rot: axeZ, centre: true, segments: 8 }),
   );
 }
+
+// le même bureau, sans le MacBook (la chambre de rêve pose le sien sur un support : voir bureauStudio, reve.js)
+export const bureauNu = () => bureau({ mac: false });
 
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
 const fabrique = (f) => () => fusionner(veinerBois(f())); // les pièces en bois reçoivent leurs veines

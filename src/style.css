@@ -575,3 +575,69 @@ body.perso .vues, body.perso .commandes { display: none; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* --- Visite guidée : bandes cinéma, légende, progression --- */
+body.visite-en-cours .vues,
+body.visite-en-cours .commandes,
+body.visite-en-cours .lumieres,
+body.visite-en-cours .ville,
+body.visite-en-cours .fiche { opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+.visite { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+.visite-bande {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: #160d1fe6;
+  transition: transform 0.9s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.visite-haut { top: 0; transform: translateY(-100%); }
+.visite-bas { bottom: 0; transform: translateY(100%); }
+.visite.ouverte .visite-bande { transform: none; }
+.visite-progression { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: #ffffff1a; }
+.visite-progression span { position: absolute; inset: 0; background: var(--rose); transform-origin: left; transform: scaleX(0); }
+.visite-legende {
+  position: absolute;
+  left: max(28px, 4vw);
+  bottom: calc(9vh + 22px);
+  max-width: min(480px, 80vw);
+  color: #fff;
+  text-shadow: 0 2px 14px #00000080;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.6s ease, transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.visite-legende.visible { opacity: 1; transform: none; }
+.visite-partie { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--rose); margin-bottom: 4px; }
+.visite-titre { margin: 0; font-family: 'Milky Boba', Georgia, serif; font-size: clamp(28px, 4.2vw, 46px); font-weight: 400; line-height: 1.05; }
+.visite-texte { margin: 8px 0 0; font-size: 15px; line-height: 1.45; color: #ffffffde; }
+.visite-boutons {
+  position: absolute;
+  top: 0;
+  right: max(18px, 3vw);
+  height: 9vh;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.6s 0.4s;
+}
+.visite.ouverte .visite-boutons { opacity: 1; pointer-events: auto; }
+.visite-boutons button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #fff;
+  background: #ffffff14;
+  border: 1px solid var(--bord);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.visite-boutons button:hover { border-color: var(--bord-survol); }
+.visite-compteur { color: #ffffffa6; font-size: 13px; font-variant-numeric: tabular-nums; margin-right: 6px; }
+@media (max-width: 760px) {
+  .visite-legende { left: 16px; right: 16px; bottom: calc(9vh + 14px); }
+  .visite-texte { font-size: 13px; }
+}

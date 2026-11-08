@@ -18,7 +18,8 @@ export const palette = {
 };
 
 // Chambre de rêve : murs blancs, comme sur ta photo d'inspiration ; le plafond et la pente étoilée passent au
-// blanc aussi. Ce qui n'est pas redonné ici reste celui de `palette` (le sol rose, notamment).
+// blanc aussi. Le sol est un parquet de chêne, dessiné dans src/textures.js (`parquet`) : il ne passe pas par
+// cette palette.
 export const paletteReve = {
   mur: '#f7f6f3',
   murAlt: '#f1f0ec',
@@ -80,7 +81,8 @@ export const agencementReve = {
     bureau: {
       pos: [1.9, -3.09],
       rotation: 0,
-      description: 'Bureau en bouleau clair avec un plateau de verre, sous la fenêtre de la lucarne : on travaille face à la pièce, la lumière du jour dans le dos. Dessous, la boîte d’archives Lyreco et le panier « Flower Shop ».',
+      glb: '/models/bureau-studio.glb', // le bureau du studio : celui de Paris, garni (voir bureauStudio, reve.js)
+      description: 'Bureau en bouleau clair avec un plateau de verre, sous la fenêtre de la lucarne. Dessus : le MacBook sur son support, un cahier ouvert, et dans le coin la lampe champignon, avec trois livres devant elle. Dessous, la boîte d’archives Lyreco et le panier « Flower Shop ».',
     },
     // près du poteau de la charpente (qui finit en z = −2,48), à 11 cm de lui : ça libère le mur ouest entre elle
     // et la porte
@@ -92,13 +94,19 @@ export const agencementReve = {
     // tourné d'un quart de tour : la liseuse éclaire vers la commode et le lit (droite, elle rentrait dans le mur)
     // et son câble arrive au pied du mur est, où est sa prise
     // (et reculé vers la commode, pour que le rideau replié puisse se coller au mur est)
-    lampadaire: { pos: [3.3, 0.38], rotation: -Math.PI / 2 },
+    lampadaire: { pos: [3.3, 0.38], rotation: -Math.PI / 2, hauteur: 0.012 }, // (posé sur les tatamis)
+    commode: { hauteur: 0.012 }, // posée sur les tatamis
+    // la table de chevet est retirée : le lit glisse jusqu'au mur bas du sud (sa tête de lit, 1,76 m, touche le mur ;
+    // elle fait 92 cm de haut, sous la pente qui est à 1 m au pied du mur)
+    lit: { pos: [2.5, 2.82] },
     // à gauche de la TV (vu du lit), entre son coffre et la charpente, tourné vers le lit
     'ventilateur sur pied': {
-      pos: [0.4, 3.0],
-      rotation: 0.36,
-      description: 'Grand ventilateur sur pied, à gauche de la TV, tourné vers le lit, avec sa grille et ses cinq pales.',
+      pos: [0.33, 2.08],
+      rotation: -0.33,
+      description: 'Grand ventilateur sur pied, entre la TV et le retour du bureau bas, tourné vers le lit, avec sa grille et ses cinq pales.',
     },
+    // la TV, pile en face du lit (même z), son coffre contre le poteau de la charpente (qui sort de 12 cm du mur)
+    'TV sur coffre en osier': { pos: [0.35, 2.82] },
   },
   nouveaux: [
     {
@@ -115,11 +123,14 @@ export const agencementReve = {
       ],
     },
     {
-      nom: 'tapis rond',
-      glb: '/models/tapis.glb', ajuster: false,
-      description: 'Grand tapis rond noir (Ø 140 cm), en laine épaisse à sillons concentriques, bordé d’un cordon tressé. Il marque le coin détente du studio.',
+      // à la place de l'ancien tapis rond noir, au milieu du studio, un peu de travers ; les oreilles vers le
+      // sud-est (vers le coin nuit) : Miffy est à l'endroit dans la vue d'ensemble
+      nom: 'tapis Miffy',
+      glb: '/models/tapis-miffy.glb', ajuster: false,
+      description: 'Un tapis tufté en forme de tête de Miffy (environ 60 × 80 cm) : bouclette blanche toute douce, gros contour noir, deux yeux ronds et la petite bouche en croix. Il est posé au milieu du studio.',
       pos: [1.75, -1.15],
-      parties: [{ forme: 'cylindre', taille: [1.4, 0.012], pos: [0, 0, 0], couleur: '#2f2f3a' }],
+      rotation: -2.5,
+      parties: [{ taille: [0.6, 0.017, 0.8], pos: [0, 0, -0.15], couleur: '#f2efe8' }],
     },
     {
       nom: 'monstera',
@@ -137,6 +148,7 @@ export const agencementReve = {
     {
       // le dos contre le mur ouest (à 3 cm : la place de la pince du bras d'écran), entre le coffre de la TV et la porte
       nom: 'bureau bas',
+      hauteur: 0.012, // posé sur les tatamis
       glb: '/models/bureau-bas.glb', ajuster: false,
       description: 'Le deuxième bureau, à la japonaise : un plateau en chêne clair à cinq lames, à 44 cm du sol sur quatre pieds fins, contre le mur ouest entre la TV et la porte, sous l’affiche de Ningning. Un écran 27 pouces y flotte sur un bras articulé pincé au bord arrière, avec la barque sur l’étang aux nymphéas en fond d’écran ; à sa gauche, le ThinkPad X201i ouvert sur son support incliné, branché à l’écran par un câble VGA ; devant, le clavier VIVA63 et la souris G PRO 2 sur le tapis à pivoines.',
       pos: [0.33, 0.77],
@@ -157,6 +169,7 @@ export const agencementReve = {
       // à angle droit avec le bureau bas, entre son bout (z = 1,37) et le coffre de la TV (z = 1,78) ; part du mur
       // (x = 0,03) et avance jusqu'à x = 0,73, 10 cm plus loin que le bureau. Son devant regarde le siège.
       nom: 'retour du bureau',
+      hauteur: 0.012, // posé sur les tatamis
       glb: '/models/bureau-retour.glb', ajuster: false,
       description: 'Le retour d’angle du bureau bas : une plaque plus basse (34 cm du sol, 70 × 39 cm), du même chêne clair, à angle droit avec le bureau, entre lui et la TV. Elle avance 10 cm plus loin que le bureau dans la pièce.',
       pos: [0.38, 1.575],
@@ -173,6 +186,7 @@ export const agencementReve = {
       // sur le retour, côté mur : son bras passe au-dessus du bout du bureau bas et amène la tête au-dessus du
       // ThinkPad et du clavier (la pose est dans TOLOMEO, src/modeles/reve.js)
       nom: 'lampe Tolomeo',
+      hauteur: 0.012, // posée sur le retour, lui-même sur les tatamis
       glb: '/models/tolomeo.glb', ajuster: false,
       interrupteur: 'tolomeo',
       description: 'La lampe de bureau Artemide Tolomeo, en aluminium, posée sur le retour : ses deux bras équilibrés par des ressorts et des câbles d’acier amènent son diffuseur en cloche au-dessus du setup. Clique pour l’allumer ou l’éteindre.',
@@ -184,19 +198,20 @@ export const agencementReve = {
       ],
     },
     {
-      // plié petit, de biais, sous la tasse ; son origine est son milieu
-      nom: 'bandana NMIXX « Mixx on the Road »',
-      glb: '/models/bandana.glb', ajuster: false,
-      description: 'Le bandana (65 × 65 cm) du Season’s Greetings 2027 de NMIXX, « Mixx on the Road » : plié petit et posé de biais sous la tasse, la plaque « 22.2.22 » sur le dessus.',
+      // sous la tasse, de biais ; son origine est son milieu
+      nom: 'serviette TWICE « Spotless »',
+      hauteur: 0.012, // posé sur les tatamis
+      glb: '/models/serviette.glb', ajuster: false,
+      description: 'La serviette (20 × 20 cm) du Season’s Greetings 2027 de TWICE « Spotless » : neuf cases vert pomme et rose avec les mascottes, son biais et sa boucle roses. La tasse de matcha est posée dessus.',
       pos: [0.55, 1.585],
-      rotation: 0.45, // posé de biais
-      parties: [{ taille: [0.26, 0.003, 0.26], pos: [0, 0.34, 0], couleur: '#e8dfe4' }],
+      rotation: 0.45, // posée de biais
+      parties: [{ taille: [0.2, 0.003, 0.2], pos: [0, 0.34, 0], couleur: '#f2c9dc' }],
     },
     {
       // contre le mur ouest du studio, entre la vitrine et la porte ; l'avant vers la pièce
       nom: 'meuble hi-fi',
       glb: '/models/meuble-hifi.glb', ajuster: false,
-      description: 'Un meuble bas en chêne, dans le style du bureau bas. Sur sa tablette, cinq vinyles présentés en éventail : CORTIS « GREENGREEN », Chuu « XO, My Cyberlove », YEONJUN « NO LABELS » et deux autres pochettes. Dessus : le lecteur CD Moondrop DiscDream 2 Ultra en aluminium brossé, entre les deux enceintes Edifier R1280DB en bois (l’active à droite, avec ses molettes).',
+      description: 'Un meuble bas en chêne, dans le style du bureau bas. Sur sa tablette, cinq vinyles présentés en éventail : CORTIS « GREENGREEN », Chuu « XO, My Cyberlove », YEONJUN « NO LABELS » et deux autres pochettes ; devant eux, à plat, deux albums en jewel case : Hearts2Hearts « Lemon Tang » et LNGSHOT « Training Day ». Dessus : le lecteur CD Moondrop DiscDream 2 Ultra en aluminium brossé, entre les deux enceintes Edifier R1280DB en bois (l’active à droite, avec ses molettes).',
       pos: [0.2, -1.47],
       rotation: Math.PI / 2,
       parties: [
@@ -204,6 +219,16 @@ export const agencementReve = {
         { taille: [0.146, 0.234, 0.196], pos: [-0.315, 0.5, -0.03], couleur: '#93633f' }, // les enceintes
         { taille: [0.146, 0.234, 0.196], pos: [0.315, 0.5, -0.03], couleur: '#93633f' },
       ],
+    },
+    {
+      // punaisé au mur ouest au-dessus des deux posters du coin hi-fi, centré sur le meuble (z = −1,47) : entre le
+      // chambranle de la porte et le début de la pente ; tombe avec le mur ouest
+      nom: 'drapeau « Servir le peuple »',
+      glb: '/models/drapeau.glb', ajuster: false,
+      mur: 'ouest',
+      description: 'Un drapeau rouge de 75 × 50 cm, la calligraphie dorée « 为人民服务 » (« Servir le peuple ») dans le coin, punaisé au mur par ses quatre coins avec des punaises dorées, au-dessus du coin hi-fi.',
+      pos: [0, -1.47],
+      parties: [],
     },
     {
       // sur la planche du haut de l'étagère murale (au-dessus de la TV) ; tombent avec le mur ouest, comme elle
@@ -215,18 +240,49 @@ export const agencementReve = {
       parties: [],
     },
     {
+      // quatre tatamis côte à côte, du mur ouest au mur est, entre le rideau et le coffre de la TV (z 0,18 → 1,76) : sous
+      // le bureau bas, son retour, le siège, la commode, le lampadaire et le bord du lit. Ce qui est posé dessus est
+      // relevé de leur épaisseur (`hauteur`).
+      nom: 'tatamis',
+      glb: '/models/tatami.glb', ajuster: false,
+      description: 'Quatre tatamis en paille de jonc vert tendre, bordés d’un liseré sombre sur les grands côtés, d’un mur à l’autre : le coin bureau, la commode et le bord du lit sont posés dessus, comme dans une chambre japonaise.',
+      pos: [1.8075, 0.97],
+      parties: [],
+    },
+    {
+      // le long du lit, côté tatamis : un bureau bas à la hauteur du retour (34 cm), du lit (z 1,97) jusqu'à 11 cm sur
+      // les tatamis (z 1,65), d'un bout à l'autre du lit ; son devant vers les tatamis
+      nom: 'console du lit',
+      glb: '/models/console-lit.glb', ajuster: false,
+      description: 'Un bureau bas en chêne clair, à la hauteur du retour (34 cm), tout le long du lit ; il dépasse un peu sur les tatamis. L’iPad est posé au bout, au niveau des oreillers.',
+      pos: [2.5, 1.808],
+      rotation: Math.PI,
+      parties: [{ taille: [2.08, 0.34, 0.31], pos: [0, 0, 0], couleur: '#e3c08f' }],
+    },
+    {
+      // au pied du lit, sur le parquet, face à la TV : le dos appuyé sur le bord du cadre du lit (x 1,45, à 34 cm), son
+      // pivot 5,5 cm devant (il penche de 9°) ; tourné d'un quart de tour (sa face avant vers −x)
+      nom: 'sac à dos',
+      glb: '/models/sac-mantis.glb', ajuster: false,
+      description: 'Le sac à dos Arc’teryx Mantis 26 noir, adossé au pied du lit.',
+      pos: [1.395, 2.4],
+      rotation: -Math.PI / 2,
+      parties: [{ taille: [0.28, 0.46, 0.2], pos: [0, 0, 0.1], couleur: '#2c2b33' }],
+    },
+    {
       // les prises murales et les câbles qui y mènent (modèle en coordonnées de la pièce)
       nom: 'prises',
       glb: '/models/branchements.glb', ajuster: false,
-      description: 'Les prises au ras du sol : celle du lampadaire au mur est, celle du ventilateur au mur bas, celle de la Tolomeo derrière le retour. Chaque câble finit dans sa fiche.',
+      description: 'Les prises au ras du sol : celle du lampadaire au mur est, et au pied du mur ouest, derrière le ventilateur, une multiprise où sont branchés la Tolomeo et le ventilateur. Chaque câble finit dans sa fiche.',
       pos: [0, 0],
       parties: [],
     },
     {
       // sur le retour, devant la Tolomeo (côté pièce), l'anse tournée vers le siège
       nom: 'tasse de matcha',
+      hauteur: 0.012, // posé sur les tatamis
       glb: '/models/tasse.glb', ajuster: false,
-      description: 'Une grande tasse vert matcha, pleine de matcha latte, avec une paille en papier à rayure verte. Posée sur le bandana NMIXX, au pied de la Tolomeo.',
+      description: 'Une grande tasse vert matcha, pleine de matcha latte, avec une paille en papier à rayure verte. Posée sur la serviette TWICE, au pied de la Tolomeo.',
       pos: [0.53, 1.6],
       rotation: 1.14,
       parties: [{ forme: 'cylindre', taille: [0.095, 0.11], pos: [0, 0.3425, 0], couleur: '#c2d9a6' }],
@@ -234,6 +290,7 @@ export const agencementReve = {
     {
       // face au bureau bas, le devant de la coque juste sous le bord du plateau
       nom: 'siège au sol',
+      hauteur: 0.012, // posé sur les tatamis
       glb: '/models/chaise-sol.glb', ajuster: false,
       description: 'Le siège de sol (zaisu) du bureau bas : coque noire posée à plat avec sa poignée percée, coussin noir, dossier inclinable en maille grise et accoudoirs en boucle.',
       pos: [0.91, 0.77],
@@ -244,6 +301,8 @@ export const agencementReve = {
       ],
     },
   ],
+  // les meubles de la chambre qui n'existent pas dans la chambre de rêve (par leur nom)
+  retires: ['table de chevet verte'],
   // aucun faux meuble pour l'instant (le canapé a été retiré : plus de canapé dans la chambre de rêve)
   provisoires: [],
   // les lumières en plus de celles de la chambre (même format que `lumieres` plus bas) ; `cible` en fait un
@@ -253,8 +312,8 @@ export const agencementReve = {
       // l'ampoule de la Tolomeo, dans son diffuseur (dont le bord est à 0.923 m) : la tête est en
       // [0.479, 1.068, 0.924] (calculée d'après TOLOMEO, reve.js) ; elle éclaire le ThinkPad et le clavier
       nom: 'lampe Tolomeo',
-      pos: [0.479, 0.958, 0.924],
-      ampoules: [[0.479, 0.98, 0.924]],
+      pos: [0.479, 0.97, 0.924],
+      ampoules: [[0.479, 0.992, 0.924]],
       tailleAmpoule: 0.4,
       halo: 0.14, // petit : il reste caché dans la cloche, on ne le voit que par en dessous
       cible: [0.42, 0.44, 0.86],
@@ -264,6 +323,17 @@ export const agencementReve = {
       intensite: 1.6,
       portee: 2.5,
       ombres: true,
+    },
+    {
+      // la lampe champignon, dans le coin arrière droit du bureau du studio : son globe de verre opalin s'allume en
+      // orangé (`corps` : le nom du matériau du modèle que le programme fait briller) et éclaire le bureau et le mur
+      nom: 'lampe champignon',
+      pos: [2.43, 0.98, -3.24],
+      ampoules: [],
+      corps: 'champignon-verre',
+      couleur: '#ffb15e',
+      intensite: 1.1,
+      portee: 2.5,
     },
   ],
   // des posters en plus, scotchés (même format que `photosMur` plus bas) : au-dessus du bureau bas, à gauche de
@@ -280,17 +350,37 @@ export const agencementReve = {
       ],
     },
     {
-      // au-dessus des enceintes du meuble hi-fi (centré sur lui, z = −1,47)
+      // une colonne de trois petits posters de TWICE pour compléter ce mur, côté porte : entre les posters du
+      // dessus du bureau bas (b2 finit en s = 0,23) et le chambranle (vers s = −0,12) ; le haut aligné sur b1
+      mur: 'ouest',
+      nom: 'petits posters TWICE',
+      description: 'Trois petits posters de TWICE en colonne, à côté de ceux du bureau bas : la photo de groupe dans l’escalier et le grand ménage dans la chambre fleurie de « Spotless », puis les neuf en maillots bleu ciel « THIS IS FOR » de leur tournée mondiale.',
+      posters: [
+        { fichier: '/photos/reve/twice-spotless-escalier.jpg', s: 0.08, y: 1.883, taille: [0.23, 0.184] },
+        { fichier: '/photos/reve/twice-spotless-chambre.jpg', s: 0.08, y: 1.649, taille: [0.23, 0.184] },
+        { fichier: '/photos/reve/twice-this-is-for.jpg', s: 0.08, y: 1.421, taille: [0.23, 0.1725] },
+      ],
+    },
+    {
+      // au-dessus des enceintes du meuble hi-fi (centré sur lui, z = −1,47), côte à côte avec l'affiche de
+      // The First Frost : lui côté vitrine, elle côté porte ; le drapeau est au-dessus des deux
       mur: 'ouest',
       nom: 'poster « study in china »',
       description: 'Le petit poster au chat zen « 留学在中国 / study in china », au papier déchiré sur le côté, avec son autocollant Kodak Gold, scotché au-dessus des enceintes.',
-      posters: [{ fichier: '/photos/reve/study-in-china.jpg', s: -1.47, y: 1.2, taille: [0.3, 0.424] }],
+      posters: [{ fichier: '/photos/reve/study-in-china.jpg', s: -1.635, y: 1.2, taille: [0.3, 0.424] }],
+    },
+    {
+      mur: 'ouest',
+      nom: 'affiche « The First Frost »',
+      description: 'L’affiche de la série chinoise « 难哄 / The First Frost » (Youku) : Zhang Miaoyi dans le rôle de Zhong Siqiao, accoudée à son pupitre, avec le compte à rebours « 开播倒计时 3 天 » (plus que 3 jours avant la diffusion). Scotchée à côté du poster au chat.',
+      posters: [{ fichier: '/photos/reve/the-first-frost.jpg', s: -1.295, y: 1.2, taille: [0.27, 0.48] }],
     },
   ],
   // et leurs boutons (même format que `interrupteurs` plus bas) ; `rideau: true` = le bouton ouvre ou ferme le rideau
   // (allumé = fermé), `vitesse` = la vitesse du fondu (6 par défaut)
   interrupteurs: [
     { id: 'tolomeo', label: 'Lampe de bureau', lumieres: ['lampe Tolomeo'] },
+    { id: 'champignon', label: 'Lampe champignon', lumieres: ['lampe champignon'] },
     { id: 'rideau', label: 'Rideau', rideau: true, vitesse: 1.3 },
   ],
   // Le rideau qui sépare la pièce en deux, sur la ligne de l'ancien mur : un voilage crème suspendu à un rail au
@@ -300,6 +390,112 @@ export const agencementReve = {
   //   plis : leur nombre
   rideau: { z: 0.12, x0: 0.02, x1: 3.588, haut: 2.385, ouvert: 0.34, plis: 34, couleur: '#f3ead9' },
 };
+
+// La visite guidée de la chambre de rêve (src/visite.js) : les plans, dans l'ordre, en coordonnées de la pièce.
+//   partie, titre, texte : la légende ; de, a : la caméra et ce qu'elle regarde au début et à la fin du plan (elle
+//   dérive lentement de l'un à l'autre) ; fov : le champ de vision (50 par défaut) ; duree, transition : en secondes ;
+//   projecteur : un petit projecteur doux sur ce qu'on regarde ; geste : une commande basculée le temps du plan.
+export const visiteReve = [
+  {
+    partie: 'Visite', titre: 'La chambre de rêve', texte: 'Le mur abattu : ma chambre et la pièce d’à côté, réunies en une seule.',
+    de: { camera: [-4.6, 6.4, 1.4], cible: [1.8, 0.4, 0.6] }, a: { camera: [-2.4, 5.2, 6.2], cible: [1.8, 0.4, 1.6] }, fov: 38, duree: 6, transition: 3,
+  },
+  // — le coin nuit —
+  {
+    partie: 'Le coin nuit', titre: 'Les tatamis', texte: 'Quatre tatamis de jonc d’un mur à l’autre, bordés de leur liseré sombre.',
+    de: { camera: [3.0, 1.6, 0.45], cible: [1.6, 0.05, 1.3] }, a: { camera: [2.2, 1.35, 0.5], cible: [1.0, 0.05, 1.2] }, transition: 3.2,
+  },
+  {
+    partie: 'Le coin nuit', titre: 'Le lit', texte: 'Glissé contre le mur, sous la pente, avec sa couette à carreaux.',
+    de: { camera: [1.05, 1.45, 1.35], cible: [2.6, 0.45, 2.75] }, a: { camera: [1.15, 1.3, 1.95], cible: [2.7, 0.45, 2.9] },
+  },
+  {
+    partie: 'Le coin nuit', titre: 'La console du lit', texte: 'Un bureau bas tout le long du lit, et l’iPad posé au niveau des oreillers.',
+    de: { camera: [2.5, 0.85, 1.25], cible: [3.2, 0.34, 1.82] }, a: { camera: [2.8, 0.78, 1.35], cible: [3.28, 0.34, 1.82] }, projecteur: true,
+  },
+  {
+    partie: 'Le coin nuit', titre: 'La TV et le ventilateur', texte: 'Pile en face du lit, sur son coffre en osier.',
+    de: { camera: [2.7, 1.0, 2.95], cible: [0.35, 0.85, 2.75] }, a: { camera: [2.35, 0.95, 2.55], cible: [0.35, 0.85, 2.45] },
+  },
+  {
+    partie: 'Le coin nuit', titre: 'Les Season’s Greetings', texte: 'NMIXX « Mixx on the Road » et TWICE « Spotless », sur l’étagère.',
+    de: { camera: [0.95, 1.65, 1.95], cible: [0.04, 1.75, 2.05] }, a: { camera: [0.9, 1.6, 2.2], cible: [0.04, 1.75, 2.05] }, projecteur: true,
+  },
+  {
+    partie: 'Le coin nuit', titre: 'Le Mantis 26', texte: 'Le sac Arc’teryx, adossé au pied du lit, et son archæoptéryx brodé.',
+    de: { camera: [0.7, 0.6, 2.05], cible: [1.3, 0.27, 2.4] }, a: { camera: [0.75, 0.55, 2.7], cible: [1.3, 0.27, 2.4] }, projecteur: true,
+  },
+  {
+    partie: 'Le coin nuit', titre: 'La commode et le lampadaire', texte: 'Les magazines étalés sur la commode, le lampadaire dans le coin.',
+    de: { camera: [2.3, 1.55, 1.5], cible: [3.35, 1.0, 0.85] }, a: { camera: [2.45, 1.45, 1.0], cible: [3.35, 1.0, 0.75] },
+  },
+  {
+    partie: 'Le coin nuit', titre: 'Le rideau', texte: 'Sur la ligne de l’ancien mur : il referme le coin nuit quand il faut.',
+    de: { camera: [0.75, 1.65, 1.55], cible: [2.4, 1.1, 0.12] }, a: { camera: [0.85, 1.6, 1.25], cible: [2.5, 1.1, 0.12] }, duree: 5.5, geste: 'rideau',
+  },
+  // — le coin bureau —
+  {
+    partie: 'Le coin bureau', titre: 'Le bureau bas', texte: 'À la japonaise, sur les tatamis : l’écran sur son bras, le siège au sol.',
+    de: { camera: [1.55, 1.1, 0.55], cible: [0.3, 0.55, 0.8] }, a: { camera: [1.4, 0.98, 1.05], cible: [0.3, 0.55, 0.8] }, transition: 2.6,
+  },
+  {
+    partie: 'Le coin bureau', titre: 'Le ThinkPad X201i', texte: 'Ouvert sur son support, branché à l’écran par son câble VGA.',
+    de: { camera: [0.85, 0.78, 1.3], cible: [0.35, 0.52, 1.12] }, a: { camera: [0.8, 0.72, 1.05], cible: [0.35, 0.52, 1.12] }, projecteur: true,
+  },
+  {
+    partie: 'Le coin bureau', titre: 'Clavier, souris et photocards', texte: 'Le VIVA63, la G PRO 2 et les polaroids NMIXX sur le tapis à pivoines.',
+    de: { camera: [1.0, 0.9, 0.6], cible: [0.42, 0.46, 0.5] }, a: { camera: [0.95, 0.85, 0.35], cible: [0.42, 0.46, 0.45] }, projecteur: true,
+  },
+  {
+    partie: 'Le coin bureau', titre: 'La Tolomeo et le matcha', texte: 'La lampe Artemide penchée sur le setup, la tasse posée sur la serviette TWICE.',
+    de: { camera: [1.25, 0.95, 1.8], cible: [0.4, 0.55, 1.45] }, a: { camera: [1.1, 1.0, 1.5], cible: [0.4, 0.55, 1.45] },
+  },
+  {
+    partie: 'Le coin bureau', titre: 'Les posters', texte: 'Scotchés au-dessus du bureau, des couvertures de W Korea aux petits TWICE.',
+    de: { camera: [1.75, 1.6, 0.6], cible: [0.0, 1.55, 0.8] }, a: { camera: [1.65, 1.55, 1.05], cible: [0.0, 1.55, 0.8] },
+  },
+  // — le studio —
+  {
+    partie: 'Le studio', titre: 'De l’autre côté', texte: 'La pièce d’à côté, avec sa lucarne et son coin salon.',
+    de: { camera: [3.0, 1.9, 0.05], cible: [1.5, 0.6, -2.0] }, a: { camera: [2.6, 1.8, -0.4], cible: [1.5, 0.6, -2.0] }, transition: 3,
+  },
+  {
+    partie: 'Le studio', titre: 'Le coin salon', texte: 'Le banc-canapé en chêne, ses coussins blancs et ses dossiers capitonnés.',
+    de: { camera: [1.6, 1.3, -0.55], cible: [3.2, 0.6, -1.2] }, a: { camera: [1.7, 1.25, -1.3], cible: [3.2, 0.7, -1.0] },
+  },
+  {
+    partie: 'Le studio', titre: 'Les neuf portraits', texte: 'Scotchés en grille au-dessus du canapé.',
+    de: { camera: [1.9, 1.75, -0.6], cible: [3.6, 1.65, -0.88] }, a: { camera: [1.95, 1.7, -1.1], cible: [3.6, 1.65, -0.88] },
+  },
+  {
+    partie: 'Le studio', titre: 'Le meuble à vinyles', texte: 'Vinyles et magazines dans les cases, le vase et l’enceinte dessus.',
+    de: { camera: [2.2, 1.1, -1.45], cible: [3.3, 0.55, -2.2] }, a: { camera: [2.25, 1.05, -1.85], cible: [3.3, 0.55, -2.2] },
+  },
+  {
+    partie: 'Le studio', titre: 'Le bureau sous la lucarne', texte: 'Le MacBook sur son support, un cahier ouvert, des livres.',
+    de: { camera: [1.9, 1.55, -1.7], cible: [1.9, 0.85, -3.1] }, a: { camera: [2.2, 1.45, -2.0], cible: [1.9, 0.85, -3.1] },
+  },
+  {
+    partie: 'Le studio', titre: 'La lampe champignon', texte: 'Son globe de verre opalin s’allume en orangé.',
+    de: { camera: [2.65, 1.15, -2.55], cible: [2.43, 0.92, -3.24] }, a: { camera: [2.7, 1.1, -2.7], cible: [2.43, 0.92, -3.24] }, duree: 4.5, geste: 'champignon',
+  },
+  {
+    partie: 'Le studio', titre: 'Le monstera et la vitrine', texte: 'Le grand monstera dans le coin, la vitrine contre la charpente.',
+    de: { camera: [1.6, 1.35, -1.35], cible: [0.3, 0.95, -2.45] }, a: { camera: [1.45, 1.3, -1.75], cible: [0.3, 0.95, -2.45] },
+  },
+  {
+    partie: 'Le studio', titre: 'Le drapeau', texte: 'Punaisé au-dessus de The First Frost et du chat zen.',
+    de: { camera: [1.55, 1.8, -1.15], cible: [0, 1.8, -1.47] }, a: { camera: [1.5, 1.45, -1.3], cible: [0, 1.4, -1.47] },
+  },
+  {
+    partie: 'Le studio', titre: 'Le coin hi-fi', texte: 'Le lecteur Moondrop entre les deux Edifier.',
+    de: { camera: [1.35, 1.0, -0.95], cible: [0.2, 0.62, -1.47] }, a: { camera: [1.3, 0.95, -1.25], cible: [0.2, 0.62, -1.47] },
+  },
+  {
+    partie: 'Le studio', titre: 'Les vinyles', texte: 'Chuu, CORTIS, YEONJUN… et à plat devant, Hearts2Hearts et LNGSHOT.',
+    de: { camera: [0.9, 0.38, -1.25], cible: [0.2, 0.2, -1.47] }, a: { camera: [0.88, 0.36, -1.6], cible: [0.2, 0.2, -1.47] }, projecteur: true,
+  },
+];
 
 // Velux dans la pente, d'après tes photos. Le cadre est posé dans le plan extérieur du toit, le haut du cadre
 // touche le haut de l'ouverture (coupe perpendiculaire à la pente, invisible de dessous) et le bas est taillé

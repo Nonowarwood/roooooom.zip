@@ -22,8 +22,10 @@ import {
   voisine,
   paletteReve,
   agencementReve,
+  visiteReve,
 } from './chambre.js';
 import { reve, miniature } from './mode.js';
+import { creerVisite } from './visite.js';
 import { initialiserInteractions } from './interactions.js';
 import { creerPerso } from './perso.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
@@ -78,6 +80,8 @@ else camera.position.set(-4.6, 7.6, -6.2);
 
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 0.9, 0);
+// en développement seulement : les scripts de captures placent la caméra par là
+if (import.meta.env.DEV) globalThis.__debugCam = { camera, controls };
 // Réglages repris de la référence (inertie 0,08, zoom borné, caméra qui peut aller jusqu'à la verticale
 // du dessus mais pas passer sous le sol : 82° max depuis le haut), COMBINÉS avec l'ancien système :
 // le déplacement latéral reste possible (clic droit, Maj + glisser, ou deux doigts), mais la cible de
@@ -132,10 +136,14 @@ const contour = reve ? [[0, -DN], [W, -DN], [W, D], [0, D]] : [P3, [W - CL, 0], 
 const versPlan = (pts) => pts.map(([x, z]) => new THREE.Vector2(x, -z));
 const formeSol = new THREE.Shape(versPlan(contour));
 
-const sol = new THREE.Mesh(
-  new THREE.ShapeGeometry(formeSol),
-  new THREE.MeshStandardMaterial({ map: textures.sol(couleurs.sol, couleurs.solLigne), roughness: 0.9 }),
-);
+// Chambre de rêve : un vrai parquet de chêne vitrifié (veinage, lames à l'anglaise, joints en creux), à peine
+// satiné ; ailleurs, le sol rose de la référence.
+const materiauSol = (() => {
+  if (!reve) return new THREE.MeshStandardMaterial({ map: textures.sol(couleurs.sol, couleurs.solLigne), roughness: 0.9 });
+  const { map, relief } = textures.parquet();
+  return new THREE.MeshStandardMaterial({ map, bumpMap: relief, bumpScale: 1.2, roughness: 0.58 });
+})();
+const sol = new THREE.Mesh(new THREE.ShapeGeometry(formeSol), materiauSol);
 sol.rotation.x = -Math.PI / 2;
 sol.receiveShadow = true;
 racine.add(sol);
@@ -1263,6 +1271,8 @@ const matEcranMac = new THREE.MeshStandardMaterial({
 matEcranMac.userData.sansSurbrillance = true;
 // Les écrans du bureau bas (chambre de rêve) : un fond d'écran chacun, allumé comme celui du Mac. Le programme
 // les repère par le nom de leur maillage dans le modèle (src/modeles/reve.js).
+// les corps de lampe qui s'allument (le globe de la lampe champignon) : nom du matériau dans le modèle -> matériau réglé par l'interrupteur
+const corpsLumineux = {};
 const matsEcrans = Object.fromEntries(
   Object.entries({ 'ecran-moniteur': '/textures/ecran-moniteur.jpg', 'ecran-thinkpad': '/textures/ecran-thinkpad.jpg' }).map(([nom, url]) => {
     // polygonOffset : la dalle passe toujours devant le cadre de l'écran, même de loin (sans quoi elle scintille)
@@ -1285,9 +1295,22 @@ for (const nom of ['nmixx-face', 'nmixx-tranche', 'twice-face', 'twice-tranche']
 for (const nom of ['yeonjun', 'machine', 'sphere', 'cortis', 'chuu']) {
   matsEcrans[`vinyle-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/vinyle-${nom}.jpg`), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 }
+// les deux jewel cases à plat sur la tablette du meuble hi-fi : la photo du boîtier, sous son plastique brillant
+for (const nom of ['h2h', 'lngshot']) {
+  matsEcrans[`jewel-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/jewel-${nom}.jpg`), roughness: 0.22, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
+// le tapis tufté tête de Miffy : sa bouclette blanche et son contour noir, avec le relief des boucles
+if (reve) {
+  const { map, relief } = textures.tapisMiffy();
+  matsEcrans['imprime-miffy'] = new THREE.MeshStandardMaterial({ map, bumpMap: relief, bumpScale: 2.5, roughness: 1 });
+}
+// le drapeau punaisé au-dessus du coin hi-fi : un tissu satiné, à peine brillant
+matsEcrans['imprime-drapeau'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/drapeau-servir-le-peuple.jpg'), roughness: 0.68 });
+// le logo Arc'teryx brodé du sac à dos : le fil doré, détouré (le reste du décalque est transparent)
+matsEcrans['logo-arcteryx'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/logo-arcteryx.png'), transparent: true, alphaTest: 0.35, roughness: 0.45, metalness: 0.2, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 // et le tapis de souris du bureau bas : son image imprimée, mate
-// le bandana du Season's Greetings de NMIXX, sous la tasse : son imprimé, sur un tissu mat
-matsEcrans['imprime-bandana'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/bandana-mixx.jpg'), roughness: 0.85 });
+// la serviette du Season's Greetings de TWICE, sous la tasse : son imprimé, sur une éponge mate
+matsEcrans['imprime-serviette'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/serviette-twice.jpg'), roughness: 1 });
 matsEcrans['tapis-souris'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/tapis-souris.jpg'), roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 const matEcran = new THREE.MeshStandardMaterial({
   color: '#050507',
@@ -1404,7 +1427,7 @@ function suivre([x, z], de, vers) {
 }
 const meublesPiece = reve
   ? [
-      ...meubles.map((m) => {
+      ...meubles.filter((m) => !(agencementReve.retires ?? []).includes(m.nom)).map((m) => {
         if (posesReve[m.nom]) return { ...m, ...posesReve[m.nom] };
         if (m.nom === 'chaise') {
           const de = poseOrigine('bureau');
@@ -1836,7 +1859,8 @@ for (const o of objetsVitrine) {
 // --- Magazines étalés à plat sur la commode ---
 {
   const n = magazinesCommode.liste.length;
-  let hauteur = magazinesCommode.y; // on pose du dessous vers le dessus
+  // on pose du dessous vers le dessus (dans la chambre de rêve, la commode est relevée par les tatamis)
+  let hauteur = magazinesCommode.y + (reve ? (agencementReve.poses.commode?.hauteur ?? 0) : 0);
   for (let i = n - 1; i >= 0; i--) {
     const mg = magazinesCommode.liste[i];
     const [w, h, d] = mg.taille;
@@ -2004,7 +2028,7 @@ function etiquetteProvisoire(nom) {
 for (const m of meublesPiece) {
   const groupe = new THREE.Group();
   groupe.name = m.nom;
-  groupe.position.set(m.pos[0], 0, m.pos[1]);
+  groupe.position.set(m.pos[0], m.hauteur ?? 0, m.pos[1]); // `hauteur` : un meuble posé sur un autre (les tatamis)
   groupe.rotation.y = m.rotation ?? 0;
   m.parties.forEach((p) => groupe.add(creerPartie(p)));
   racine.add(groupe);
@@ -2033,8 +2057,17 @@ for (const m of meublesPiece) {
             // le Mac du bureau : une capture du site dans une fenêtre de navigateur
             if (o.name === 'ecran-mac') o.material = matEcranMac;
             if (matsEcrans[o.name]) o.material = matsEcrans[o.name];
+            if (corpsLumineux[o.material.name]) o.material = corpsLumineux[o.material.name];
           });
           remplacerParModele(groupe, gltf.scene, m);
+          // les petits objets posés sur un meuble, où qu'ils soient : chacun sa fiche au clic
+          for (const [objet, nom, description] of [
+            ['objet_ipad', 'iPad Pro', 'L’iPad Pro 11 pouces argent, sans coque, posé sur la console au niveau des oreillers, son Apple Pencil Pro aimanté sur la tranche.'],
+            ['objet_sac', 'Arc’teryx Mantis 26', 'Le sac à dos Arc’teryx Mantis 26 noir, adossé au pied du lit : la grande poche avant bordée de deux zips en courbe, l’archæoptéryx brodé en fil doré, les bretelles rembourrées et le dos en maille.'],
+          ]) {
+            const o = groupe.getObjectByName(objet);
+            if (o) ouvrantCliquable(nom, description, o, o);
+          }
           if (m.nom === 'bureau') {
             // le MacBook : le capot s'ouvre à 112° (comme sur la photo) ou se referme sur le clavier
             const capot = groupe.getObjectByName('pivot_capot');
@@ -2042,6 +2075,20 @@ for (const m of meublesPiece) {
             if (capot && mac) {
               const bascule = creerOuvrant(capot, 'x', 0.034, -1.95, { ouvertAuDepart: true, son: 'mac' });
               ouvrantCliquable('MacBook', 'Le MacBook Air du bureau. Clique pour fermer ou rouvrir son capot.', mac, mac, bascule);
+            }
+            // le bureau du studio (chambre de rêve) : l'iPad, le cahier, les livres, et la lampe champignon qui s'allume au clic
+            for (const [objet, nom, description] of [
+              ['objet_cahier', 'Cahier', 'Un cahier ouvert à couverture lilas : quelques lignes écrites à gauche, le stylo posé sur la page de droite.'],
+              ['objet_livres', 'Livres', 'Trois livres empilés dans le coin du bureau, devant la lampe champignon.'],
+            ]) {
+              const o = groupe.getObjectByName(objet);
+              if (o) ouvrantCliquable(nom, description, o, o);
+            }
+            const lampe = groupe.getObjectByName('objet_champignon');
+            if (lampe) {
+              const info = { nom: 'lampe champignon', description: 'La lampe champignon : un pied en pierre beige et un globe de verre opalin qui s’allume en orangé. Clique pour l’allumer ou l’éteindre.', groupe: lampe, interrupteur: 'champignon' };
+              lampe.userData.info = info;
+              cliquables.push(info);
             }
           }
           if (m.nom === 'bureau bas') {
@@ -2181,6 +2228,12 @@ const lampes = lumieresPiece.map((l) => {
   });
   const matHalo = materiauHalo(l.couleur);
   const lights = [];
+  let corps = null;
+  if (l.corps) {
+    corps = new THREE.MeshStandardMaterial({ color: '#efe7dc', emissive: l.couleur, emissiveIntensity: 0, roughness: 0.5 });
+    corps.userData.sansSurbrillance = true;
+    corpsLumineux[l.corps] = corps;
+  }
   const nouvelleLumiere = (pos, ombres) => {
     const lumiere = new THREE.PointLight(l.couleur, 0, l.portee ?? 6, 1.5);
     lumiere.position.set(...pos);
@@ -2235,20 +2288,23 @@ const lampes = lumieresPiece.map((l) => {
     }
   }
   // les spots s'effacent avec leur mur : leur halo aussi (voir majLumieres)
-  return { nom: l.nom, lumieres: lights, materiauAmpoule, matHalo, surMur: !!(l.spots && l.mur), intensite: l.intensite };
+  return { nom: l.nom, lumieres: lights, materiauAmpoule, matHalo, corps, surMur: !!(l.spots && l.mur), intensite: l.intensite };
 });
 
 // Lueur bleutée de la TV allumée. Un écran n'éclaire que devant lui : c'est un projecteur
 // placé dans le plan de l'écran et tourné vers le lit, pas une lampe qui rayonne partout.
 // Le mur et la charpente derrière la TV restent donc dans l'ombre.
 const lumTV = new THREE.SpotLight('#9ab8ff', 0, 6, Math.PI / 3, 0.9, 2);
-lumTV.position.set(0.3, 0.78, 2.2);
-lumTV.target.position.set(3, 0.55, 2.2);
+// la TV peut être déplacée (chambre de rêve) : sa lumière et son halo la suivent
+const poseTV = reve ? agencementReve.poses['TV sur coffre en osier']?.pos : null;
+const [dxTV, dzTV] = poseTV ? [poseTV[0] - 0.25, poseTV[1] - 2.2] : [0, 0];
+lumTV.position.set(0.3 + dxTV, 0.78, 2.2 + dzTV);
+lumTV.target.position.set(3, 0.55, 2.2 + dzTV);
 racine.add(lumTV, lumTV.target);
 // et un halo bleuté juste derrière l'écran : il déborde tout autour de la TV allumée
 const matHaloTV = new THREE.MeshBasicMaterial({ map: texHalo, color: '#9ab8ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 const haloTV = new THREE.Mesh(new THREE.PlaneGeometry(1.7, 1.15), matHaloTV);
-haloTV.position.set(0.215, 0.775, 2.2); // centre de l'écran, un peu en retrait
+haloTV.position.set(0.215 + dxTV, 0.775, 2.2 + dzTV); // centre de l'écran, un peu en retrait
 haloTV.rotation.y = Math.PI / 2;
 racine.add(haloTV);
 
@@ -2367,6 +2423,7 @@ function majLumieres(dt) {
       for (const lu of l.lumieres) lu.intensity = l.intensite * c.niveau;
       l.materiauAmpoule.emissiveIntensity = 2.5 * c.niveau;
       l.matHalo.opacity = 0.85 * halo * (l.surMur ? matSpot.opacity : 1);
+      if (l.corps) l.corps.emissiveIntensity = 0.75 * c.niveau; // assez pour qu'il rayonne, sans le blanchir : il garde sa teinte orangée
     }
     if (c.tv) {
       matEcran.emissiveIntensity = 1.1 * c.niveau;
@@ -2560,6 +2617,21 @@ creerBoutonSon(document.getElementById('cmd-murs')); // à côté des boutons de
   b.addEventListener('click', () => location.reload());
   document.getElementById('cmd-murs').append(b);
 }
+// la visite guidée (chambre de rêve) : un bouton à côté de « Changer de pièce »
+const visite = reve
+  ? creerVisite({ camera, controls, racine, interactions, plans: visiteReve, vueFinale: vuesPiece.find((v) => v.id === 'ensemble'), commandes, basculer, estAllume })
+  : null;
+if (visite) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ctrl';
+  b.setAttribute('aria-label', 'Visite guidée');
+  b.title = 'Visite guidée';
+  b.innerHTML =
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2.5" fill="currentColor" fill-opacity=".22"/><path d="M16 10.5l5-3v9l-5-3"/></svg>';
+  b.addEventListener('click', () => visite.lancer());
+  document.getElementById('cmd-murs').append(b);
+}
 // ce qui bloque le petit bonhomme en plus des meubles : le poteau et l'entrait de la charpente
 const fixesPerso = [
   { x0: 0, x1: poutre.profondeur + 0.01, z0: poutre.poteau.z - poutre.poteau.largeur / 2, z1: poutre.poteau.z + poutre.poteau.largeur / 2, bas: 0, haut: 1.7 },
@@ -2584,6 +2656,7 @@ renderer.setAnimationLoop(() => {
   animerMurs(dt);
   majLumieres(dt);
   interactions.maj(dt);
+  visite?.maj(dt);
   perso.maj(dt);
   for (const f of calendriers) f(dt);
   animerMobile(dt);

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { champMiffy, MIFFY } from './miffy.js';
+import { macbook, bureauNu } from './meubles.js';
 import { creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, fusionner, veines, veinerBois, RoundedBoxGeometry } from './outils.js';
 
 // Les meubles neufs de la chambre de rêve (ceux qui n'existent pas dans la chambre de Paris), modélisés en code
@@ -43,35 +45,65 @@ function formeCoeur(t) {
 }
 
 // ===========================================================================================
-// --- Grand tapis rond noir (Ø 140 cm) : laine épaisse à sillons concentriques, cordon tressé au bord ---
+// --- Le tapis tufté tête de Miffy (≈ 60 × 80 cm, d'après ta photo) ---
+// Un relief de 1,6 cm d'épaisseur, arrondi au bord, sur une grille de 8 mm : la silhouette vient du champ de
+// distance de src/modeles/miffy.js. Les points de la grille juste dehors sont ramenés sur le bord, à ras du sol :
+// le contour est net, sans marches. Ses couleurs (bouclette blanche, contour, yeux et bouche noirs) sont une
+// texture que le programme colle sur le maillage nommé « imprime-miffy » (src/textures.js, `tapisMiffy`).
+// Origine : le centre de la tête, au sol ; les oreilles vers −z.
 // ===========================================================================================
-function tapis() {
-  const R = 0.7;
-  const h = 0.012;
-  const laine = mat('laine', '#4a4660', { roughness: 1 });
-  const cordon = mat('cordon', '#393649', { roughness: 1 });
-  // le profil, du centre vers le bord : plat, avec un sillon tous les 8 cm (le motif, tout en relief)
-  const profil = [[0, h]];
-  for (let r = 0.08; r < R - 0.05; r += 0.08) profil.push([r - 0.01, h], [r, h - 0.0028], [r + 0.01, h]);
-  profil.push([R - 0.03, h], [R - 0.02, h * 0.8], [R - 0.016, 0]);
-  const disque = ombres(new THREE.Mesh(new THREE.LatheGeometry(profil.map(([r, y]) => new THREE.Vector2(r, y)), 72), laine));
-  disque.material.side = THREE.DoubleSide;
-  // le cordon : un tore aplati, et de petites torsades le long du tore (le tressage)
-  const tor = new THREE.TorusGeometry(R - 0.012, 0.0095, 8, 120);
-  tor.rotateX(PI / 2);
-  tor.scale(1, 0.85, 1);
-  tor.translate(0, 0.0075, 0);
-  const torsades = [];
-  const nb = 110;
-  for (let k = 0; k < nb; k++) {
-    const a = (k / nb) * 2 * PI;
-    const g = new THREE.CapsuleGeometry(0.0045, 0.014, 1, 5);
-    g.rotateX(0.9); // la torsade penche le long du cordon, comme une corde
-    g.rotateY(-a);
-    g.translate((R - 0.012) * Math.cos(a), 0.012, -(R - 0.012) * Math.sin(a));
-    torsades.push(g);
+function tapisMiffy() {
+  const champ = champMiffy();
+  const { x0, y0, x1, y1 } = champ;
+  const pas = 0.008;
+  const E = MIFFY.epaisseur;
+  const arrondi = 0.012; // la bouclette s'arrondit sur 12 mm au bord
+  const nx = Math.ceil((x1 - x0) / pas) + 1;
+  const ny = Math.ceil((y1 - y0) / pas) + 1;
+  const positions = [];
+  const uvs = [];
+  const dedans = [];
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      let x = x0 + i * pas;
+      let y = y0 + j * pas;
+      const d = champ.lire(x, y);
+      let h = 0.001; // 1 mm au-dessus du parquet, pour que le bord ne s'y mélange pas
+      if (d > 0) {
+        const [gx, gy] = champ.pente(x, y);
+        x -= d * gx;
+        y -= d * gy;
+      } else {
+        const t = Math.min(1, -d / arrondi);
+        h += E * Math.sqrt(1 - (1 - t) * (1 - t)); // un quart de cercle, puis plat
+      }
+      positions.push(x, h, -y);
+      uvs.push((x - x0) / (x1 - x0), (y - y0) / (y1 - y0));
+      dedans.push(d <= 0);
+    }
   }
-  return groupe('tapis', disque, ombres(new THREE.Mesh(tor, cordon)), ...torsades.map((g) => ombres(new THREE.Mesh(g, cordon))));
+  // on garde les triangles qui ont au moins un sommet dans le tapis
+  const index = [];
+  const k = (i, j) => j * nx + i;
+  for (let j = 0; j < ny - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
+      const [a, b, c, e] = [k(i, j), k(i + 1, j), k(i + 1, j + 1), k(i, j + 1)];
+      if (dedans[a] || dedans[b] || dedans[c]) index.push(a, b, c); // (sens qui fait regarder la face vers le haut)
+      if (dedans[a] || dedans[c] || dedans[e]) index.push(a, c, e);
+    }
+  }
+  let geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(index);
+  // les sommets que plus aucun triangle n'utilise sont retirés (le fichier reste léger)
+  geo = geo.toNonIndexed();
+  geo = mergeVertices(geo, 1e-6);
+  geo.computeVertexNormals();
+  const tapis = new THREE.Mesh(geo, mat('miffy', '#f2efe8', { roughness: 1 }));
+  tapis.name = 'imprime-miffy';
+  tapis.receiveShadow = true;
+  return groupe('tapis-miffy', tapis);
 }
 
 // ===========================================================================================
@@ -768,8 +800,9 @@ function tolomeo() {
   const bouton = V(P2.x, yD - 0.012, P2.z - 0.04);
   el.push(barre([P2.x, yD - 0.02, P2.z - 0.034], bouton.toArray(), 0.0028, aluFonce, 8), sphere(0.012, alu, bouton.toArray()));
   // le cordon : il sort de la base, file vers le mur et tombe derrière le retour
-  // (il passe entre le retour et le mur et finit dans la fiche de la prise du mur ouest, à 12 cm du sol)
-  el.push(tube([[0.098, Y + 0.004, -0.035], [0.15, Y + 0.0025, -0.06], [0.198, Y + 0.0015, -0.088], [0.215, Y - 0.03, -0.1], [0.214, 0.22, -0.112], [0.205, 0.13, -0.12], [0.1956, 0.105, -0.1238]], 0.0025, m.uni('#3b3946'), 50));
+  // (il descend entre le retour et le mur jusqu'aux tatamis ; la suite, jusqu'à sa fiche sur la multiprise, est dans
+  // branchements ; les coordonnées tiennent compte de la pose de la lampe et des tatamis)
+  el.push(tube([[0.098, Y + 0.004, -0.035], [0.15, Y + 0.0025, -0.06], [0.198, Y + 0.0015, -0.072], [0.222, Y - 0.03, -0.076], [0.227, 0.2, -0.0785], [0.226, 0.05, -0.075], [0.2244, 0.0045, -0.0704]], 0.0025, m.uni('#3b3946'), 50));
   return groupe('tolomeo', el);
 }
 
@@ -850,7 +883,8 @@ const CHENE = {
   pieds: '#d8b483',
   veinesPieds: ['#c49a69', '#e6c799'],
 };
-function structureBois(m, { L, P, T, ep = 0.028, lames = 5, noeuds = [], graine = 11 }) {
+//   solAvant : de combien le sol est plus haut sous les pieds de devant (+z) : ils sont d'autant plus courts
+function structureBois(m, { L, P, T, ep = 0.028, lames = 5, noeuds = [], graine = 11, solAvant = 0 }) {
   const parts = [];
   const sombres = CHENE.veinesSombres.map((c) => m.uni(c));
   const claires = CHENE.veinesClaires.map((c) => m.uni(c));
@@ -882,13 +916,15 @@ function structureBois(m, { L, P, T, ep = 0.028, lames = 5, noeuds = [], graine 
   let g = graine + 40;
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
-      parts.push(boite([0.042, hp, 0.042], bois, [sx * px, 0.006, sz * pz], { r: 0.004 }));
-      parts.push(cylindre(0.034, 0.006, m.uni('#d8d0c4'), [sx * px, 0, sz * pz], { segments: 10 })); // patin
+      const sol = sz > 0 ? solAvant : 0;
+      const h = hp - sol;
+      parts.push(boite([0.042, h, 0.042], bois, [sx * px, 0.006 + sol, sz * pz], { r: 0.004 }));
+      parts.push(cylindre(0.034, 0.006, m.uni('#d8d0c4'), [sx * px, sol, sz * pz], { segments: 10 })); // patin
       // des veines sur les quatre faces du pied, dans le sens du fil (vertical)
-      const yMilieu = 0.006 + hp / 2;
+      const yMilieu = 0.006 + sol + h / 2;
       for (const [n, v] of [[[1, 0, 0], [0, 0, 1]], [[-1, 0, 0], [0, 0, -1]], [[0, 0, 1], [-1, 0, 0]], [[0, 0, -1], [1, 0, 0]]]) {
         const centre = [sx * px + n[0] * 0.021, yMilieu, sz * pz + n[2] * 0.021];
-        parts.push(...veines({ centre, u: [0, 1, 0], v, U: hp / 2 - 0.01, V: 0.017, nb: 2, materiaux: veinesPieds, graine: g++ }));
+        parts.push(...veines({ centre, u: [0, 1, 0], v, U: h / 2 - 0.01, V: 0.017, nb: 2, materiaux: veinesPieds, graine: g++ }));
       }
     }
   }
@@ -1184,12 +1220,12 @@ function chaiseSol() {
 // --- Une grande tasse de matcha latte (Ø 9,5 × 11 cm), posée sur le retour, devant la Tolomeo ---
 // Céramique vert matcha à lèvre arrondie, anse en D, le latte vert pâle aux trois quarts et une paille en papier
 // blanche à rayure verte en spirale, penchée contre le bord.
-// Origine : le centre du dessous ; posée sur le bandana, lui-même sur le retour : sa hauteur (34,25 cm) est comprise
+// Origine : le centre du dessous ; posée sur la serviette, elle-même sur le retour : sa hauteur (34,25 cm) est comprise
 // dans le modèle, comme pour la lampe.
 // ===========================================================================================
 function tasse() {
   const m = creerMateriaux();
-  const Y = 0.3425; // le dessus du bandana
+  const Y = 0.3425; // le dessus de la serviette
   const matcha = mat('ceramique-matcha', '#c2d9a6', { roughness: 0.7 });
   const latte = mat('matcha-latte', '#d4e3b9', { roughness: 0.6 });
   const R = 0.0475;
@@ -1232,96 +1268,67 @@ function tasse() {
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
 // ===========================================================================================
-// --- Le bandana du Season's Greetings 2027 de NMIXX, « Mixx on the Road » (65 × 65 cm), sous la tasse ---
-// Son imprimé est tiré de la planche du coffret (public/textures/bandana-mixx.jpg, collé par le programme sur le
-// maillage « imprime-bandana ») : les faux-plis de la photo viennent avec. Le retour (70 × 39 cm) est trop étroit pour
-// l'étaler : il est plié en deux dans la longueur (on voit la moitié gauche de l'imprimé, 38 cm de large), posé à
-// plat sous la tasse, puis il passe par-dessus le bord avant du retour et pend vers la pièce. Le haut de
-// l'imprimé (le collage rose) est à plat, le bas (le grand emblème « Mixx on the Road ») pend, à l'endroit pour
-// qui regarde depuis la chambre. Plis : de petites bosses à plat (pas sous la tasse), un arrondi sur le bord du
-// retour, des plis verticaux qui se creusent vers le bas, l'ourlet qui ondule ; le pli du tissu d'un côté, les
-// deux ourlets de l'autre, l'envers plus pâle dessous.
-// Origine : le milieu du bandana, sur le retour ; il est tourné de biais par `rotation` (chambre.js).
+// --- La serviette (« hand towel », 20 × 20 cm) du Season's Greetings 2027 de TWICE « Spotless », sous la tasse ---
+// Un carré d'éponge aux coins arrondis, à peine froissé (à plat sous la tasse), son imprimé tiré de ta planche
+// (public/textures/serviette-twice.jpg, collé par le programme sur le maillage « imprime-serviette ») : neuf cases
+// vert pomme et rose avec les petites mascottes. Le biais rose tout autour, la boucle rose cousue dans un coin (elle
+// retombe sur la serviette) et la petite étiquette rose sur un bord. Envers blanc.
+// Origine : le centre de la serviette, sur le retour (34 cm, compris dans le modèle) ; tournée par `rotation`.
 // ===========================================================================================
-function bandana() {
+function serviette() {
   const m = creerMateriaux();
-  // plié en quatre puis encore une fois, un peu de travers (26 cm de côté), tout à plat sous la tasse
-  const LONG = 0.26;
-  const LARGE = 0.26;
-  const A = LONG; // tout est à plat
-  const RB = 0.012; // l'arrondi sur le bord du retour
-  const ARC = (PI / 2) * RB;
-  const YT = 0.3415; // le dessus du tissu (plié en deux) sur le retour
-  const TASSE = [-0.025, 0.005]; // (l'origine est maintenant le milieu du bandana) // la tasse, dans ce repère : rien ne bosse dessous
-  const EP = 0.0015;
-  // le point du tissu à la distance s du bout posé (le long) et w du bord droit vu depuis la pièce (en travers)
-  const point = (s, w) => {
-    const z = -LARGE / 2 + w;
-    let x;
-    let y;
-    if (s <= A) {
-      x = s - A / 2;
-      y = YT;
-      const loin = Math.min(1, Math.max(0, (Math.hypot(x - TASSE[0], z - TASSE[1]) - 0.06) / 0.04)); // à plat sous la tasse
-      y += loin * 0.0032 * Math.max(0, Math.sin(17 * s + 2) * Math.sin(21 * w + 1) + 0.35 * Math.sin(31 * (s + w)));
-      const coin = Math.max(0, 1 - Math.hypot(LONG - s, w) / 0.09); // un coin qui rebique
-      y += 0.016 * coin * coin;
-    } else if (s < A + ARC) {
-      const t = (s - A) / RB;
-      x = RB * Math.sin(t);
-      y = YT - RB + RB * Math.cos(t);
-    } else {
-      const d = s - A - ARC; // ce qui pend
-      const creux = 0.016 * Math.min(1, d / 0.28) ** 1.3;
-      x = RB + 0.03 * d + creux * (0.75 * Math.sin((2 * PI * z) / 0.115 + 1.3) + 0.35 * Math.sin((2 * PI * z) / 0.047 + 0.4) + 0.75);
-      y = YT - RB - d;
+  const C = 0.2;
+  const R = 0.022; // l'arrondi des coins
+  const Y0 = 0.3404; // le dessous (juste au-dessus des veines du retour)
+  const EP = 0.0021; // l'épaisseur : le dessus est à 0,3425, là où se pose la tasse
+  const TASSE = [-0.005, 0.0]; // le pied de la tasse, dans ce repère : à plat dessous
+  const rose = m.uni('#f39cc4');
+  // un point du bord du carré arrondi (projection d'un point sur le contour)
+  const dansCarre = (x, z) => {
+    const h = C / 2 - R;
+    const qx = Math.abs(x) - h;
+    const qz = Math.abs(z) - h;
+    if (qx > 0 && qz > 0) {
+      const d = Math.hypot(qx, qz);
+      if (d > R) return [Math.sign(x) * (h + (qx / d) * R), Math.sign(z) * (h + (qz / d) * R)];
     }
-    return new THREE.Vector3(x, y, z);
+    return [Math.max(-C / 2, Math.min(C / 2, x)), Math.max(-C / 2, Math.min(C / 2, z))];
   };
-  const [nS, nW] = [96, 28];
-  const pos = [];
-  const uv = [];
-  for (let i = 0; i <= nS; i++) {
-    for (let j = 0; j <= nW; j++) {
-      const s = (i / nS) * LONG;
-      const w = (j / nW) * LARGE;
-      pos.push(...point(s, w).toArray());
-      uv.push(0.585 + 0.4 * (1 - j / nW), 0.47 + 0.4 * (1 - s / LONG)); // la partie de la plaque « 22.2.22 »
-    }
+  const froisse = (x, z) => {
+    const loin = Math.min(1, Math.max(0, (Math.hypot(x - TASSE[0], z - TASSE[1]) - 0.055) / 0.03));
+    return loin * 0.0011 * (Math.sin(x * 61 + 1.3) * Math.sin(z * 47 + 0.4) + 0.6 * Math.sin((x + z) * 83));
+  };
+  const n = 36;
+  const dessus = new THREE.PlaneGeometry(C, C, n, n);
+  dessus.rotateX(-PI / 2);
+  const pos = dessus.attributes.position;
+  const uv = dessus.attributes.uv;
+  for (let i = 0; i < pos.count; i++) {
+    const [x, z] = dansCarre(pos.getX(i), pos.getZ(i));
+    pos.setXYZ(i, x, Y0 + EP + froisse(x, z), z);
+    uv.setXY(i, (x + C / 2) / C, 1 - (z + C / 2) / C); // le haut de l'image vers −z
   }
-  const idx = [];
-  for (let i = 0; i < nS; i++) {
-    for (let j = 0; j < nW; j++) {
-      const a = i * (nW + 1) + j;
-      idx.push(a, a + 1, a + nW + 1, a + 1, a + nW + 2, a + nW + 1); // face imprimée vers le haut, puis vers la pièce
-    }
-  }
-  const dessus = new THREE.BufferGeometry();
-  dessus.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  dessus.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  dessus.setIndex(idx);
   dessus.computeVertexNormals();
-  // l'envers : la même surface, 1,5 mm en retrait, tournée dans l'autre sens
-  const n = dessus.attributes.normal;
-  const posEnvers = pos.map((v, k) => v - n.array[k] * EP);
-  const idxEnvers = [];
-  for (let k = 0; k < idx.length; k += 3) idxEnvers.push(idx[k], idx[k + 2], idx[k + 1]);
-  const envers = new THREE.BufferGeometry();
-  envers.setAttribute('position', new THREE.Float32BufferAttribute(posEnvers, 3));
-  envers.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(uv.length), 2));
-  envers.setIndex(idxEnvers);
-  envers.computeVertexNormals();
-  const imprime = new THREE.Mesh(dessus, m.uni('#e8dfe4'));
-  imprime.name = 'imprime-bandana'; // pas « bandana » : le modèle porte déjà ce nom, et le chargeur renommerait le doublon
+  const imprime = new THREE.Mesh(dessus, m.uni('#f2c9dc'));
+  imprime.name = 'imprime-serviette'; // pas « serviette » : c'est le nom du modèle (le chargeur renommerait le doublon)
   imprime.castShadow = true;
   imprime.receiveShadow = true;
-  const el = [imprime, ombres(new THREE.Mesh(envers, m.uni('#ece6e8')))];
-  // les bords : le pli du tissu (côté −z, un bourrelet arrondi), les deux ourlets (côté +z), l'ourlet du bas
-  const bord = (w) => Array.from({ length: 49 }, (_, k) => point((k / 48) * LONG, w).toArray());
-  el.push(tube(bord(0.0004), EP * 0.75, m.uni('#ddd4d8'), 120));
-  el.push(tube(bord(LARGE - 0.0004), 0.001, m.uni('#e4dce0'), 120));
-  for (const sb of [0.0004, LONG - 0.0004]) el.push(tube(Array.from({ length: 29 }, (_, k) => point(sb, (k / 28) * LARGE).toArray()), 0.001, m.uni('#e4dce0'), 60));
-  return groupe('bandana', el);
+  // l'envers et la tranche d'éponge
+  const forme = rectArrondi(new THREE.Shape(), -C / 2, -C / 2, C / 2, C / 2, R);
+  const corps = new THREE.ExtrudeGeometry(forme, { depth: EP - 0.0003, bevelEnabled: false, curveSegments: 8 });
+  corps.rotateX(-PI / 2);
+  corps.translate(0, Y0, 0);
+  const el = [imprime, ombres(new THREE.Mesh(corps, m.uni('#f6f2f4')))];
+  // le biais rose tout autour, posé sur le bord
+  const contour = forme.getSpacedPoints(160).slice(0, -1).map((q) => new THREE.Vector3(q.x * 0.995, Y0 + EP * 0.6 + froisse(q.x, -q.y), -q.y * 0.995));
+  el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(contour, true), 220, 0.0017, 6, true), rose)));
+  // la boucle, cousue dans le coin (−x, −z), retombée sur la serviette
+  const c0 = [-C / 2 + 0.008, Y0 + EP + 0.0008, -C / 2 + 0.008];
+  el.push(tube([c0, [c0[0] + 0.02, c0[1] + 0.003, c0[2] + 0.008], [c0[0] + 0.045, c0[1] + 0.0028, c0[2] + 0.03], [c0[0] + 0.035, c0[1] + 0.0022, c0[2] + 0.045], [c0[0] + 0.012, c0[1] + 0.0016, c0[2] + 0.024], [c0[0] + 0.002, c0[1] + 0.0006, c0[2] + 0.004]], 0.0018, rose, 40));
+  // l'étiquette rose sur le bord +x, et son petit logo
+  el.push(boite([0.012, 0.0008, 0.022], rose, [C / 2 + 0.004, Y0 + 0.0005, 0.035], { r: 0 }));
+  el.push(boite([0.006, 0.0002, 0.008], m.uni('#fde7f1'), [C / 2 + 0.005, Y0 + 0.0013, 0.035], { r: 0 }));
+  return groupe('serviette', el);
 }
 
 // ===========================================================================================
@@ -1342,8 +1349,8 @@ function prise(m) {
 
 // ===========================================================================================
 // --- Les branchements de la chambre de rêve : trois prises murales à 12 cm du sol (assez bas pour rester dans
-// la bordure quand les murs s'abaissent) et les câbles qui y mènent : le lampadaire (mur est), le ventilateur (le
-// mur bas du sud), la Tolomeo (mur ouest, derrière le retour : son cordon est dans son propre modèle).
+// la bordure quand les murs s’abaissent) et les câbles qui y mènent : le lampadaire (mur est), le ventilateur (le
+// mur ouest, sur la multiprise derrière lui), la Tolomeo (sur la même multiprise).
 // Tout est en coordonnées de la pièce (le meuble est posé en [0, 0]).
 // ===========================================================================================
 function branchements() {
@@ -1357,13 +1364,37 @@ function branchements() {
     el.push(g);
   };
   poser([3.6, 0.12, 0.51], -PI / 2); // mur est, entre le lampadaire et la commode
-  poser([0.905, 0.12, 3.7], PI); // mur bas du sud, derrière le ventilateur
-  poser([0, 0.12, 1.58], PI / 2); // mur ouest, derrière le retour (la Tolomeo)
+  poser([0, 0.12, 2.23], PI / 2); // mur ouest, derrière le ventilateur (la multiprise)
   const cable = (pts, r = 0.004) => el.push(tube(pts, r, m.noirMat, 60));
   // le lampadaire : son câble arrive au pied du mur est (en 3,6 ; 0,5), il remonte dans la fiche
-  cable([[3.578, 0.008, 0.49], [3.586, 0.008, 0.5], [3.584, 0.03, 0.507], [3.575, 0.07, 0.51], [3.566, 0.098, 0.51], [3.564, 0.106, 0.51]]);
-  // le ventilateur : son câble traîne au sol vers le sud, file au pied du mur bas et remonte dans la fiche
-  cable([[0.804, 0.008, 3.222], [0.85, 0.008, 3.248], [0.892, 0.008, 3.42], [0.905, 0.008, 3.63], [0.905, 0.05, 3.66], [0.905, 0.098, 3.664], [0.905, 0.106, 3.664]]);
+  cable([[3.578, 0.02, 0.49], [3.586, 0.02, 0.5], [3.584, 0.035, 0.507], [3.575, 0.07, 0.51], [3.566, 0.098, 0.51], [3.564, 0.106, 0.51]]); // (posé sur les tatamis)
+  // la multiprise blanche, posée au pied du mur ouest derrière le ventilateur, bien en vue : quatre prises sur le
+  // dessus, l'interrupteur lumineux au bout ; son câble remonte dans la prise murale à côté. La Tolomeo et le
+  // ventilateur y sont branchés, leurs câbles sortent vers la pièce.
+  const [xM, z0, z1, yT] = [0.036, 1.835, 2.135, 0];
+  const yH = yT + 0.038;
+  const fiche = m.uni('#3b3946');
+  el.push(boite([0.055, 0.038, z1 - z0], m.uni('#f6f4f0'), [xM, yT, (z0 + z1) / 2], { r: 0.008 }));
+  el.push(boite([0.026, 0.007, 0.018], mat('voyant-multiprise', '#f6a160', { emissive: '#f08a4b', emissiveIntensity: 0.8 }), [xM, yH - 0.002, z1 - 0.02], { r: 0.003 }));
+  for (const [z, branche] of [[1.875, true], [1.94, false], [2.005, false], [2.07, true]]) {
+    el.push(cylindre(0.041, 0.0015, m.uni('#e8e5df'), [xM, yH - 0.0012, z], { segments: 24 })); // le puits
+    if (branche) {
+      // la fiche, debout dans la prise, son câble qui part vers la pièce (+x)
+      el.push(cylindre(0.037, 0.026, fiche, [xM, yH, z], { segments: 24 }));
+      el.push(cylindre(0.031, 0.005, fiche, [xM, yH + 0.026, z], { segments: 24 }));
+      el.push(cylindre(0.011, 0.014, fiche, [xM + 0.025, yH + 0.017, z], { rot: [0, 0, PI / 2], centre: true, segments: 12 }));
+    } else {
+      for (const dz of [-0.0095, 0.0095]) el.push(cylindre(0.0048, 0.0004, m.uni('#5c5a66'), [xM, yH + 0.0003, z + dz], { segments: 10 }));
+      el.push(cylindre(0.0048, 0.004, m.uni('#c9ccd0'), [xM - 0.0125, yH + 0.0003, z], { segments: 10 })); // la broche de terre
+    }
+  }
+  // son câble, du bout de la multiprise à la prise murale juste à côté
+  cable([[xM, yT + 0.02, z1 + 0.001], [xM, 0.03, z1 + 0.035], [0.037, 0.07, 2.21], [0.036, 0.106, 2.23]], 0.0035);
+  // la Tolomeo : son cordon arrive au pied du mur derrière le retour, longe le mur sur les tatamis, descend sur le
+  // parquet et rejoint sa fiche par l'avant
+  el.push(tube([[0.025, 0.0165, 1.52], [0.026, 0.0168, 1.6], [0.03, 0.0168, 1.7], [0.04, 0.0168, 1.745], [0.055, 0.004, 1.775], [0.075, 0.003, 1.82], [0.082, 0.004, 1.86], [0.078, 0.025, 1.875], [0.061, yH + 0.017, 1.875]], 0.0025, m.uni('#3b3946'), 60));
+  // le ventilateur : son câble passe par-dessus son pied (dans son modèle), retombe au sol et rejoint sa fiche par l'avant
+  cable([[0.074, 0.006, 2.0716], [0.069, 0.03, 2.071], [0.061, yH + 0.017, 2.07]]);
   return groupe('branchements', el);
 }
 
@@ -1540,6 +1571,68 @@ function seasonGreetings() {
 }
 
 // ===========================================================================================
+// --- Le drapeau du coin hi-fi : un drapeau rouge 75 × 50 cm à la calligraphie dorée « 为人民服务 », punaisé au mur
+// ouest par ses quatre coins, au-dessus des posters du meuble hi-fi. Le tissu n'est pas tendu : entre les punaises
+// il se creuse un peu (le haut tombe, les côtés rentrent), il gonfle légèrement au milieu et des plis partent en
+// éventail des deux punaises du haut. L'imprimé est un maillage nommé (« imprime-drapeau ») : le programme y colle
+// l'image (public/textures/drapeau-servir-le-peuple.jpg).
+// Origine : le pied du mur ouest, au milieu du drapeau ; la pièce vers +x, l'image se lit de +z (gauche) vers −z.
+// ===========================================================================================
+function drapeau() {
+  const m = creerMateriaux();
+  const [W, H] = [0.75, 0.5];
+  const Y = 1.82; // la hauteur du milieu du drapeau
+  const marge = 0.016; // les punaises, à 1,6 cm des bords
+  const geo = new THREE.PlaneGeometry(W, H, 96, 64);
+  const p = geo.attributes.position;
+  const coins = [[-1, 1], [1, 1], [-1, -1], [1, -1]].map(([a, b]) => [a * (W / 2 - marge), b * (H / 2 - marge)]);
+  const borne = (t) => Math.min(1, Math.max(0, t));
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i);
+    const y = p.getY(i);
+    // u, v : 0 → 1 entre les punaises (les coins au-delà restent raides)
+    const u = borne((x + W / 2 - marge) / (W - 2 * marge));
+    const v = borne((y + H / 2 - marge) / (H - 2 * marge));
+    const su = Math.sin(PI * u);
+    const sv = Math.sin(PI * v);
+    // le tissu tombe entre les punaises (le bord du haut se creuse en arc, plus que celui du bas) et les côtés
+    // rentrent un peu
+    const dy = -su * (0.008 + 0.014 * v * v);
+    const dx = 0.007 * sv * Math.cos(PI * u);
+    // il s'écarte du mur : un peu partout, plus au milieu, avec des plis en éventail sous les punaises du haut
+    let dz = 0.003 + 0.014 * su * Math.pow(sv, 0.8);
+    for (const [cx, cy] of coins.slice(0, 2)) {
+      const ex = x - cx;
+      const ey = y - cy;
+      const d = Math.hypot(ex, ey);
+      const angle = Math.atan2(-ey, Math.abs(ex)); // 0 = vers le milieu, π/2 = vers le bas
+      dz += 0.008 * Math.exp(-d / 0.2) * (1 - Math.exp(-d / 0.025)) * Math.pow(Math.max(0, Math.cos(angle * 5 - 0.4)), 1.5);
+    }
+    // quelques grandes ondes verticales dans le bas, là où le tissu pend, et une ondulation douce partout
+    dz += 0.005 * Math.sin(u * PI * 3 + 0.7) * Math.pow(1 - v, 1.3) * su;
+    dz += 0.0015 * Math.sin(u * PI * 7 + v * 2.6) * su * sv;
+    dz = Math.max(dz, 0.0018); // jamais dans le mur
+    p.setXYZ(i, x + dx, y + dy, dz);
+  }
+  geo.computeVertexNormals();
+  geo.rotateY(PI / 2); // regarde la pièce (+x) ; le bord gauche de l'image (u = 0) va vers +z
+  const tissu = new THREE.Mesh(geo, m.uni('#d8261a'));
+  tissu.name = 'imprime-drapeau';
+  tissu.position.y = Y;
+  tissu.castShadow = tissu.receiveShadow = true;
+  // les punaises dorées : une tête plate et un petit dôme (étroit côté pièce), plantées dans le tissu à chaque coin
+  const laiton = m.uni('#c9a24c');
+  const punaises = coins.map(([cx, cy]) => {
+    const g = new THREE.Group();
+    g.position.set(0.003, Y + cy, -cx);
+    g.add(cylindre(0.011, 0.0016, laiton, [0.0008, 0, 0], { rot: [0, 0, -PI / 2], centre: true, segments: 20 }));
+    g.add(cylindre(0.0065, 0.004, laiton, [0.0036, 0, 0], { rot: [0, 0, -PI / 2], centre: true, segments: 16, dBas: 0.008 }));
+    return g;
+  });
+  return groupe('drapeau', [tissu, ...punaises]);
+}
+
+// ===========================================================================================
 // --- Le lecteur CD Moondrop DiscDream 2 Ultra (≈ 145 × 145 × 26 mm, estimé d'après les photos) ---
 // Un carré d'aluminium brossé argenté. Dessus : un cadre plein et des fentes parallèles (de l'avant vers l'arrière)
 // à travers lesquelles on voit le disque ; « MOONDROP DISCDREAM 2 ULTRA » gravé le long du bord gauche. Tranche
@@ -1684,6 +1777,29 @@ function meubleHifi() {
     g.add(face);
     parts.push(g);
   });
+  // devant les vinyles, à plat sur la tablette : deux albums en jewel case (142 × 125 × 10 mm), un peu de travers
+  // comme posés à la main. Hearts2Hearts « Lemon Tang » (plateau transparent, tranches jaunes) et LNGSHOT
+  // « Training Day » (plateau noir, tranches grises). Leur face est un maillage nommé (« jewel-… ») : le programme y
+  // colle la photo du boîtier (public/textures/jewel-*.jpg), plastique transparent et charnière compris.
+  const jewel = ({ nom, x, z, rot, plateau, tranche }) => {
+    const [JL, JH, JP] = [0.142, 0.0104, 0.125];
+    const g = new THREE.Group();
+    g.position.set(x, yTab + 0.018 + 0.001, z);
+    g.rotation.y = rot;
+    g.add(boite([JL, JH - 0.0012, JP], m.uni(plateau), [0, 0, 0], { r: 0.0015 }));
+    // le couvercle de plastique clair et les deux tranches de la jaquette, vues à travers les bouts du boîtier
+    g.add(boite([JL, 0.0012, JP], m.uni('#e8edf0'), [0, JH - 0.0012, 0], { r: 0 }));
+    for (const s of [-1, 1]) g.add(boite([0.0008, JH - 0.003, JP - 0.006], m.uni(tranche), [s * (JL / 2 - 0.0035), 0.0012, 0], { r: 0 }));
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(JL - 0.0006, JP - 0.0006), m.uni('#e6e6e6'));
+    face.name = `jewel-${nom}`;
+    face.rotation.x = -PI / 2;
+    face.position.y = JH + 0.0004;
+    face.receiveShadow = true;
+    g.add(face);
+    parts.push(g);
+  };
+  jewel({ nom: 'h2h', x: -0.098, z: 0.058, rot: 0.06, plateau: '#f3f1e4', tranche: '#f2df2e' });
+  jewel({ nom: 'lngshot', x: 0.088, z: 0.064, rot: -0.09, plateau: '#2a292e', tranche: '#5d5c62' });
   // dessus : les enceintes et le lecteur
   const yD = T + 0.001; // au-dessus des veines du plateau
   const gauche = enceinteEdifier(m, false);
@@ -1719,19 +1835,398 @@ function meubleHifi() {
   return groupe('meuble-hifi', parts);
 }
 
+// ===========================================================================================
+// --- Le bureau du studio (chambre de rêve) : le bureau en bouleau et son plateau de verre, avec ---
+//  - à gauche, le MacBook Air ouvert sur un support en aluminium incliné, comme le ThinkPad du bureau bas ;
+//  - un cahier ouvert (lignes, quelques lignes d'écriture, un stylo posé dessus) ;
+//  - dans le coin à droite, la lampe champignon qui s'allume (son matériau « champignon-verre » est réglé par le
+//    programme, avec la lumière « lampe champignon » de chambre.js), et devant elle trois livres empilés.
+// Repère du bureau : le dessus du verre est à 0,756 m ; l'avant (où l'on s'assoit) vers +z.
+// ===========================================================================================
+
+// Le support incliné d'un portable (deux rails, pieds arrière, butée avant) : `incl` reçoit le portable (origine au
+// centre de son dessous, clavier vers +z). D = la profondeur du portable.
+function supportIncline(m, D, theta = 0.26) {
+  const alu = m.metal;
+  const support = new THREE.Group();
+  const zButee = D / 2 + 0.0015;
+  const incl = new THREE.Group();
+  incl.rotation.x = theta;
+  incl.position.set(0, 0.016 + Math.sin(theta) * (D / 2), zButee - Math.cos(theta) * (D / 2));
+  for (const s of [-1, 1]) incl.add(boite([0.014, 0.004, D - 0.03], alu, [s * 0.105, -0.004, -0.005], { r: 0.0015 }));
+  incl.updateMatrix();
+  const versSupport = (x, y, z) => new THREE.Vector3(x, y, z).applyMatrix4(incl.matrix);
+  support.add(incl);
+  for (const s of [-1, 1]) {
+    const arriere = versSupport(s * 0.105, -0.004, -D / 2 + 0.022);
+    const avant = versSupport(s * 0.105, -0.004, D / 2 - 0.025);
+    support.add(
+      boite([0.014, arriere.y, 0.012], alu, [arriere.x, 0, arriere.z], { r: 0.002 }),
+      boite([0.014, avant.y, 0.01], alu, [avant.x, 0, avant.z], { r: 0.002 }),
+      boite([0.014, 0.004, zButee - arriere.z + 0.008], alu, [s * 0.105, 0, (arriere.z + zButee) / 2 + 0.004], { r: 0.0015 }),
+    );
+    if (s === 1) support.add(boite([0.224, 0.004, 0.012], alu, [0, 0, arriere.z], { r: 0.0015 }));
+  }
+  support.add(boite([0.24, 0.024, 0.008], alu, [0, 0, zButee + 0.004], { r: 0.003 }), boite([0.236, 0.003, 0.008], m.noirMat, [0, 0.024, zButee + 0.004], { r: 0.0012 }));
+  return { support, incl };
+}
+
+// L'iPad Pro 11 pouces (249,7 × 177,5 × 5,3 mm), argent, sans coque, posé à plat écran en l'air (éteint),
+// et son Apple Pencil Pro blanc aimanté sur la grande tranche du haut. Origine : le centre du dessous.
+function ipadPro(m) {
+  const [W, D, E, R] = [0.2497, 0.1775, 0.0053, 0.017];
+  const el = [];
+  const plaque = (w, d, r, ep, mat, y) => {
+    const g = new THREE.ExtrudeGeometry(rectArrondi(new THREE.Shape(), -w / 2, -d / 2, w / 2, d / 2, r), { depth: ep, bevelEnabled: false, curveSegments: 8 });
+    g.rotateX(-PI / 2);
+    g.translate(0, y, 0);
+    return ombres(new THREE.Mesh(g, mat));
+  };
+  el.push(plaque(W, D, R, E - 0.0003, m.metalClair, 0)); // le châssis en aluminium argenté, comme le Mac
+  el.push(plaque(W - 0.0045, D - 0.0045, R - 0.002, 0.0006, m.uni('#121117'), E - 0.0006)); // la vitre noire (un liseré d'aluminium autour)
+  el.push(plaque(W - 0.013, D - 0.013, R - 0.006, 0.0002, mat('ecran-ipad', '#1b1b24', { roughness: 0.18 }), E - 0.0001)); // la dalle, éteinte
+  el.push(cylindre(0.0028, 0.0002, m.uni('#24232b'), [0, E - 0.0001, -D / 2 + 0.0032], { segments: 10 })); // la caméra avant (sur le long côté)
+  el.push(boite([0.018, 0.0018, 0.0012], m.metal, [W / 2 - 0.03, 0.0025, -D / 2 - 0.0004], { r: 0.0005 })); // le bouton du haut
+  for (const z of [-0.06, -0.04]) el.push(boite([0.0012, 0.0018, 0.014], m.metal, [W / 2 + 0.0004, 0.0025, z], { r: 0.0005 })); // le volume
+  // l'Apple Pencil Pro : un crayon blanc à méplat, sa pointe
+  const L = 0.166;
+  const crayon = new THREE.Group();
+  crayon.add(cylindre(0.0089, L - 0.02, m.uni('#f6f6f4'), [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 18 }));
+  crayon.add(cylindre(0.0089, 0.02, m.uni('#f6f6f4'), [L / 2, 0, 0], { rot: [0, 0, PI / 2], centre: true, dBas: 0.002, segments: 18 }));
+  crayon.add(cylindre(0.0021, 0.004, m.uni('#e4e5e8'), [L / 2 + 0.011, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 8 }));
+  crayon.position.set(-0.01, 0.00445, -D / 2 - 0.0046);
+  el.push(crayon);
+  return groupe('objet_ipad', el);
+}
+
+// Un cahier ouvert (A5, couverture lilas) : deux pages qui se bombent vers la reliure, des lignes bleu pâle et
+// une marge rose, quelques lignes d'écriture à gauche, un stylo noir posé sur la page de droite. La reliure est
+// le long de z ; on lit depuis +z. Origine : le centre du dessous.
+function cahier(m) {
+  const [WP, DP] = [0.146, 0.205]; // une page
+  const el = [];
+  el.push(boite([2 * WP + 0.006, 0.0015, DP + 0.006], m.uni('#cdbfe6'), [0, 0, 0], { r: 0.001 })); // la couverture
+  const hPage = (u) => 0.0035 + 0.0045 * Math.max(0, 1 - u / 0.05) ** 2; // u : la distance à la reliure
+  const papier = m.uni('#fbf9f4');
+  for (const s of [-1, 1]) {
+    const g = new THREE.PlaneGeometry(WP, DP, 18, 1);
+    g.rotateX(-PI / 2);
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i) + WP / 2; // de la reliure (0) au bord (WP)
+      pos.setXYZ(i, s * (u + 0.001), hPage(u), pos.getZ(i));
+    }
+    g.computeVertexNormals();
+    const page = ombres(new THREE.Mesh(g, papier));
+    page.material.side = THREE.DoubleSide;
+    el.push(page);
+    // le bloc des feuilles en dessous (la tranche)
+    el.push(boite([WP - 0.002, 0.0028, DP - 0.002], m.uni('#f1ede4'), [s * (WP / 2 + 0.001), 0.0012, 0], { r: 0 }));
+    // les lignes (le long de x) et la marge
+    const ligne = (z, couleur, r = 0.00025) => el.push(tube([0.004, 0.03, 0.07, 0.11, WP - 0.004].map((u) => [s * (u + 0.001), hPage(u) + 0.0003, z]), r, m.uni(couleur), 12));
+    for (let k = 0; k < 22; k++) ligne(-DP / 2 + 0.02 + k * 0.008, '#c4d6ea');
+    const xm = s > 0 ? 0.025 : WP - 0.025;
+    el.push(boite([0.0006, 0.0002, DP - 0.004], m.uni('#efb3c3'), [s * (xm + 0.001), hPage(xm) + 0.0003, 0], { r: 0 }));
+  }
+  // quelques lignes d'écriture sur la page de gauche
+  const alea = hasard(17);
+  const encre = m.uni('#3c4a6b');
+  for (let k = 0; k < 9; k++) {
+    const z = -DP / 2 + 0.02 + (k + 1) * 0.008 - 0.0015;
+    const u0 = 0.02;
+    const u1 = 0.02 + (0.06 + alea() * 0.06) * (k === 8 ? 0.5 : 1);
+    const pts = [];
+    for (let t = 0; t <= 1.0001; t += 1 / 24) {
+      const u = WP - (u0 + (u1 - u0) * t); // de la marge vers la reliure
+      pts.push([-(u + 0.001), hPage(u) + 0.0004, z - 0.0012 * Math.abs(Math.sin(t * 60 + k))]);
+    }
+    el.push(tube(pts, 0.00028, encre, 48));
+  }
+  // le stylo, en travers de la page de droite
+  const stylo = new THREE.Group();
+  stylo.add(cylindre(0.0095, 0.12, m.uni('#2d2c35'), [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 14 }));
+  stylo.add(cylindre(0.0095, 0.014, m.uni('#2d2c35'), [0.067, 0, 0], { rot: [0, 0, PI / 2], centre: true, dBas: 0.002, segments: 14 }));
+  stylo.add(boite([0.04, 0.0016, 0.003], m.metalClair, [-0.035, 0.005, 0], { r: 0.0006 })); // l'agrafe
+  stylo.position.set(0.075, hPage(0.075) + 0.005, 0.01);
+  stylo.rotation.y = 0.6;
+  el.push(stylo);
+  return groupe('objet_cahier', el);
+}
+
+// Trois livres empilés, dos tourné vers la pièce (+z) : couvertures, bloc de pages crème, une bande sur le dos.
+function piledeLivres(m) {
+  const livres = [
+    { t: [0.235, 0.032, 0.17], c: '#ede7db', bande: '#d4524d', rot: 0.04 },
+    { t: [0.225, 0.024, 0.162], c: '#c9ccd3', bande: '#f7f6f2', rot: -0.06 },
+    { t: [0.205, 0.02, 0.15], c: '#a8c3a2', bande: '#f1ede2', rot: 0.03 },
+  ];
+  const el = [];
+  let y = 0;
+  for (const { t: [L, H, P], c, bande, rot } of livres) {
+    const g = new THREE.Group();
+    const cou = m.uni(c);
+    g.add(boite([L, 0.002, P], cou, [0, 0, 0], { r: 0.0008 }), boite([L, 0.002, P], cou, [0, H - 0.002, 0], { r: 0.0008 }));
+    g.add(boite([L, H, 0.003], cou, [0, 0, P / 2 - 0.0015], { r: 0.001 })); // le dos
+    g.add(boite([L - 0.006, H - 0.004, P - 0.006], m.uni('#f4efe3'), [0, 0.002, -0.0015], { r: 0 })); // les pages
+    g.add(boite([L * 0.55, H * 0.4, 0.0006], m.uni(bande), [-L * 0.12, H * 0.3, P / 2 + 0.0003], { r: 0 })); // la bande du dos
+    g.position.y = y;
+    g.rotation.y = rot;
+    el.push(g);
+    y += H;
+  }
+  return { groupe: groupe('objet_livres', el), haut: y };
+}
+
+// La lampe champignon (30 cm), d'après ta photo : un pied cylindrique en pierre beige mat, aux arêtes adoucies, et
+// un globe de verre opalin bombé comme un coussin, deux fois plus large que le pied, avec un léger creux sur le
+// dessus. Le verre est d'un matériau à part, « champignon-verre », que le programme allume (une lueur orangée).
+// Origine : le dessous du pied, au centre.
+function lampeChampignon(m) {
+  const el = [];
+  const HP = 0.155; // la hauteur du pied
+  el.push(revolution([[0, 0], [0.054, 0], [0.0575, 0.004], [0.0575, HP - 0.004], [0.0545, HP], [0, HP]], mat('pierre-beige', '#d8cbb8', { roughness: 0.95 }), [0, 0, 0], 40));
+  // le globe : son profil, du dessous (posé sur le pied) au creux du dessus, en passant par le grand bord arrondi
+  const profil = [[0, 0], [0.05, 0], [0.085, 0.008], [0.105, 0.025], [0.117, 0.05], [0.121, 0.075], [0.117, 0.1], [0.105, 0.122], [0.085, 0.136], [0.055, 0.143], [0.025, 0.141], [0.008, 0.137], [0, 0.137]];
+  el.push(revolution(profil, mat('champignon-verre', '#f7f3ec', { roughness: 0.5 }), [0, HP - 0.002, 0], 56));
+  return groupe('objet_champignon', el);
+}
+
+function bureauStudio() {
+  const m = creerMateriaux();
+  const T = 0.756;
+  const parts = [veinerBois(bureauNu())];
+  // le MacBook sur son support, à gauche, tourné un peu vers le milieu
+  const { support, incl } = supportIncline(m, 0.215);
+  incl.add(macbook(m, 0, 0, 0)[0]);
+  support.position.set(-0.43, T, -0.03);
+  support.rotation.y = 0.12;
+  parts.push(support);
+  // le cahier ouvert, au milieu (l'iPad est sur la console du lit)
+  const c = cahier(m);
+  c.position.set(0.06, T, 0.12);
+  c.rotation.y = 0.08;
+  parts.push(c);
+  // dans le coin à droite : la lampe champignon au fond, la pile de livres devant elle
+  const { groupe: livres } = piledeLivres(m);
+  livres.position.set(0.52, T, 0.13);
+  livres.rotation.y = -0.08;
+  parts.push(livres);
+  const lampe = lampeChampignon(m);
+  lampe.position.set(0.53, T, -0.15);
+  parts.push(lampe);
+  // son cordon : du dos du pied au bord arrière du bureau, puis il tombe derrière
+  parts.push(tube([[0.53, T + 0.012, -0.207], [0.535, T + 0.003, -0.24], [0.54, T + 0.003, -0.29], [0.543, T - 0.02, -0.303], [0.546, 0.4, -0.304], [0.55, 0.01, -0.304]], 0.0022, m.uni('#f4f2ee'), 40));
+  return groupe('bureau', parts);
+}
+
+// ===========================================================================================
+// --- Les tatamis (des « oki-tatami » à poser, 1,2 cm d'épaisseur), côte à côte du mur ouest au mur est ---
+// Chacun : la natte de jonc vert paille et son tressage (de fines lignes le long du grand côté), le liseré sombre
+// (heri) sur les deux grands côtés, les petits côtés nus. Le liseré déborde d'un millimètre de la natte (sur la
+// tranche et aux bouts) : sinon leurs faces sont dans le même plan et scintillent.
+// Origine : le centre du champ de tatamis, au sol ; les grands côtés le long de z.
+//   nb : le nombre de tatamis ; L : la largeur du champ (x) ; P : la longueur d'un tatami (z)
+// ===========================================================================================
+function tatami({ nb = 4, L = 3.575, P = 1.58 } = {}) {
+  const m = creerMateriaux();
+  const W = L / nb; // la largeur d'un tatami
+  const E = 0.012;
+  const natte = mat('jonc', '#c3c393', { roughness: 1 });
+  const fibre = m.uni('#adb07e');
+  const fibreClaire = m.uni('#d2d1a4');
+  const heri = m.uni('#3a3c35');
+  const el = [];
+  for (let i = 0; i < nb; i++) {
+    const cx = -L / 2 + W / 2 + i * W;
+    el.push(boite([W - 0.006, E, P - 0.002], natte, [cx, 0, 0], { r: 0.002 }));
+    // le tressage : une ligne toutes les 9 mm, une sur trois plus claire
+    for (let k = 0; k * 0.009 < W - 0.08; k++) {
+      const x = cx - W / 2 + 0.04 + k * 0.009;
+      el.push(boite([0.0018, 0.0003, P - 0.01], k % 3 ? fibre : fibreClaire, [x, E, 0], { r: 0 }));
+    }
+    // le liseré des grands côtés, un peu en relief, qui recouvre la tranche de la natte
+    for (const c of [-1, 1]) el.push(boite([0.03, E + 0.0012, P], heri, [cx + c * (W / 2 - 0.0165), 0, 0], { r: 0.002 }));
+  }
+  return groupe('tatami', el);
+}
+
+// ===========================================================================================
+// --- La console du lit : un bureau bas (208 × 31 cm, dessus à 34 cm comme le retour) le long du lit ---
+// Même chêne et même construction que les bureaux bas (structureBois), trois lames, et une paire de pieds de plus
+// au milieu (il est long). Son devant dépasse sur les tatamis : les pieds de devant y sont posés, 1,2 cm plus
+// courts que ceux de derrière (sur le parquet). Origine : le centre au sol ; le devant vers +z.
+// ===========================================================================================
+function consoleLit() {
+  const m = creerMateriaux();
+  const [L, P, T, ep] = [2.08, 0.31, 0.34, 0.026];
+  const TATAMI = 0.012;
+  const parts = structureBois(m, { L, P, T, ep, lames: 3, noeuds: [[-0.6, 0.04, 0.3, 0.8], [0.45, -0.05, -0.2, 0.7]], graine: 23, solAvant: TATAMI });
+  const pz = P / 2 - 0.055;
+  for (const sz of [-1, 1]) {
+    const sol = sz > 0 ? TATAMI : 0;
+    parts.push(boite([0.042, T - ep - 0.006 - sol, 0.042], m.uni(CHENE.pieds), [0, 0.006 + sol, sz * pz], { r: 0.004 }), cylindre(0.034, 0.006, m.uni('#d8d0c4'), [0, sol, sz * pz], { segments: 10 }));
+  }
+  // l'iPad, posé au bout côté oreillers (la tête du lit est vers −x ici : la console est tournée d'un demi-tour)
+  const ipad = ipadPro(m);
+  ipad.position.set(-0.77, T + 0.001, 0.01);
+  ipad.rotation.y = 0.08;
+  parts.push(ipad);
+  return groupe('console-lit', parts);
+}
+
+// ===========================================================================================
+// --- Le sac à dos Arc'teryx Mantis 26, noir (47,5 × 27,5 cm, d'après les fiches des revendeurs), adossé ---
+// Le corps : un pavé souple aux angles très arrondis, qui s'affine vers le haut et se bombe en bas de la face avant
+// (une coupe en super-ellipse, le haut en dôme). Devant : la grande poche bordée de deux zips qui descendent le long
+// des côtés et s'incurvent vers le bas, leurs tirettes en haut, la couture du rabat du haut, et l'archæoptéryx brodé
+// en fil doré (un décalque tracé d'après ta photo : public/textures/logo-arcteryx.png, maillage « logo-arcteryx »).
+// Dessus, la poignée. Sur les côtés, les poches en maille. Au dos : le panneau rembourré en maille, les deux
+// bretelles en S avec leur sangle de poitrine et leurs sangles de réglage qui pendent, le petit logo brodé en haut.
+// Posé : il penche de 9° en arrière, son dos appuyé sur le cadre du lit, au pied. Origine : au sol, sous l'arête
+// arrière du bas (le pivot) ; la face avant vers +z.
+// ===========================================================================================
+function sacMantis() {
+  const m = creerMateriaux();
+  const nylon = mat('nylon-noir', '#3b3a45', { roughness: 0.78 }); // le noir du sac, adouci comme les autres noirs du site
+  const nylonSombre = m.uni('#22212a');
+  const maille = mat('maille-sac', '#45444f', { roughness: 0.95 });
+  const sangle = m.uni('#2a2932');
+  const H = 0.475;
+  const W = (v) => 0.1375 - 0.016 * v; // la demi-largeur
+  const Df = (v) => 0.062 + 0.042 * Math.sin(PI * Math.min(1, v * 1.12)); // la face avant, bombée en bas
+  const Db = () => 0.062; // le dos, plat
+  const n = 3.2; // la super-ellipse de la coupe
+  const reduc = (v) => (v > 0.8 ? Math.sqrt(1 - 0.55 * ((v - 0.8) / 0.2) ** 2) : v < 0.05 ? Math.sqrt(1 - 0.2 * ((0.05 - v) / 0.05) ** 2) : 1);
+  const HC = H - 0.05; // le haut des côtés ; le dôme monte au-dessus
+  // un point du sac : a, b dans [−1, 1] autour de la coupe (b > 0 : devant), v de 0 (bas) à 1 (haut des côtés)
+  const point = (a, b, v, rCap = 1, y = null) => {
+    const mm = Math.max(Math.abs(a), Math.abs(b));
+    const k = mm > 0 ? mm / (Math.abs(a) ** n + Math.abs(b) ** n) ** (1 / n) : 0;
+    const s = reduc(v) * rCap;
+    return new THREE.Vector3(a * k * W(v) * s, y ?? v * HC, b * k * (b > 0 ? Df(v) : Db(v)) * s);
+  };
+  // le corps : une boîte subdivisée, posée sur la super-ellipse ; ses faces du haut et du bas deviennent le dôme et le fond
+  const geo = new THREE.BoxGeometry(1, 1, 1, 26, 34, 18);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const [a, yy, b] = [pos.getX(i) * 2, pos.getY(i) + 0.5, pos.getZ(i) * 2];
+    const mm = Math.max(Math.abs(a), Math.abs(b));
+    let p;
+    if (yy > 0.999) p = point(a, b, 1, 1, HC + 0.05 * (1 - mm * mm)); // le dôme
+    else if (yy < 0.001) p = point(a, b, 0, 1, 0.006 * (1 - mm * mm)); // le fond, à peine bombé
+    else p = point(a / Math.max(mm, 1e-6), b / Math.max(mm, 1e-6), yy);
+    pos.setXYZ(i, p.x, p.y, p.z);
+  }
+  geo.computeVertexNormals();
+  const sac = new THREE.Group();
+  sac.add(ombres(new THREE.Mesh(geo, nylon)));
+  // un point juste devant la face avant (pour y poser les zips, les coutures, le logo)
+  const devant = (a, v, ecart = 0.0025) => {
+    const p0 = point(a, 1, v);
+    const p1 = point(a + 0.01, 1, v);
+    const p2 = point(a, 1, v + 0.01);
+    const nrm = new THREE.Vector3().crossVectors(p1.clone().sub(p0), p2.clone().sub(p0)).normalize();
+    if (nrm.z < 0) nrm.negate();
+    return { p: p0.clone().addScaledVector(nrm, ecart), n: nrm };
+  };
+  const suivre = (cles, rayon, materiau, ecart = 0.0025) => {
+    const courbe = new THREE.CatmullRomCurve3(cles.map(([a, v]) => devant(a, v).p));
+    const pts = courbe.getSpacedPoints(60).map((q) => {
+      // chaque point est reposé sur la face, à l'écart voulu
+      const a = Math.max(-0.99, Math.min(0.99, q.x / (W(q.y / HC) * reduc(q.y / HC) * 0.97)));
+      return devant(a, Math.max(0.01, Math.min(0.99, q.y / HC)), ecart).p;
+    });
+    return ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 90, rayon, 6), materiau));
+  };
+  // les deux zips de la poche avant : le long des côtés, puis en courbe vers le bas du milieu ; leur ruban, leurs dents
+  for (const s of [-1, 1]) {
+    const cles = [[0.7, 0.86], [0.86, 0.72], [0.88, 0.5], [0.84, 0.32], [0.66, 0.2], [0.42, 0.13], [0.22, 0.11]].map(([a, v]) => [s * a, v]);
+    sac.add(suivre(cles, 0.0055, nylonSombre, 0.0015));
+    sac.add(suivre(cles, 0.0022, m.uni('#121116'), 0.005));
+    // la tirette : le curseur et son cordon à embout
+    const t = devant(s * 0.7, 0.86, 0.006);
+    sac.add(boite([0.012, 0.018, 0.006], m.uni('#18171c'), [t.p.x, t.p.y - 0.012, t.p.z], { r: 0.002 }));
+    sac.add(tube([[t.p.x, t.p.y - 0.012, t.p.z + 0.002], [t.p.x + s * 0.008, t.p.y - 0.03, t.p.z + 0.006], [t.p.x + s * 0.006, t.p.y - 0.045, t.p.z + 0.004]], 0.0018, m.uni('#18171c'), 10));
+    sac.add(cylindre(0.007, 0.012, m.uni('#18171c'), [t.p.x + s * 0.006, t.p.y - 0.058, t.p.z + 0.004], { segments: 8 }));
+  }
+  // la couture du rabat du haut
+  sac.add(suivre([-0.85, -0.5, 0, 0.5, 0.85].map((a) => [a, 0.9 - 0.02 * (1 - a * a)]), 0.0012, nylonSombre, 0.001));
+  // le logo brodé, un peu au-dessus du milieu de la poche
+  {
+    const { p, n: nrm } = devant(0, 0.77, 0.0012);
+    const [lw, lh] = [0.066, 0.066 * (530 / 828)];
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh), m.uni('#2c2b33'));
+    plan.name = 'logo-arcteryx';
+    plan.position.copy(p);
+    plan.lookAt(p.clone().add(nrm));
+    sac.add(plan);
+  }
+  // la poignée, sur le dessus, un peu vers le dos : une sangle plate en boucle basse, cousue au dôme par deux pattes
+  // (la hauteur du dôme en (x, z) se calcule comme le corps : la super-ellipse réduite du haut)
+  const surDome = (x, z) => {
+    const sv = reduc(1);
+    const mm = (Math.abs(x / (W(1) * sv)) ** n + Math.abs(z / ((z > 0 ? Df(1) : Db()) * sv)) ** n) ** (1 / n);
+    return HC + 0.05 * (1 - Math.min(1, mm) ** 2);
+  };
+  const zP = -0.012;
+  const [yG, yD] = [surDome(-0.032, zP), surDome(0.032, zP)];
+  const yMilieu = surDome(0, zP);
+  sac.add(tube([[-0.032, yG + 0.002, zP], [-0.026, yMilieu + 0.014, zP], [0, yMilieu + 0.02, zP], [0.026, yMilieu + 0.014, zP], [0.032, yD + 0.002, zP]], 0.0045, sangle, 30));
+  for (const [x, y] of [[-0.034, yG], [0.034, yD]]) sac.add(boite([0.018, 0.005, 0.024], sangle, [x, y - 0.003, zP], { r: 0.002, rot: [0, 0, x > 0 ? -0.35 : 0.35] }));
+  // les poches latérales en maille
+  for (const s of [-1, 1]) {
+    const pl = point(s, 0, 0.2);
+    sac.add(tissu([0.018, 0.13, 0.11], maille, [pl.x - s * 0.002, 0.03, -0.005], { r: 0.008, froissement: 0.003, graine: 3 + s }));
+  }
+  // le dos : le panneau rembourré en maille, les bretelles, la sangle de poitrine, le petit logo
+  const zDos = -Db() - 0.006;
+  sac.add(boite([0.2, 0.3, 0.014], maille, [0, 0.05, zDos], { r: 0.006 })); // (il s'arrête sous le dôme du haut)
+  for (const s of [-1, 1]) {
+    const pts = [[s * 0.045, H - 0.085], [s * 0.06, H - 0.15], [s * 0.08, H - 0.24], [s * 0.097, 0.16], [s * 0.11, 0.06]];
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [x0, y0] = pts[k];
+      const [x1, y1] = pts[k + 1];
+      sac.add(barrePlate([x0, y0, zDos - 0.02], [x1, y1, zDos - 0.02], [0.016, 0.052], nylon, 0.007));
+    }
+    sac.add(barrePlate([s * 0.115, 0.06, zDos - 0.018], [s * 0.125, 0.02, zDos - 0.012], [0.006, 0.025], sangle, 0.002)); // l'attache basse
+    sac.add(tube([[s * 0.128, 0.025, zDos - 0.01], [s * 0.15, 0.015, zDos + 0.02], [s * 0.16, 0.004, zDos + 0.06]], 0.003, sangle, 12)); // la sangle qui pend
+    sac.add(boite([0.022, 0.012, 0.006], m.uni('#18171c'), [s * 0.085, H - 0.23, zDos - 0.034], { r: 0.002 })); // la boucle de poitrine
+  }
+  sac.add(boite([0.15, 0.016, 0.004], sangle, [0, H - 0.226, zDos - 0.032], { r: 0.001 })); // la sangle de poitrine
+  {
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.04 * (530 / 828)), m.uni('#3a3942'));
+    plan.name = 'logo-arcteryx';
+    plan.position.set(0, H - 0.075, zDos - 0.0075);
+    plan.rotation.y = PI;
+    sac.add(plan);
+  }
+  // posé : le dos (bretelles comprises) au-dessus du pivot, penché de 9° en arrière
+  const dos = zDos - 0.03;
+  sac.position.z = -dos;
+  const penche = new THREE.Group();
+  penche.rotation.x = -0.16;
+  penche.add(sac);
+  return groupe('objet_sac', penche);
+}
+
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
 const fabrique = (f) => () => fusionner(f());
 export const modelesReve = {
-  tapis: fabrique(tapis),
+  'tapis-miffy': fabrique(tapisMiffy),
   plante: fabrique(plante),
   'bureau-bas': fabrique(bureauBas),
   'bureau-retour': fabrique(bureauRetour),
   'chaise-sol': fabrique(chaiseSol),
   tolomeo: fabrique(tolomeo),
   tasse: fabrique(tasse),
-  bandana: fabrique(bandana),
+  serviette: fabrique(serviette),
+  'bureau-studio': fabrique(bureauStudio),
+  tatami: fabrique(tatami),
+  'console-lit': fabrique(consoleLit),
+  'sac-mantis': fabrique(sacMantis),
   branchements: fabrique(branchements),
   'coin-salon': fabrique(coinSalon),
   'season-greetings': fabrique(seasonGreetings),
   'meuble-hifi': fabrique(meubleHifi),
+  drapeau: fabrique(drapeau),
 };
