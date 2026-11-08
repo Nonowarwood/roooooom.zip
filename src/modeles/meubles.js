@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, plan, pales, grille, fusionner } from './outils.js';
+import { veinerBois, creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, plan, pales, grille, fusionner } from './outils.js';
 
 // Les meubles de la chambre, modélisés à la main (en code) d'après tes photos, dans
 // le style de la référence : couleurs unies, pastel, mates, et le détail dans la
@@ -766,7 +766,7 @@ function interrupteur() {
 }
 
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
-const fabrique = (f) => () => fusionner(f());
+const fabrique = (f) => () => fusionner(veinerBois(f())); // les pièces en bois reçoivent leurs veines
 export const modeles = {
   lit: fabrique(lit),
   commode: fabrique(commode),

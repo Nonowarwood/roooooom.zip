@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, fusionner, RoundedBoxGeometry } from './outils.js';
+import { creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, fusionner, veines, veinerBois, RoundedBoxGeometry } from './outils.js';
 
 // Les meubles neufs de la chambre de rêve (ceux qui n'existent pas dans la chambre de Paris), modélisés en code
 // dans le même style que src/modeles/meubles.js : couleurs unies, pastel, mates, et le détail dans la géométrie.
@@ -43,186 +43,6 @@ function formeCoeur(t) {
 }
 
 // ===========================================================================================
-// --- Bibliothèque basse : un Kallax 4 × 2 blanc couché (147 × 77 × 39 cm), garni ---
-// En bas : deux boîtes en tissu (lilas, vert sauge), un panier en osier avec un plaid, une pile de magazines.
-// En haut : une rangée d'albums, un cadre photo, un pothos dans un pot en terre cuite qui retombe sur la case du
-// dessous, des classeurs de photocards et une petite enceinte. Dessus : une lampe champignon au fond et, côté
-// plante, deux livres et une bougie (bas, pour ne pas cacher les portraits accrochés au-dessus).
-// ===========================================================================================
-function bibliotheque() {
-  const m = creerMateriaux();
-  const [L, H, P] = [1.47, 0.77, 0.39];
-  const E = 0.0425; // cadre extérieur, plus épais
-  const e = 0.015; // cloisons et tablette
-  const c = (L - 2 * E - 3 * e) / 4; // une case : 33,5 cm
-  const hc = (H - 2 * E - e) / 2;
-  const xc = (j) => -L / 2 + E + c / 2 + j * (c + e); // centre de la colonne j
-  const yb = (i) => E + i * (hc + e); // bas de la rangée i
-  const avant = P / 2; // la façade
-  const parts = [];
-
-  // le meuble : dessus et dessous sur toute la longueur, flancs entre les deux, cloisons et tablette fines en
-  // léger retrait, fond gris très pâle
-  parts.push(boite([L, E, P], m.blanc, [0, 0, 0], { r: 0.004 }), boite([L, E, P], m.blanc, [0, H - E, 0], { r: 0.004 }));
-  for (const s of [-1, 1]) parts.push(boite([E, H - 2 * E, P], m.blanc, [s * (L / 2 - E / 2), E, 0], { r: 0.003 }));
-  for (const j of [0, 1, 2]) parts.push(boite([e, H - 2 * E, P - 0.004], m.blanc, [xc(j) + c / 2 + e / 2, E, -0.002], { r: 0.002 }));
-  parts.push(boite([L - 2 * E, e, P - 0.004], m.blanc, [0, yb(1) - e, -0.002], { r: 0.002 }));
-  parts.push(boite([L - 0.01, H - 0.01, 0.006], m.uni('#eeedf0'), [0, 0.005, -P / 2 + 0.003], { r: 0.001 }));
-  // petits patins sous les coins
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(cylindre(0.02, 0.004, m.uni('#d9d6dc'), [sx * (L / 2 - 0.04), -0.002, sz * (P / 2 - 0.04)], { segments: 10 }));
-
-  // --- rangée du bas ---
-  const y0 = yb(0);
-  // boîte en tissu, poignée découpée sur la façade et couture du bord
-  const boiteTissu = (x, couleur, fonce) => {
-    const zc = avant - 0.012 - 0.17;
-    return [
-      boite([0.31, 0.305, 0.34], m.uni(couleur), [x, y0, zc], { r: 0.018 }),
-      boite([0.1, 0.03, 0.006], m.uni(fonce), [x, y0 + 0.235, zc + 0.169], { r: 0.003 }),
-      boite([0.29, 0.004, 0.004], m.uni(fonce), [x, y0 + 0.285, zc + 0.17], { r: 0.001 }),
-    ];
-  };
-  parts.push(...boiteTissu(xc(0), '#d8c6ec', '#a993c7'));
-  parts.push(...boiteTissu(xc(2), '#cfe0c9', '#9fbb98'));
-
-  // panier en osier : bandes tressées alternées, montants verticaux, rebord plus épais, plaid crème dedans
-  {
-    const x = xc(1);
-    const zc = avant - 0.014 - 0.16;
-    const [l, h, p] = [0.3, 0.24, 0.32];
-    const n = 8;
-    for (let k = 0; k < n; k++) {
-      const saillie = k % 2 ? 0.006 : 0;
-      parts.push(boite([l + saillie, (h / n) * 1.02, p + saillie], k % 2 ? m.osier : m.osierFonce, [x, y0 + (k * h) / n, zc], { r: 0.008 }));
-    }
-    for (let k = 0; k < 7; k++) {
-      const dx = -l / 2 + 0.025 + (k * (l - 0.05)) / 6;
-      parts.push(boite([0.01, h, 0.006], m.osierPaille, [x + dx, y0, zc + p / 2 + 0.002], { r: 0.002 }));
-    }
-    for (const s of [-1, 1]) {
-      parts.push(boite([l + 0.016, 0.022, 0.016], m.osierPaille, [x, y0 + h, zc + s * (p / 2)], { r: 0.007 }));
-      parts.push(boite([0.016, 0.022, p + 0.016], m.osierPaille, [x + s * (l / 2), y0 + h, zc], { r: 0.007 }));
-    }
-    parts.push(boite([0.08, 0.026, 0.008], m.uni('#bfa27c'), [x, y0 + h - 0.06, zc + p / 2 + 0.004], { r: 0.003 })); // la poignée
-    parts.push(tissu([0.25, 0.07, 0.26], m.uni('#efe3c4'), [x, y0 + h - 0.015, zc], { r: 0.03, froissement: 0.01, graine: 4 }));
-  }
-
-  // pile de magazines à plat, un peu de travers, et deux grands albums dessus
-  {
-    const x = xc(3);
-    const couleurs = ['#e9e3f2', '#9fb5d9', '#f3e2c9', '#c9d7e6', '#f8f4ee', '#b9d6c6', '#d5c0e8'];
-    couleurs.forEach((co, k) => parts.push(boite([0.23, 0.009, 0.3], m.uni(co), [x + (k % 2 ? 0.006 : -0.004), y0 + k * 0.0095, 0.01], { r: 0.002, rot: [0, (k % 3 - 1) * 0.05, 0] })));
-    parts.push(boite([0.22, 0.022, 0.29], m.uni('#f2c26b'), [x - 0.004, y0 + 0.067, 0.012], { r: 0.003, rot: [0, 0.07, 0] }));
-    parts.push(boite([0.2, 0.026, 0.26], m.uni('#c6b2e6'), [x + 0.006, y0 + 0.089, 0.018], { r: 0.003, rot: [0, -0.04, 0] }));
-  }
-
-  // --- rangée du haut ---
-  const y1 = yb(1);
-  // une rangée d'albums debout (tranche vers l'avant), le dernier penché contre les autres
-  {
-    const albums = [
-      [0.026, 0.29, 0.24, '#e6dcc8'],
-      [0.018, 0.26, 0.21, '#bcd0f0'],
-      [0.032, 0.3, 0.25, '#fbe2a4'],
-      [0.022, 0.27, 0.22, '#cfe9d5'],
-      [0.028, 0.29, 0.24, '#e0caf3'],
-      [0.016, 0.25, 0.2, '#35323f'],
-      [0.03, 0.28, 0.23, '#c7dfd6'],
-    ];
-    let x = xc(0) - c / 2 + 0.008;
-    for (const [ep, h, p, co] of albums) {
-      parts.push(boite([ep, h, p], m.uni(co), [x + ep / 2, y1, 0.04], { r: 0.003 }));
-      parts.push(boite([0.004, h * 0.55, 0.002], m.uni('#ffffff'), [x + ep / 2, y1 + h * 0.3, 0.04 + p / 2 + 0.001], { r: 0.001 })); // l'étiquette de la tranche
-      x += ep + 0.002;
-    }
-    // le dernier, penché à 20° contre la rangée (le haut appuyé sur l'album d'avant, le pied écarté)
-    const a = 0.35;
-    const [ep, h, p] = [0.024, 0.27, 0.22];
-    const cx = x + (h / 2) * Math.sin(a) + (ep / 2) * Math.cos(a);
-    const cy = y1 + (h / 2) * Math.cos(a) + (ep / 2) * Math.sin(a);
-    parts.push(boite([ep, h, p], m.uni('#a9d4e6'), [cx, cy - h / 2, 0.04], { r: 0.003, rot: [0, 0, a] }));
-  }
-
-  // un cadre photo un peu penché en arrière, au milieu de la case
-  {
-    const cadre = new THREE.Group();
-    cadre.add(
-      boite([0.15, 0.2, 0.014], m.uni('#f1e4d2'), [0, 0, 0], { r: 0.004 }),
-      boite([0.11, 0.15, 0.003], m.uni('#cfd9e6'), [0, 0.025, 0.008], { r: 0.001 }),
-      boite([0.07, 0.07, 0.002], m.uni('#efe3d3'), [-0.01, 0.06, 0.0105], { r: 0.001 }),
-    );
-    cadre.position.set(xc(1), y1, -0.03);
-    cadre.rotation.set(-0.12, 0.08, 0);
-    parts.push(cadre);
-  }
-
-  // un pothos dans un petit pot, ses lianes retombent par-dessus la tablette devant le panier ; deux livres à plat
-  {
-    const x = xc(2) + 0.04;
-    parts.push(boite([0.22, 0.03, 0.17], m.uni('#efe6da'), [xc(2) - 0.03, y1, -0.085], { r: 0.003, rot: [0, 0.1, 0] }));
-    parts.push(boite([0.19, 0.025, 0.15], m.uni('#9fb5d9'), [xc(2) - 0.035, y1 + 0.03, -0.08], { r: 0.003, rot: [0, -0.05, 0] }));
-    parts.push(tourne([[0, 0.002], [0.05, 0.002], [0.054, 0.01], [0.062, 0.1], [0.064, 0.112], [0.056, 0.112], [0.054, 0.095]], m.uni('#e2c2a4'), [x, y1, 0.075], { segments: 22 }));
-    parts.push(cylindre(0.11, 0.006, m.uni('#7a6556'), [x, y1 + 0.09, 0.075], { segments: 18 })); // terreau
-    const tige = m.uni('#7fae7f');
-    const feuilles = [m.uni('#86b98a'), m.uni('#9fcb98'), m.uni('#6f9f78')];
-    const geoFeuille = new THREE.ShapeGeometry(formeCoeur(0.022), 6);
-    const alea = hasard(7);
-    // chaque liane : du pot, par-dessus le bord de la case, puis elle pend devant la façade
-    const lianes = [
-      [[x - 0.02, y1 + 0.1, 0.09], [x - 0.04, y1 + 0.12, 0.16], [x - 0.05, y1 + 0.02, avant + 0.02], [x - 0.06, y1 - 0.12, avant + 0.035], [x - 0.065, y1 - 0.2, avant + 0.03]],
-      [[x + 0.01, y1 + 0.1, 0.1], [x + 0.02, y1 + 0.13, 0.16], [x + 0.03, y1 + 0.01, avant + 0.025], [x + 0.035, y1 - 0.07, avant + 0.04]],
-      [[x - 0.03, y1 + 0.1, 0.06], [x - 0.08, y1 + 0.1, 0.02], [x - 0.12, y1 + 0.068, -0.03], [x - 0.16, y1 + 0.062, -0.07]],
-      [[x - 0.01, y1 + 0.1, 0.06], [x, y1 + 0.19, 0.03], [x - 0.02, y1 + 0.25, -0.03]],
-    ];
-    for (const pts of lianes) {
-      parts.push(tube(pts, 0.0022, tige, 24));
-      const courbe = new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3(...p)));
-      const n = Math.round(courbe.getLength() / 0.035);
-      for (let k = 1; k <= n; k++) {
-        const p = courbe.getPointAt(Math.min(1, k / n));
-        const f = new THREE.Mesh(geoFeuille, feuilles[k % 3]);
-        f.position.copy(p);
-        f.rotation.set(-0.6 + alea() * 1.2, (alea() - 0.5) * 2.4, PI + (alea() - 0.5) * 1.6);
-        f.scale.setScalar(0.75 + alea() * 0.5);
-        parts.push(ombres(f));
-      }
-    }
-  }
-
-  // trois classeurs de photocards debout et une petite enceinte ronde
-  {
-    const x = xc(3);
-    ['#cfe0f6', '#d8e8d2', '#fdf0c4'].forEach((co, k) => {
-      parts.push(boite([0.042, 0.24, 0.2], m.uni(co), [x - 0.1 + k * 0.046, y1, 0.02], { r: 0.008 }));
-      parts.push(boite([0.044, 0.012, 0.03], m.uni('#ffffff'), [x - 0.1 + k * 0.046, y1 + 0.17, 0.12], { r: 0.003 })); // l'anneau du classeur
-    });
-    parts.push(cylindre(0.1, 0.12, m.uni('#d9c9ee'), [x + 0.085, y1, 0.04], { segments: 22 }));
-    parts.push(cylindre(0.09, 0.004, m.uni('#a996c4'), [x + 0.085, y1 + 0.12, 0.04], { segments: 22 }));
-    parts.push(cylindre(0.014, 0.004, m.uni('#ffffff'), [x + 0.085, y1 + 0.123, 0.04], { segments: 10 }));
-  }
-
-  // --- dessus ---
-  // une lampe champignon au fond : pied rond, tige, chapeau bombé
-  {
-    const x = -0.55;
-    parts.push(cylindre(0.12, 0.016, m.uni('#f1ebe1'), [x, H, -0.02], { segments: 24 }));
-    parts.push(cylindre(0.028, 0.27, m.uni('#f1ebe1'), [x, H + 0.016, -0.02], { dBas: 0.036, segments: 16 }));
-    parts.push(tourne([[0, 0.39], [0.05, 0.383], [0.09, 0.36], [0.118, 0.325], [0.13, 0.29], [0.128, 0.278], [0.11, 0.28], [0.06, 0.29], [0.02, 0.295]], m.uni('#f7f2ef'), [x, H, -0.02], { segments: 32 }));
-  }
-  // côté plante, deux livres à plat et une bougie dans son pot
-  {
-    const x = 0.48;
-    parts.push(boite([0.21, 0.03, 0.16], m.uni('#e8d9f3'), [x, H, 0.0], { r: 0.003, rot: [0, 0.12, 0] }));
-    parts.push(boite([0.18, 0.026, 0.14], m.uni('#f8f2e8'), [x - 0.01, H + 0.03, 0.01], { r: 0.003, rot: [0, -0.08, 0] }));
-    parts.push(cylindre(0.07, 0.075, m.uni('#efe6d8'), [x + 0.02, H + 0.056, 0.0], { segments: 18 }));
-    parts.push(cylindre(0.06, 0.004, m.uni('#fff7ea'), [x + 0.02, H + 0.131, 0.0], { segments: 18 }));
-    parts.push(cylindre(0.004, 0.012, m.uni('#4a4152'), [x + 0.02, H + 0.135, 0.0], { segments: 6 }));
-  }
-
-  return groupe('bibliotheque', parts);
-}
-
-// ===========================================================================================
 // --- Grand tapis rond noir (Ø 140 cm) : laine épaisse à sillons concentriques, cordon tressé au bord ---
 // ===========================================================================================
 function tapis() {
@@ -258,7 +78,7 @@ function tapis() {
 // --- Grande plante : un monstera de 1,30 m dans un cache-pot crème, sur un tuteur en fibre de coco ---
 // Les feuilles sont découpées (fentes entre les nervures), pliées le long de la nervure centrale et tombent
 // un peu au bout. Elles partent toutes vers la pièce ou de côté : le mur est est à 35 cm derrière (côté +x),
-// et la bibliothèque basse commence à 32 cm (côté −z), sous les feuilles du haut.
+// (posé dans le coin de la lucarne, il est tourné d’un demi-tour : le mur est alors à −x).
 // ===========================================================================================
 
 // Demi-feuille de monstera dans le plan (x, y), base (attache du pétiole) en 0, pointe en (0, L), le bord du côté
@@ -429,53 +249,6 @@ function barrePlate(a, b, [larg, haut], materiau, r = 0.008) {
   mesh.position.copy(A).add(B).multiplyScalar(0.5);
   mesh.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), d.normalize());
   return mesh;
-}
-
-// Les veines du bois, sans texture (comme tout le site : de la géométrie en couleur unie) : de fines lignes un
-// peu plus foncées ou plus claires que le bois, qui ondulent le long du fil et s'effilent aux deux bouts, posées à
-// fleur d'une face (0,4 mm devant).
-//   centre : le centre de la face ; u : le sens du fil, v : l'autre axe de la face (u × v = la normale, vers
-//   l'extérieur) ; U, V : les demi-longueurs de la face selon u et v ; nb : nombre de veines ;
-//   materiaux : les couleurs possibles, prises au hasard ; graine : le tirage (le même à chaque export).
-function veines({ centre, u, v, U, V, nb, materiaux, graine, largeur = 0.0017 }) {
-  const alea = hasard(graine);
-  const eu = new THREE.Vector3(...u);
-  const ev = new THREE.Vector3(...v);
-  const en = new THREE.Vector3().crossVectors(eu, ev);
-  const c = new THREE.Vector3(...centre).addScaledVector(en, 0.0004);
-  const sortie = [];
-  for (let k = 0; k < nb; k++) {
-    const v0 = (alea() * 2 - 1) * V * 0.8;
-    const u0 = -U + alea() * U * 0.7; // une veine ne court pas toujours d'un bout à l'autre
-    const u1 = U - alea() * U * 0.7;
-    const amp = (0.3 + alea() * 0.7) * Math.min(V * 0.2, 0.008);
-    const f = 4 + alea() * 6;
-    const ph = alea() * 6.28;
-    const w = largeur * (0.6 + alea() * 0.8);
-    const n = Math.max(6, Math.round((u1 - u0) / 0.02));
-    const pos = [];
-    const idx = [];
-    for (let i = 0; i <= n; i++) {
-      const t = i / n;
-      const uu = u0 + (u1 - u0) * t;
-      const vv = THREE.MathUtils.clamp(v0 + amp * Math.sin(f * uu + ph) + amp * 0.35 * Math.sin(2.7 * f * uu + 1.3 * ph), -V, V);
-      const demi = (w / 2) * Math.sqrt(Math.sin(PI * t)); // s'effile aux deux bouts
-      for (const s of [-1, 1]) {
-        const p = c.clone().addScaledVector(eu, uu).addScaledVector(ev, vv + s * demi);
-        pos.push(p.x, p.y, p.z);
-      }
-      if (i < n) idx.push(2 * i, 2 * i + 2, 2 * i + 1, 2 * i + 1, 2 * i + 2, 2 * i + 3);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    const mesh = new THREE.Mesh(g, materiaux[Math.floor(alea() * materiaux.length)]);
-    mesh.receiveShadow = true;
-    sortie.push(mesh);
-  }
-  return sortie;
 }
 
 // Rectangle aux coins arrondis, tracé dans un Shape ou un Path.
@@ -887,6 +660,10 @@ function sourisGPro2(m) {
   geo.deleteAttribute('normal');
   geo.deleteAttribute('uv');
   geo = mergeVertices(geo, 1e-6);
+  // la coque est retournée (l'avant vers −z) : ses triangles regardaient vers l'intérieur et la souris semblait
+  // invisible ; on les remet dans le bon sens
+  const ind = geo.index.array;
+  for (let i = 0; i < ind.length; i += 3) [ind[i + 1], ind[i + 2]] = [ind[i + 2], ind[i + 1]];
   geo.computeVertexNormals();
   const el = [ombres(new THREE.Mesh(geo, noir))];
   const sur = (s, phi, dh = 0.0003) => enPoint(s, phi).add(new THREE.Vector3(0, dh, 0));
@@ -923,7 +700,7 @@ function sourisGPro2(m) {
 // Tout en aluminium satiné : la base ronde légèrement bombée et son moyeu, le bras bas, l'articulation du coude
 // que traverse le bras haut (avec sa queue et son embout à l'arrière), les deux ressorts d'équilibrage et leurs
 // câbles d'acier tendus le long des bras, l'articulation de la tête, le diffuseur en cloche (réflecteur blanc
-// dedans, douille), le petit bouton pour l'orienter, et le cordon qui file vers le mur. Mesures : base Ø 23 cm
+// dedans, douille), le petit bouton pour l'orienter, et le cordon qui file jusqu'à sa prise, au mur. Mesures : base Ø 23 cm
 // (fiche produit) ; bras bas 48 cm et bras haut 77 cm (tirés des 129 cm de hauteur maximale annoncés) ;
 // diffuseur Ø 16 × 11,5 cm (estimé, à l'œil : nettement plus petit que la base). Posée : le bras bas penche un peu en arrière, le bras haut monte de 16° et
 // amène la tête au-dessus du ThinkPad et du clavier.
@@ -991,8 +768,70 @@ function tolomeo() {
   const bouton = V(P2.x, yD - 0.012, P2.z - 0.04);
   el.push(barre([P2.x, yD - 0.02, P2.z - 0.034], bouton.toArray(), 0.0028, aluFonce, 8), sphere(0.012, alu, bouton.toArray()));
   // le cordon : il sort de la base, file vers le mur et tombe derrière le retour
-  el.push(tube([[0.098, Y + 0.004, -0.035], [0.16, Y + 0.0025, -0.058], [0.205, Y - 0.006, -0.074], [0.222, Y - 0.12, -0.08], [0.226, 0.006, -0.083], [0.3, 0.003, -0.11]], 0.0025, m.uni('#3b3946'), 40));
+  // (il passe entre le retour et le mur et finit dans la fiche de la prise du mur ouest, à 12 cm du sol)
+  el.push(tube([[0.098, Y + 0.004, -0.035], [0.15, Y + 0.0025, -0.06], [0.198, Y + 0.0015, -0.088], [0.215, Y - 0.03, -0.1], [0.214, 0.22, -0.112], [0.205, 0.13, -0.12], [0.1956, 0.105, -0.1238]], 0.0025, m.uni('#3b3946'), 50));
   return groupe('tolomeo', el);
+}
+
+// ===========================================================================================
+// --- Les photocards éparpillées dans le coin du bureau bas, tirées du Season's Greetings 2027 de NMIXX ---
+// Trois photocards polaroid (54 × 86 mm : cadre blanc, photo 46 × 62 mm, marge plus épaisse en bas) et la
+// photocard classique (55 × 85 mm aux coins arrondis, l'image sur toute la carte), posée sur le bois. Chaque image est un
+// maillage nommé (« photocard-… ») : le programme y colle son image (public/textures/pc-*.jpg). Le haut des images
+// est côté écran (−z). Coordonnées : celles du bureau ; `yTapis` = le dessus du tapis, `yBureau` = celui du bureau.
+// ===========================================================================================
+function photocards(m, yTapis, yBureau) {
+  const EP = 0.0007; // l'épaisseur d'une carte
+  const g = new THREE.Group();
+  g.name = 'objet_photocards'; // un objet à part : on peut cliquer dessus
+  const image = (nom, l, p, dz, y) => {
+    const geo = new THREE.PlaneGeometry(l, p);
+    geo.rotateX(-PI / 2);
+    const mesh = new THREE.Mesh(geo, m.uni('#d8d2cc'));
+    mesh.name = nom;
+    mesh.position.set(0, y, dz);
+    mesh.receiveShadow = true;
+    return mesh;
+  };
+  // Les cartes et leurs images sont des maillages nommés : le programme leur donne une priorité d'affichage
+  // (« carte-… » passe devant l'image du tapis, « photocard-… » devant la carte), sinon elles scintillent de loin.
+  const carte = ({ type, nom, x, z, y, rot }) => {
+    const c = new THREE.Group();
+    c.position.set(x, y, z);
+    c.rotation.y = rot;
+    if (type === 'polaroid') {
+      c.add(boite([0.054, EP, 0.086], m.uni('#f8f7f3'), [0, 0, 0], { r: 0, nom: `carte-${nom}` }));
+      c.add(image(`photocard-${nom}`, 0.046, 0.062, -0.006, EP + 0.0003));
+    } else {
+      // la photocard : 55 × 85 mm aux coins arrondis (3,5 mm), l'image sur toute la carte
+      const [L, P, R] = [0.055, 0.085, 0.0035];
+      const forme = rectArrondi(new THREE.Shape(), -L / 2, -P / 2, L / 2, P / 2, R);
+      const corps = new THREE.ExtrudeGeometry(forme, { depth: EP, bevelEnabled: false, curveSegments: 5 });
+      corps.rotateX(-PI / 2);
+      const mc = new THREE.Mesh(corps, m.uni('#efe9e4'));
+      mc.name = `carte-${nom}`;
+      mc.castShadow = true;
+      mc.receiveShadow = true;
+      const dessus = new THREE.ShapeGeometry(forme, 5);
+      const uv = dessus.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + L / 2) / L, (uv.getY(i) + P / 2) / P);
+      dessus.rotateX(-PI / 2);
+      dessus.translate(0, EP + 0.0003, 0);
+      const mi = new THREE.Mesh(dessus, m.uni('#d8d2cc'));
+      mi.name = `photocard-${nom}`;
+      mi.receiveShadow = true;
+      c.add(mc, mi);
+    }
+    g.add(c);
+  };
+  // sur le tapis : 1,5 mm au-dessus de son image ; sur le bois : 1 mm au-dessus de ses veines
+  yTapis += 0.0015;
+  yBureau += 0.001;
+  carte({ type: 'polaroid', nom: 'pola2', x: 0.505, z: -0.03, y: yTapis, rot: 0.55 });
+  carte({ type: 'polaroid', nom: 'pola1', x: 0.47, z: -0.005, y: yTapis + 0.0012, rot: 0.22 });
+  carte({ type: 'polaroid', nom: 'pola3', x: 0.44, z: -0.13, y: yBureau, rot: 0.12 }); // sur le bois, au-delà du tapis
+  carte({ type: 'photocard', nom: 'carte', x: 0.53, z: -0.13, y: yBureau, rot: -0.25 }); // sur le bois, à côté
+  return g;
 }
 
 // ===========================================================================================
@@ -1200,6 +1039,7 @@ function bureauBas() {
   souris.position.set(0.384, ySurTapis, 0.137); // sur la grande feuille blanche du tapis : la souris noire s'y détache
   souris.rotation.y = 0.06;
   parts.push(souris);
+  parts.push(photocards(m, ySurTapis, T)); // dans le coin en haut à droite du tapis, une sur le bureau
   // le câble du clavier : de sa prise USB-C (flanc gauche) au port USB du flanc droit du ThinkPad
   const finClavier = sortieUSB.clone().add(clavier.position);
   const finTP = usbTP.clone().applyMatrix4(tp.matrixWorld);
@@ -1401,29 +1241,31 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 // qui regarde depuis la chambre. Plis : de petites bosses à plat (pas sous la tasse), un arrondi sur le bord du
 // retour, des plis verticaux qui se creusent vers le bas, l'ourlet qui ondule ; le pli du tissu d'un côté, les
 // deux ourlets de l'autre, l'envers plus pâle dessous.
-// Origine : le bord avant du dessus du retour, au milieu du bandana ; le tissu pend vers +x.
+// Origine : le milieu du bandana, sur le retour ; il est tourné de biais par `rotation` (chambre.js).
 // ===========================================================================================
 function bandana() {
   const m = creerMateriaux();
-  // plié en quatre (32,5 cm de côté), tout à plat sous la tasse : rien ne dépasse du retour
-  const LONG = 0.325;
-  const LARGE = 0.32;
-  const A = 0.325; // tout est à plat
+  // plié en quatre puis encore une fois, un peu de travers (26 cm de côté), tout à plat sous la tasse
+  const LONG = 0.26;
+  const LARGE = 0.26;
+  const A = LONG; // tout est à plat
   const RB = 0.012; // l'arrondi sur le bord du retour
   const ARC = (PI / 2) * RB;
   const YT = 0.3415; // le dessus du tissu (plié en deux) sur le retour
-  const TASSE = [-0.17, 0.025]; // la tasse, dans ce repère : rien ne bosse dessous
+  const TASSE = [-0.025, 0.005]; // (l'origine est maintenant le milieu du bandana) // la tasse, dans ce repère : rien ne bosse dessous
   const EP = 0.0015;
   // le point du tissu à la distance s du bout posé (le long) et w du bord droit vu depuis la pièce (en travers)
   const point = (s, w) => {
     const z = -LARGE / 2 + w;
     let x;
     let y;
-    if (s < A) {
-      x = s - A;
+    if (s <= A) {
+      x = s - A / 2;
       y = YT;
-      const loinTasse = Math.hypot(x - TASSE[0], z - TASSE[1]) > 0.065;
-      if (loinTasse && s > 0.01) y += 0.0016 * Math.max(0, Math.sin(19 * s + 2) * Math.sin(23 * w + 1)) * Math.min(1, (A - s) / 0.05 + 0.2);
+      const loin = Math.min(1, Math.max(0, (Math.hypot(x - TASSE[0], z - TASSE[1]) - 0.06) / 0.04)); // à plat sous la tasse
+      y += loin * 0.0032 * Math.max(0, Math.sin(17 * s + 2) * Math.sin(21 * w + 1) + 0.35 * Math.sin(31 * (s + w)));
+      const coin = Math.max(0, 1 - Math.hypot(LONG - s, w) / 0.09); // un coin qui rebique
+      y += 0.016 * coin * coin;
     } else if (s < A + ARC) {
       const t = (s - A) / RB;
       x = RB * Math.sin(t);
@@ -1444,7 +1286,7 @@ function bandana() {
       const s = (i / nS) * LONG;
       const w = (j / nW) * LARGE;
       pos.push(...point(s, w).toArray());
-      uv.push(0.12 + 0.5 * (1 - j / nW), 0.5 * (1 - s / LONG)); // le quart du bas, avec tout le grand emblème
+      uv.push(0.585 + 0.4 * (1 - j / nW), 0.47 + 0.4 * (1 - s / LONG)); // la partie de la plaque « 22.2.22 »
     }
   }
   const idx = [];
@@ -1478,14 +1320,408 @@ function bandana() {
   const bord = (w) => Array.from({ length: 49 }, (_, k) => point((k / 48) * LONG, w).toArray());
   el.push(tube(bord(0.0004), EP * 0.75, m.uni('#ddd4d8'), 120));
   el.push(tube(bord(LARGE - 0.0004), 0.001, m.uni('#e4dce0'), 120));
-  el.push(tube(Array.from({ length: 29 }, (_, k) => point(LONG - 0.0004, (k / 28) * LARGE).toArray()), 0.001, m.uni('#e4dce0'), 60));
+  for (const sb of [0.0004, LONG - 0.0004]) el.push(tube(Array.from({ length: 29 }, (_, k) => point(sb, (k / 28) * LARGE).toArray()), 0.001, m.uni('#e4dce0'), 60));
   return groupe('bandana', el);
+}
+
+// ===========================================================================================
+// --- Les prises : une prise murale française (plaque blanche, puits rond) avec sa fiche branchée ---
+// Origine : le centre de la plaque, sur le mur ; elle regarde vers +z. Le câble sort du dos de la fiche, en bas.
+// ===========================================================================================
+function prise(m) {
+  const fiche = m.uni('#3b3946');
+  return [
+    boite([0.08, 0.08, 0.009], m.uni('#f6f4f0'), [0, -0.04, 0.0045], { r: 0.006 }), // la plaque
+    cylindre(0.046, 0.002, m.uni('#e8e5df'), [0, 0, 0.009], { rot: [PI / 2, 0, 0], centre: true, segments: 28 }), // le puits
+    cylindre(0.037, 0.022, fiche, [0, 0, 0.021], { rot: [PI / 2, 0, 0], centre: true, segments: 24 }), // la fiche
+    cylindre(0.031, 0.006, fiche, [0, 0, 0.034], { rot: [PI / 2, 0, 0], centre: true, segments: 24 }),
+    ...[0, 1, 2, 3, 4, 5].map((k) => boite([0.0025, 0.016, 0.018], fiche, [0.0175 * Math.cos((k * PI) / 3), 0.0175 * Math.sin((k * PI) / 3) - 0.008, 0.021], { r: 0, rot: [0, 0, (k * PI) / 3 + PI / 2] })), // les nervures de prise en main
+    cylindre(0.011, 0.012, fiche, [0, -0.012, 0.036], { segments: 12 }), // le manchon du câble
+  ];
+}
+
+// ===========================================================================================
+// --- Les branchements de la chambre de rêve : trois prises murales à 12 cm du sol (assez bas pour rester dans
+// la bordure quand les murs s'abaissent) et les câbles qui y mènent : le lampadaire (mur est), le ventilateur (le
+// mur bas du sud), la Tolomeo (mur ouest, derrière le retour : son cordon est dans son propre modèle).
+// Tout est en coordonnées de la pièce (le meuble est posé en [0, 0]).
+// ===========================================================================================
+function branchements() {
+  const m = creerMateriaux();
+  const el = [];
+  const poser = ([x, y, z], rotY) => {
+    const g = new THREE.Group();
+    g.add(...prise(m));
+    g.position.set(x, y, z);
+    g.rotation.y = rotY;
+    el.push(g);
+  };
+  poser([3.6, 0.12, 0.51], -PI / 2); // mur est, entre le lampadaire et la commode
+  poser([0.905, 0.12, 3.7], PI); // mur bas du sud, derrière le ventilateur
+  poser([0, 0.12, 1.58], PI / 2); // mur ouest, derrière le retour (la Tolomeo)
+  const cable = (pts, r = 0.004) => el.push(tube(pts, r, m.noirMat, 60));
+  // le lampadaire : son câble arrive au pied du mur est (en 3,6 ; 0,5), il remonte dans la fiche
+  cable([[3.578, 0.008, 0.49], [3.586, 0.008, 0.5], [3.584, 0.03, 0.507], [3.575, 0.07, 0.51], [3.566, 0.098, 0.51], [3.564, 0.106, 0.51]]);
+  // le ventilateur : son câble traîne au sol vers le sud, file au pied du mur bas et remonte dans la fiche
+  cable([[0.804, 0.008, 3.222], [0.85, 0.008, 3.248], [0.892, 0.008, 3.42], [0.905, 0.008, 3.63], [0.905, 0.05, 3.66], [0.905, 0.098, 3.664], [0.905, 0.106, 3.664]]);
+  return groupe('branchements', el);
+}
+
+// Un coussin d'assise : un pavé aux arêtes très arrondies, gonflé sur le dessus, froissé (posé par son dessous).
+function coussinAssise([l, h, p], materiau, [x, yBas, z], graine) {
+  const c = tissu([l, h, p], materiau, [0, 0, 0], { r: h * 0.42, froissement: 0.022, graine, divisions: [26, 5, 20] });
+  const pos = c.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const [vx, vy, vz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    const gonfle = (1 - Math.min(1, Math.abs(vx) / (l / 2)) ** 4) * (1 - Math.min(1, Math.abs(vz) / (p / 2)) ** 4);
+    const creux = vy > 0 ? 0.012 * Math.sin(vx * 8.5 + graine) * Math.sin(vz * 7.3 + 2 * graine) + 0.006 * Math.sin(vx * 23 + vz * 17 + graine) : 0;
+    pos.setY(i, vy + ((vy > 0 ? 0.032 : 0.004) * (vy / (h / 2)) + creux) * gonfle);
+  }
+  c.geometry.computeVertexNormals();
+  c.position.set(x, yBas + h / 2, z);
+  return c;
+}
+
+// Un coussin capitonné (les dossiers noirs) : bombé au milieu, les bords et les coins pincés là où la housse est
+// cousue, un capiton au centre de chaque face (le bouton et les plis qui en rayonnent). Construit couché : l en
+// largeur (x), h en épaisseur (y), p en hauteur (z), centré sur l'origine.
+function coussinCapitonne([l, h, p], materiau, bouton, graine) {
+  const geo = new THREE.BoxGeometry(l, h, p, 22, 4, 20);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const [vx, vy, vz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    const nx = Math.abs(vx) / (l / 2);
+    const nz = Math.abs(vz) / (p / 2);
+    // profil en lentille : épais au centre, fin aux coutures (les bords et les coins)
+    const bord = Math.max(nx, nz) ** 2.2 * 0.6 + ((nx ** 2 + nz ** 2) / 2) * 0.4;
+    const bombe = Math.max(0.1, Math.sqrt(Math.max(0, 1 - bord)));
+    const r = Math.hypot(vx, vz);
+    const capiton = 0.62 * Math.exp(-((r / 0.06) ** 2));
+    const plis = 0.007 * Math.sin(5 * Math.atan2(vz, vx) + graine) * Math.exp(-r / 0.13) * Math.min(1, r / 0.03);
+    const ride = 0.002 * Math.sin(vx * 29 + graine) * Math.sin(vz * 23 + 2 * graine);
+    // les bords se creusent entre les coins, qui pointent en oreilles (la housse tirée par les coutures)
+    pos.setXYZ(i, vx * (1 - 0.09 * (1 - nz ** 2)), vy * bombe * (1 - capiton) + Math.sign(vy) * (plis + ride), vz * (1 - 0.09 * (1 - nx ** 2)));
+  }
+  geo.computeVertexNormals();
+  const g = new THREE.Group();
+  g.add(ombres(new THREE.Mesh(geo, materiau)));
+  for (const s of [-1, 1]) g.add(sphere(0.026, bouton, [0, s * (h / 2) * 0.5, 0], { echelle: [1, 0.45, 1] }));
+  return g;
+}
+
+// ===========================================================================================
+// --- Le coin salon du studio, d'après ta photo d'inspiration : un seul meuble en chêne, profond de 66 cm ---
+// À gauche, le meuble à vinyles (92 × 75 cm, sur quatre fins pieds de métal) : une haute case en bas, pleine de
+// vinyles et de magazines debout (tranches surtout blanches, grises et noires, quelques couleurs), une case plus
+// basse au-dessus (une pile de magazines à plat, une petite boîte blanche, un boîtier noir au fond), et dessus le
+// boîtier noir, le grand vase blanc, la boule de verre blanche devant lui et l'enceinte cylindrique à bagues au
+// dessus noir. À droite, le banc-canapé (177 cm) : son plateau épais part du flanc du meuble, qui lui sert
+// d'accoudoir gauche, et finit contre une haute joue à la hauteur du meuble ; il a ses propres pieds. Dessus :
+// deux gros coussins d'assise blancs, gonflés et froissés, qui débordent un peu devant ; deux coussins de dossier
+// noirs capitonnés, penchés contre le mur (sans oreillers aux bouts, retirés à ta demande).
+// Origine : au pied du mur, à la jonction du meuble et du banc ; le meuble vers −x, le banc vers +x, le mur en
+// z = 0, la pièce vers +z. Le bois reçoit ses veines (veinerBois).
+// ===========================================================================================
+function coinSalon() {
+  const m = creerMateriaux();
+  const el = [];
+  const alea = hasard(21);
+  const blanc = m.uni('#f4f2ee');
+  const blancOmbre = m.uni('#ebe8e3');
+  const noirCoussin = mat('cuir-noir', '#3b3945', { roughness: 0.38 });
+  const P = 0.66; // la profondeur commune
+  const tige = (x, z, h, dx) => el.push(barre([x, h, z], [x + dx, 0.004, z], 0.0055, m.metalFonce, 8), cylindre(0.016, 0.004, m.uni('#9aa1a9'), [x + dx, 0, z], { segments: 10 }));
+
+  // ---------- le meuble à vinyles ----------
+  const [LM, HM, PIED] = [0.92, 0.75, 0.12];
+  const xM = -LM / 2;
+  const e = 0.025;
+  const ySol = PIED; // le dessous du caisson
+  const yTab = 0.475; // la tablette
+  el.push(boite([LM, e, P], m.chene, [xM, HM - e, P / 2], { r: 0.003 })); // dessus
+  el.push(boite([LM, e, P], m.chene, [xM, ySol, P / 2], { r: 0.003 })); // dessous
+  for (const sx of [-1, 1]) el.push(boite([e, HM - ySol - 2 * e, P], m.chene, [xM + sx * (LM / 2 - e / 2), ySol + e, P / 2], { r: 0.002 })); // flancs
+  el.push(boite([LM - 2 * e, 0.02, P - 0.012], m.chene, [xM, yTab, P / 2 - 0.006], { r: 0.002 })); // tablette
+  el.push(boite([LM - 2 * e, HM - ySol - 2 * e, 0.01], m.cheneFonce, [xM, ySol + e, 0.005], { r: 0.001 })); // le fond
+  for (const [x, dx] of [[xM - LM / 2 + 0.05, -0.012], [xM + LM / 2 - 0.05, 0.004]]) for (const z of [0.07, P - 0.07]) tige(x, z, ySol, dx);
+  // la case du bas : vinyles et magazines debout, serrés, contre l'avant
+  const tranches = ['#f3f0ea', '#e8e4dd', '#f8f6f1', '#d9d4cc', '#c9c3ba', '#2f2d36', '#45434e', '#b9b4ad', '#efe9e0', '#a8a39d'];
+  const accents = ['#d98b86', '#e3c56f', '#93ad8c', '#8fa2c4', '#c98e6a'];
+  const yCase = ySol + e;
+  const hCase = yTab - yCase;
+  let x = xM - LM / 2 + e + 0.004;
+  while (x < xM + LM / 2 - e - 0.008) {
+    const ep = 0.0035 + alea() * 0.009;
+    const h = hCase - 0.01 - alea() * 0.035;
+    const pr = 0.24 + alea() * 0.07;
+    const coul = alea() < 0.1 ? accents[Math.floor(alea() * accents.length)] : tranches[Math.floor(alea() * tranches.length)];
+    el.push(boite([ep, h, pr], m.uni(coul), [x + ep / 2, yCase, P - 0.02 - pr / 2], { r: 0 }));
+    x += ep + 0.0006;
+  }
+  // la case du haut : la pile de magazines à plat (à gauche), la petite boîte blanche, le boîtier noir au fond
+  const yH = yTab + 0.02;
+  for (let k = 0; k < 11; k++) {
+    const coul = tranches[Math.floor(alea() * 5)];
+    el.push(boite([0.3, 0.0085, 0.23], m.uni(coul), [xM - 0.22 + (alea() - 0.5) * 0.012, yH + k * 0.0088, P - 0.15 + (alea() - 0.5) * 0.01], { r: 0, rot: [0, (alea() - 0.5) * 0.05, 0] }));
+  }
+  el.push(boite([0.045, 0.022, 0.03], m.blanc, [xM + 0.08, yH, P - 0.08], { r: 0.004 }));
+  el.push(boite([0.13, 0.035, 0.09], m.uni('#24222b'), [xM + 0.16, yH, 0.12], { r: 0.006 }));
+  // dessus : le boîtier noir, le grand vase blanc, la boule de verre blanche, l'enceinte cylindrique
+  el.push(boite([0.25, 0.055, 0.17], m.uni('#26242d'), [xM - 0.24, HM, 0.33], { r: 0.006 }));
+  el.push(boite([0.12, 0.004, 0.002], m.uni('#5d5b68'), [xM - 0.27, HM + 0.03, 0.33 + 0.086], { r: 0 })); // sa fente
+  el.push(revolution([[0, 0], [0.034, 0], [0.04, 0.012], [0.042, 0.15], [0.038, 0.2], [0.028, 0.225], [0.022, 0.245], [0.024, 0.255], [0.019, 0.256], [0, 0.256]], blanc, [xM - 0.03, HM, 0.2], 28));
+  el.push(sphere(0.12, mat('verre-opale', '#f7f6f3', { roughness: 0.3 }), [xM - 0.06, HM + 0.06, 0.34]));
+  el.push(cylindre(0.05, 0.006, m.uni('#ecebe8'), [xM - 0.06, HM, 0.34], { segments: 16 }));
+  const xE = xM + 0.12;
+  const zE = 0.32;
+  el.push(cylindre(0.12, 0.165, m.uni('#e9eaec'), [xE, HM, zE], { segments: 32 }));
+  for (const y of [0.045, 0.09, 0.13]) el.push(tore(0.121, 0.0022, m.uni('#a7adb5'), [xE, HM + y, zE], [PI / 2, 0, 0]));
+  el.push(cylindre(0.122, 0.016, m.uni('#2a2832'), [xE, HM + 0.165, zE], { segments: 32 }));
+  el.push(cylindre(0.05, 0.004, m.uni('#3f3d48'), [xE, HM + 0.181, zE], { segments: 20 }));
+
+  // ---------- le banc-canapé ----------
+  const LC = 1.77;
+  const HB = 0.22; // le dessous du plateau
+  const EP = 0.045; // son épaisseur
+  const yP = HB + EP; // le dessus du plateau
+  const EJ = 0.03; // la joue de droite
+  el.push(boite([LC - EJ, EP, P], m.chene, [(LC - EJ) / 2, HB, P / 2], { r: 0.004 })); // le plateau, qui part du flanc du meuble
+  el.push(boite([EJ, HM - HB, P], m.chene, [LC - EJ / 2, HB, P / 2], { r: 0.004 })); // la joue, à la hauteur du meuble
+  for (const [x, dx] of [[0.9, 0], [LC - 0.07, 0.008]]) for (const z of [0.07, P - 0.07]) tige(x, z, HB, dx);
+  // les deux coussins de dossier noirs, penchés contre le mur
+  for (const [k, cx] of [[0, 0.53], [1, 1.21]]) {
+    const g = new THREE.Group();
+    g.add(coussinCapitonne([0.66, 0.26, 0.54], noirCoussin, m.uni('#1d1b24'), 41 + k));
+    g.position.set(cx + (k ? 0.01 : -0.01), yP + 0.27, 0.16);
+    g.rotation.set(-(PI / 2 + 0.24), k ? -0.04 : 0.05, k ? 0.02 : -0.03);
+    el.push(g);
+  }
+  // les deux coussins d'assise, gonflés, qui débordent un peu devant (celui de gauche passe un peu sur l'autre)
+  el.push(coussinAssise([0.86, 0.2, 0.5], blanc, [0.45, yP, P - 0.23], 31));
+  el.push(coussinAssise([0.86, 0.19, 0.5], blancOmbre, [1.29, yP, P - 0.235], 32));
+  return groupe('coin-salon', veinerBois(groupe('', el)));
+}
+
+// ===========================================================================================
+// --- Les deux coffrets (« out box », 20 × 27 × 5 cm) des Season's Greetings 2027 : NMIXX « Mixx on the Road » et
+// TWICE « Spotless », debout sur la planche du haut de l'étagère murale, face à la pièce ---
+// Leurs faces et leurs tranches sont tirées de tes planches (public/textures/sg-*.jpg, collées par le programme sur
+// les maillages nommés « sg-… ») ; comme sur les photos, la tranche est à gauche de la face. Les autres côtés sont
+// de la couleur du carton. Origine : le centre de l'étagère, contre le mur ouest (x = −0,09 : le mur) ; la pièce
+// est vers +x. Le dessus de la planche du haut est à 1,616 m.
+// ===========================================================================================
+function seasonGreetings() {
+  const m = creerMateriaux();
+  const [L, H, E] = [0.2, 0.27, 0.05]; // largeur (z), hauteur, épaisseur (x)
+  const Y = 1.617;
+  const el = [];
+  const coffret = ({ nom, z, rot, carton, tranche }) => {
+    const g = new THREE.Group();
+    g.position.set(-0.031, Y, z); // le dos à 3 mm de la butée de la planche
+    g.rotation.y = rot;
+    g.add(boite([E, H, L], m.uni(carton), [0, 0, 0], { r: 0.0025 }));
+    g.add(boite([E - 0.004, H - 0.004, 0.0006], m.uni(tranche), [0, 0.002, L / 2 - 0.0002], { r: 0 })); // la couleur de la tranche
+    const face = new THREE.PlaneGeometry(L - 0.003, H - 0.003);
+    face.rotateY(PI / 2); // regarde la pièce (+x)
+    const mf = new THREE.Mesh(face, m.uni(carton));
+    mf.name = `sg-${nom}-face`;
+    mf.position.set(E / 2 + 0.0004, H / 2, 0);
+    const dos = new THREE.PlaneGeometry(E - 0.003, H - 0.003); // la tranche, côté +z (à gauche quand on regarde la face)
+    const mt = new THREE.Mesh(dos, m.uni(tranche));
+    mt.name = `sg-${nom}-tranche`;
+    mt.position.set(0, H / 2, L / 2 + 0.0004);
+    mf.receiveShadow = mt.receiveShadow = true;
+    g.add(mf, mt);
+    el.push(g);
+  };
+  coffret({ nom: 'nmixx', z: -0.13, rot: 0.07, carton: '#eeedf1', tranche: '#f5c8d7' });
+  coffret({ nom: 'twice', z: 0.11, rot: -0.05, carton: '#efeeed', tranche: '#f6c4d6' });
+  return groupe('season-greetings', el);
+}
+
+// ===========================================================================================
+// --- Le lecteur CD Moondrop DiscDream 2 Ultra (≈ 145 × 145 × 26 mm, estimé d'après les photos) ---
+// Un carré d'aluminium brossé argenté. Dessus : un cadre plein et des fentes parallèles (de l'avant vers l'arrière)
+// à travers lesquelles on voit le disque ; « MOONDROP DISCDREAM 2 ULTRA » gravé le long du bord gauche. Tranche
+// avant : le petit écran noir et sept boutons carrés. Flanc droit : les sorties 4,4 mm et 3,5 mm, la prise
+// multifonction et l'USB-C. Origine : le centre du dessous ; l'avant vers +z.
+// ===========================================================================================
+function discDream(m) {
+  const [W, H] = [0.145, 0.026];
+  const alu = m.uni('#d5d9de');
+  const aluFonce = m.uni('#b9bec5');
+  const noir = m.uni('#26242c');
+  const el = [];
+  const yH = H; // le dessus
+  el.push(boite([W, H - 0.004, W], alu, [0, 0.0015, 0], { r: 0.003 })); // le corps
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.012, 0.0015, m.noirMat, [sx * 0.055, 0, sz * 0.055], { segments: 10 })); // les pieds
+  // dessous des fentes : le fond sombre et le disque
+  el.push(boite([W - 0.026, 0.001, W - 0.026], noir, [0, yH - 0.0105, 0], { r: 0 }));
+  el.push(cylindre(0.12, 0.0012, m.uni('#3f3d48'), [0, yH - 0.0095, 0.004], { segments: 40 })); // le CD, sombre à travers les fentes (comme sur la photo)
+  el.push(cylindre(0.04, 0.0014, m.uni('#5d5b67'), [0, yH - 0.0095, 0.004], { segments: 24 }));
+  el.push(cylindre(0.015, 0.003, aluFonce, [0, yH - 0.0095, 0.004], { segments: 16 }));
+  // le dessus : le cadre plein, puis les barres entre les fentes
+  const bord = 0.013;
+  const yB = yH - 0.0045;
+  for (const s of [-1, 1]) {
+    el.push(boite([W, 0.0045, bord], alu, [0, yB, s * (W / 2 - bord / 2)], { r: 0.0015 }));
+    el.push(boite([bord, 0.0045, W - 2 * bord], alu, [s * (W / 2 - bord / 2), yB, 0], { r: 0.0015 }));
+  }
+  const n = 17;
+  const zone = W - 2 * bord;
+  const pas = zone / n;
+  for (let k = 0; k < n - 1; k++) el.push(boite([pas * 0.5, 0.0045, zone], alu, [-zone / 2 + pas * (k + 1), yB, 0], { r: 0.0008 })); // des barres moitié moins larges que le pas : des fentes larges
+  // la gravure du bord gauche, et le petit logo du coin
+  el.push(boite([0.0015, 0.0002, 0.06], m.uni('#8f949c'), [-W / 2 + 0.0055, yH, 0.01], { r: 0 }));
+  el.push(boite([0.001, 0.0002, 0.042], m.uni('#a3a8af'), [-W / 2 + 0.009, yH, 0.0], { r: 0 }));
+  el.push(cylindre(0.006, 0.0002, m.uni('#a3a8af'), [-W / 2 + 0.0065, yH, -W / 2 + 0.008], { segments: 12 }));
+  // la tranche avant : l'écran et les sept boutons
+  const zF = W / 2;
+  el.push(boite([0.028, 0.011, 0.001], m.uni('#18171c'), [-W / 2 + 0.024, 0.0075, zF], { r: 0.0005 }));
+  el.push(boite([0.016, 0.004, 0.0004], m.uni('#5f7f86'), [-W / 2 + 0.022, 0.011, zF + 0.0006], { r: 0 })); // l'affichage, éteint
+  for (let k = 0; k < 7; k++) el.push(boite([0.0105, 0.009, 0.0014], aluFonce, [-W / 2 + 0.048 + k * 0.0135, 0.0085, zF], { r: 0.0012 }));
+  // le flanc droit : les prises
+  const xD = W / 2 + 0.0002;
+  for (const [z, d] of [[0.03, 0.0062], [0.012, 0.0048], [-0.004, 0.0048]]) {
+    el.push(cylindre(d + 0.003, 0.0008, aluFonce, [xD, 0.013, z], { rot: [0, 0, PI / 2], centre: true, segments: 14 }));
+    el.push(cylindre(d, 0.0012, m.uni('#121116'), [xD + 0.0002, 0.013, z], { rot: [0, 0, PI / 2], centre: true, segments: 14 }));
+  }
+  el.push(boite([0.0008, 0.0032, 0.009], m.uni('#121116'), [xD, 0.0115, -0.025], { r: 0.0012 })); // USB-C
+  return groupe('objet_lecteur', el);
+}
+
+// ===========================================================================================
+// --- Une enceinte Edifier R1280DB, finition bois (146 × 234 × 196 mm) ---
+// Caisson en MDF plaqué bois (veiné), arêtes adoucies. Façade : le woofer de 4 pouces (cerclage noir à quatre
+// vis, suspension, membrane, cache-noyau), au-dessus le tweeter à dôme de soie sur sa platine ronde à quatre vis
+// (avec sa barre de phase) et l'évent bass-reflex évasé à côté, le logo EDIFIER en bas, quatre vis aux coins.
+// L'active a, sur son flanc droit, le panneau noir en creux avec les molettes des aigus, des graves et du
+// volume, et le voyant vert. Origine : le centre du dessous ; la façade vers +z.
+// ===========================================================================================
+function enceinteEdifier(m, active) {
+  const [W, H, D] = [0.146, 0.234, 0.196];
+  const bois = mat('acajouEdifier', '#93633f');
+  const noir = m.uni('#232228');
+  const noirMat = m.uni('#2e2d35');
+  const vis = m.uni('#6b6a72');
+  const el = [];
+  el.push(boite([W, H, D], bois, [0, 0, 0], { r: 0.005 }));
+  el.push(boite([W - 0.02, 0.006, D - 0.02], m.uni('#5e4029'), [0, -0.003, 0], { r: 0.002 })); // le socle en retrait
+  const zF = D / 2;
+  const disque = (d, ep, materiau, [x, y], z = zF) => cylindre(d, ep, materiau, [x, y, z + ep / 2], { rot: [PI / 2, 0, 0], centre: true, segments: 32 });
+  // le woofer
+  const [xW, yW] = [0, 0.085];
+  el.push(disque(0.128, 0.004, noir, [xW, yW]));
+  el.push(tore(0.1, 0.0065, noirMat, [xW, yW, zF + 0.0045], [0, 0, 0]));
+  el.push(revolution([[0.045, 0.004], [0.032, -0.004], [0.02, -0.012], [0.013, -0.014]].map(([r, h]) => [r, h]).reverse(), m.uni('#3a3842'), [xW, yW, zF + 0.0035], 32).rotateX(PI / 2));
+  el.push(sphere(0.03, m.uni('#2c2b32'), [xW, yW, zF - 0.008], { echelle: [1, 1, 0.55] }));
+  for (let k = 0; k < 4; k++) {
+    const a = PI / 4 + (k * PI) / 2;
+    el.push(disque(0.006, 0.002, vis, [xW + 0.057 * Math.cos(a), yW + 0.057 * Math.sin(a)], zF + 0.004));
+  }
+  // le tweeter, sa platine et sa barre de phase
+  const [xT, yT] = [-0.03, 0.188];
+  el.push(disque(0.07, 0.004, noir, [xT, yT]));
+  el.push(disque(0.03, 0.003, noirMat, [xT, yT], zF + 0.004));
+  el.push(sphere(0.022, m.uni('#3b3a43'), [xT, yT, zF + 0.007], { echelle: [1, 1, 0.5] }));
+  el.push(boite([0.0025, 0.03, 0.003], m.uni('#55545d'), [xT, yT - 0.015, zF + 0.009], { r: 0.0008 }));
+  for (let k = 0; k < 4; k++) {
+    const a = PI / 4 + (k * PI) / 2;
+    el.push(disque(0.005, 0.002, vis, [xT + 0.027 * Math.cos(a), yT + 0.027 * Math.sin(a)], zF + 0.004));
+  }
+  // l'évent bass-reflex, évasé
+  el.push(disque(0.044, 0.003, noir, [0.038, 0.19]));
+  el.push(disque(0.034, 0.0035, m.uni('#0d0c10'), [0.038, 0.19], zF + 0.0002));
+  // le logo et les vis des coins
+  el.push(boite([0.032, 0.005, 0.0008], m.uni('#c9ccd1'), [0, 0.016, zF], { r: 0.0005 }));
+  for (const sx of [-1, 1]) for (const y of [0.012, H - 0.012]) el.push(disque(0.006, 0.0015, vis, [sx * (W / 2 - 0.012), y]));
+  if (active) {
+    // le panneau de commande en creux, sur le flanc droit, près de l'avant
+    const xP = W / 2 + 0.0005;
+    const zP = D / 2 - 0.05;
+    el.push(boite([0.002, 0.13, 0.058], noir, [xP - 0.0005, 0.085, zP], { r: 0.003 }));
+    for (const [y, d] of [[0.19, 0.021], [0.155, 0.021], [0.118, 0.024]]) {
+      el.push(cylindre(d, 0.011, m.uni('#2b2a31'), [xP + 0.0055, y, zP], { rot: [0, 0, PI / 2], centre: true, segments: 20 }));
+      el.push(cylindre(d * 0.75, 0.0012, m.uni('#3d3c45'), [xP + 0.0115, y, zP], { rot: [0, 0, PI / 2], centre: true, segments: 18 }));
+      el.push(boite([0.0008, 0.006, 0.0012], m.uni('#cfd0d4'), [xP + 0.012, y + d * 0.25, zP], { r: 0 })); // le repère
+    }
+    el.push(sphere(0.003, mat('voyant-vert', '#7fe08a', { emissive: '#5fd16d', emissiveIntensity: 1.2 }), [xP + 0.001, 0.1, zP]));
+  }
+  return veinerBois(groupe(active ? 'enceinte-active' : 'enceinte-passive', el));
+}
+
+// ===========================================================================================
+// --- Le meuble hi-fi : un bureau bas de rangement en chêne (80 × 38 cm, dessus à 50 cm), dans le style du bureau bas
+// (lames, veines, pieds fins, ceinture), avec une tablette basse où sont présentés cinq vinyles, pochettes face à la pièce. Dessus : les deux
+// enceintes Edifier R1280DB aux bouts, l'active à droite (son panneau de commande vers l'extérieur), le lecteur
+// DiscDream 2 Ultra au milieu, relié à l'enceinte active ; le câble des enceintes passe derrière.
+// Origine : le centre du meuble au sol ; l'avant vers +z, le mur derrière (−z).
+// ===========================================================================================
+function meubleHifi() {
+  const m = creerMateriaux();
+  const [L, P, T] = [0.8, 0.38, 0.5];
+  const parts = structureBois(m, { L, P, T, ep: 0.028, lames: 3, noeuds: [[0.22, -0.05, 0.4, 0.9]], graine: 17 });
+  const alea = hasard(9);
+  // la tablette basse, entre les pieds, posée sur les traverses (assez bas pour qu'une pochette de 31,5 cm tienne
+  // debout dessous le plateau), et les vinyles présentés face à la pièce, en éventail, appuyés vers l'arrière :
+  // chacun un peu devant et à droite du précédent, celui de devant entier. Leurs pochettes sont des maillages nommés
+  // (« vinyle-… ») : le programme y colle l'image (public/textures/vinyle-*.jpg).
+  const px = L / 2 - 0.06;
+  const yTab = 0.07;
+  parts.push(boite([2 * px - 0.045, 0.018, P - 0.07], m.uni(CHENE.tons[2]), [0, yTab, 0], { r: 0.002 }));
+  const pochettes = ['yeonjun', 'machine', 'sphere', 'cortis', 'chuu']; // du fond vers l'avant
+  const C = 0.315;
+  pochettes.forEach((nom, k) => {
+    const g = new THREE.Group();
+    g.position.set(-0.16 + k * 0.08, yTab + 0.018, -0.118 + k * 0.012);
+    g.rotation.x = -0.1; // appuyée vers l'arrière
+    g.rotation.y = (k % 2 ? 1 : -1) * 0.02;
+    g.add(boite([C, C, 0.004], m.uni(nom === 'yeonjun' ? '#f1f0ee' : '#1f1e24'), [0, 0, 0], { r: 0.001 }));
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(C - 0.002, C - 0.002), m.uni('#d8d2cc'));
+    face.name = `vinyle-${nom}`;
+    face.position.set(0, C / 2, 0.0024);
+    face.receiveShadow = true;
+    g.add(face);
+    parts.push(g);
+  });
+  // dessus : les enceintes et le lecteur
+  const yD = T + 0.001; // au-dessus des veines du plateau
+  const gauche = enceinteEdifier(m, false);
+  gauche.position.set(-L / 2 + 0.085, yD, -0.03);
+  gauche.rotation.y = 0.12;
+  const droite = enceinteEdifier(m, true);
+  droite.position.set(L / 2 - 0.085, yD, -0.03);
+  droite.rotation.y = -0.12;
+  const lecteur = discDream(m);
+  lecteur.position.set(0, yD, 0.03);
+  lecteur.rotation.y = -0.1;
+  parts.push(gauche, droite, lecteur);
+  // les câbles : du lecteur (flanc droit) au dos de l'enceinte active, et d'une enceinte à l'autre par derrière.
+  // Leurs bouts sont pris au dos des enceintes (à 6 cm du bas), et chaque point de la courbe est relevé au-dessus du
+  // plateau : sinon la courbe plonge entre ses points et traverse le meuble.
+  gauche.updateMatrix();
+  droite.updateMatrix();
+  const dos = (enceinte, dx) => new THREE.Vector3(dx, 0.06, -0.098 - 0.002).applyMatrix4(enceinte.matrix);
+  const derriere = (v, d) => v.clone().add(new THREE.Vector3(0, -0.055, -d));
+  const poser = (pts, r, materiau) => {
+    const courbe = new THREE.CatmullRomCurve3(pts.map((p) => (Array.isArray(p) ? new THREE.Vector3(...p) : p)));
+    const posee = courbe.getSpacedPoints(80).map((q) => {
+      q.y = Math.max(q.y, yD + r + 0.0006);
+      return q;
+    });
+    parts.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(posee), 140, r, 6), materiau)));
+  };
+  const dosD = dos(droite, -0.03);
+  poser([[0.0755, yD + 0.013, 0.04], [0.09, yD + 0.006, 0.03], [0.12, yD + 0.003, -0.06], [0.2, yD + 0.003, -0.15], derriere(dosD, 0.01), dosD], 0.0024, m.uni('#2a2830'));
+  const dosG = dos(gauche, 0.03);
+  const dosD2 = dos(droite, 0.03);
+  poser([dosG, derriere(dosG, 0.012), [-0.15, yD, -0.168], [0.15, yD, -0.168], derriere(dosD2, 0.012), dosD2], 0.0018, m.uni('#7b4a3a'));
+  return groupe('meuble-hifi', parts);
 }
 
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
 const fabrique = (f) => () => fusionner(f());
 export const modelesReve = {
-  bibliotheque: fabrique(bibliotheque),
   tapis: fabrique(tapis),
   plante: fabrique(plante),
   'bureau-bas': fabrique(bureauBas),
@@ -1494,4 +1730,8 @@ export const modelesReve = {
   tolomeo: fabrique(tolomeo),
   tasse: fabrique(tasse),
   bandana: fabrique(bandana),
+  branchements: fabrique(branchements),
+  'coin-salon': fabrique(coinSalon),
+  'season-greetings': fabrique(seasonGreetings),
+  'meuble-hifi': fabrique(meubleHifi),
 };

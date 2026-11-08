@@ -265,6 +265,114 @@ export function grille(rayon, materiau, [x, y, z], { anneaux = [1, 0.62, 0.25], 
   return g;
 }
 
+// pseudo-hasard reproductible (les mêmes veines à chaque export)
+function hasard(graine) {
+  let s = graine;
+  return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
+}
+
+// Les veines du bois, sans texture (comme tout le site : de la géométrie en couleur unie) : de fines lignes un
+// peu plus foncées ou plus claires que le bois, qui ondulent le long du fil et s'effilent aux deux bouts, posées à
+// fleur d'une face (0,4 mm devant).
+//   centre : le centre de la face ; u : le sens du fil, v : l'autre axe de la face (u × v = la normale, vers
+//   l'extérieur) ; U, V : les demi-longueurs de la face selon u et v ; nb : nombre de veines ;
+//   materiaux : les couleurs possibles, prises au hasard ; graine : le tirage (le même à chaque export).
+export function veines({ centre, u, v, U, V, nb, materiaux, graine, largeur = 0.0017, pas = 0.02 }) {
+  const alea = hasard(graine);
+  const eu = new THREE.Vector3(...u);
+  const ev = new THREE.Vector3(...v);
+  const en = new THREE.Vector3().crossVectors(eu, ev);
+  const c = new THREE.Vector3(...centre).addScaledVector(en, 0.0004);
+  const sortie = [];
+  for (let k = 0; k < nb; k++) {
+    const v0 = (alea() * 2 - 1) * V * 0.8;
+    const u0 = -U + alea() * U * 0.7; // une veine ne court pas toujours d'un bout à l'autre
+    const u1 = U - alea() * U * 0.7;
+    const amp = (0.3 + alea() * 0.7) * Math.min(V * 0.2, 0.008);
+    const f = 4 + alea() * 6;
+    const ph = alea() * 6.28;
+    const w = largeur * (0.6 + alea() * 0.8);
+    const n = Math.max(6, Math.round((u1 - u0) / pas));
+    const pos = [];
+    const idx = [];
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      const uu = u0 + (u1 - u0) * t;
+      const vv = THREE.MathUtils.clamp(v0 + amp * Math.sin(f * uu + ph) + amp * 0.35 * Math.sin(2.7 * f * uu + 1.3 * ph), -V, V);
+      const demi = (w / 2) * Math.sqrt(Math.sin(Math.PI * t)); // s'effile aux deux bouts
+      for (const s of [-1, 1]) {
+        const p = c.clone().addScaledVector(eu, uu).addScaledVector(ev, vv + s * demi);
+        pos.push(p.x, p.y, p.z);
+      }
+      if (i < n) idx.push(2 * i, 2 * i + 2, 2 * i + 1, 2 * i + 1, 2 * i + 2, 2 * i + 3);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, materiaux[Math.floor(alea() * materiaux.length)]);
+    mesh.receiveShadow = true;
+    sortie.push(mesh);
+  }
+  return sortie;
+}
+
+// Ajoute des veines à toutes les pièces en bois d'un modèle (les boîtes dont le matériau est un bois : chêne,
+// commode, bouleau, acajou, bois flotté), sur chacune de leurs grandes faces, dans le sens de leur plus grande
+// longueur. Les veines sont des enfants du même parent que la pièce : elles suivent une porte qui pivote.
+const BOIS = /^(chene|commode|bouleau|acajou|boisFlotte)/;
+export function veinerBois(racine) {
+  racine.updateMatrixWorld(true); // la matrice de chaque pièce (sa position dans son parent) doit être à jour
+  const ajouts = [];
+  const couleurs = new Map();
+  const tons = (materiau) => {
+    if (!couleurs.has(materiau)) {
+      const fait = (k, suffixe) => {
+        const mt = new THREE.MeshStandardMaterial({ color: materiau.color.clone().multiplyScalar(k), roughness: 0.9, metalness: 0 });
+        mt.name = `${materiau.name}-${suffixe}`;
+        return mt;
+      };
+      couleurs.set(materiau, [fait(0.8, 'veine'), fait(0.86, 'veine2'), fait(1.08, 'veine3')]);
+    }
+    return couleurs.get(materiau);
+  };
+  let graine = 7;
+  racine.traverse((o) => {
+    if (!o.isMesh || !BOIS.test(o.material?.name ?? '')) return;
+    if (!/Box/.test(o.geometry.type)) return; // seulement les boîtes
+    // les dimensions réelles (les boîtes arrondies annoncent 1 × 1 × 1 dans leurs paramètres)
+    o.geometry.computeBoundingBox();
+    const [L, H, P] = o.geometry.boundingBox.getSize(new THREE.Vector3()).toArray();
+    const mats = tons(o.material);
+    // les six faces : [normale, demi-épaisseur, axes de la face (a, b) et leurs demi-longueurs]
+    const faces = [
+      [[0, 1, 0], H / 2, [1, 0, 0], L / 2, [0, 0, -1], P / 2],
+      [[0, -1, 0], H / 2, [1, 0, 0], L / 2, [0, 0, 1], P / 2],
+      [[0, 0, 1], P / 2, [1, 0, 0], L / 2, [0, 1, 0], H / 2],
+      [[0, 0, -1], P / 2, [-1, 0, 0], L / 2, [0, 1, 0], H / 2],
+      [[1, 0, 0], L / 2, [0, 0, -1], P / 2, [0, 1, 0], H / 2],
+      [[-1, 0, 0], L / 2, [0, 0, 1], P / 2, [0, 1, 0], H / 2],
+    ];
+    for (const [n, e, a, A, b, B] of faces) {
+      if (n[1] < 0) continue; // le dessous ne se voit pas
+      if (A * B * 4 < 0.0015 || Math.min(A, B) < 0.008) continue; // trop petite
+      // le fil suit la plus grande longueur de la face ; (u, v) direct par rapport à la normale
+      let [u, U, v, V] = A >= B ? [a, A, b, B] : [b, B, a, A];
+      const cu = new THREE.Vector3(...u).cross(new THREE.Vector3(...v));
+      if (cu.dot(new THREE.Vector3(...n)) < 0) v = v.map((x) => -x);
+      const nb = Math.max(1, Math.min(10, Math.round((B * 2) / 0.035))); // une veine tous les 3,5 cm en travers du fil
+      const centre = n.map((x) => x * e);
+      for (const mv of veines({ centre, u, v, U: U - 0.008, V: V - 0.004, nb, materiaux: mats, graine: graine++, largeur: 0.0019, pas: 0.045 })) {
+        mv.geometry.applyMatrix4(o.matrix);
+        ajouts.push([o.parent, mv]);
+      }
+    }
+  });
+  for (const [parent, mv] of ajouts) parent.add(mv);
+  return racine;
+}
+
 // --- Fusion : un seul maillage par matériau ---
 // Les maillages qui ont un nom (par exemple « ecran ») restent séparés : le programme
 // les retrouve par leur nom.

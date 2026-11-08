@@ -1271,6 +1271,20 @@ const matsEcrans = Object.fromEntries(
     return [nom, materiau];
   }),
 );
+// les photocards NMIXX du bureau bas : leur image, à peine brillante
+for (const nom of ['pola1', 'pola2', 'pola3', 'carte']) {
+  matsEcrans[`photocard-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/pc-${nom}.jpg`), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+  // la carte elle-même : devant l'image du tapis (−2), derrière sa photo (−6)
+  matsEcrans[`carte-${nom}`] = new THREE.MeshStandardMaterial({ color: '#f8f7f3', roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+}
+// les coffrets des Season's Greetings sur l'étagère murale : leur face et leur tranche imprimées
+for (const nom of ['nmixx-face', 'nmixx-tranche', 'twice-face', 'twice-tranche']) {
+  matsEcrans[`sg-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/sg-${nom}.jpg`), roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
+// les pochettes des vinyles du meuble hi-fi
+for (const nom of ['yeonjun', 'machine', 'sphere', 'cortis', 'chuu']) {
+  matsEcrans[`vinyle-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/vinyle-${nom}.jpg`), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
 // et le tapis de souris du bureau bas : son image imprimée, mate
 // le bandana du Season's Greetings de NMIXX, sous la tasse : son imprimé, sur un tissu mat
 matsEcrans['imprime-bandana'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/bandana-mixx.jpg'), roughness: 0.85 });
@@ -1372,8 +1386,9 @@ const decorsPiece = reve
       return d.mur === 'nord' ? { ...d, mur: 'est', s: 0.38 } : d;
     })
   : decors;
-// les neuf portraits, centrés au-dessus de la bibliothèque basse (centre en z = −1,35 : la colonne du milieu y est)
-const photosPiece = reve ? photosMur.map((g) => (g.mur === 'nord' ? { ...g, mur: 'est', s0: -1.35 - g.pas[0] } : g)).concat(agencementReve.photos ?? []) : photosMur;
+// les neuf portraits, centrés au-dessus du canapé du coin salon (son assise est centrée en z = −0,88 : la colonne
+// du milieu y est)
+const photosPiece = reve ? photosMur.map((g) => (g.mur === 'nord' ? { ...g, mur: 'est', s0: -0.88 - g.pas[0] } : g)).concat(agencementReve.photos ?? []) : photosMur;
 
 // La disposition de la chambre de rêve (agencementReve, dans chambre.js) : certains meubles changent de
 // place, et ce qui les accompagne les suit (la chaise, le contenu de la vitrine, la lumière du lampadaire, la
@@ -2041,6 +2056,7 @@ for (const m of meublesPiece) {
             for (const [objet, nom, description] of [
               ['objet_clavier', 'Clavier MelGeek VIVA63 HE', 'Le clavier MelGeek VIVA63 HE, coloris « Proto » : boîtier transparent, touches noires au profil MCR, Échap et Entrée jaunes, molette, écran OLED tactile et lumière RGB sur trois côtés. Branché en USB-C au ThinkPad.'],
               ['objet_souris', 'Souris Logitech G PRO 2 LIGHTSPEED', 'La souris Logitech G PRO 2 LIGHTSPEED noire, sans fil : symétrique, molette crantée, boutons latéraux côté pouce.'],
+              ['objet_photocards', 'Photocards NMIXX', 'Des photocards du Season’s Greetings 2027 de NMIXX, « Mixx on the Road », éparpillées dans le coin du bureau : trois polaroids et une photocard aux coins arrondis.'],
               ['objet_tapis', 'Tapis de souris', 'Le grand tapis de souris noir à pivoines blanches, bordure cousue, sous le clavier et la souris.'],
             ]) {
               const o = groupe.getObjectByName(objet);
@@ -2250,21 +2266,102 @@ for (const i of interrupteursPiece) {
     lampes: lampes.filter((l) => (i.lumieres ?? []).includes(l.nom)),
   };
 }
-const estAllume = (id) => commandes[id].manuel ?? (commandes[id].tv ? false : nuit > 0.5);
+const estAllume = (id) => commandes[id].manuel ?? (commandes[id].tv || commandes[id].rideau ? false : nuit > 0.5);
 const basculer = (id) => {
   const c = commandes[id];
   c.manuel = !estAllume(id);
   if (c.tv) sons.tv(c.manuel);
+  else if (c.rideau) sons.store(c.manuel);
   else sons.interrupteur(c.manuel);
 };
 const toutAuto = () => {
-  for (const c of Object.values(commandes)) c.manuel = null;
+  for (const c of Object.values(commandes)) if (!c.rideau) c.manuel = null; // le rideau n'est pas une lumière
 };
+
+// --- Le rideau de la chambre de rêve (agencementReve.rideau) ---
+// Un voilage crème : une surface verticale ondulée (les plis), accrochée à un rail au plafond par de petits
+// glisseurs. Quand il se ferme, il s'étire vers le mur ouest et ses plis s'ouvrent ; ouvert, il est ramassé contre
+// le lampadaire, les plis serrés et profonds. `fermer(f)` le pose (0 = ouvert, 1 = fermé) ; la commande « rideau »
+// l'anime (voir majLumieres). Un clic dessus l'ouvre ou le ferme.
+const rideau = (() => {
+  const R = reve && agencementReve.rideau;
+  if (!R) return null;
+  const g = new THREE.Group();
+  racine.add(g);
+  const mat = new THREE.MeshStandardMaterial({ color: R.couleur, roughness: 0.95, side: THREE.DoubleSide });
+  const alu = new THREE.MeshStandardMaterial({ color: '#d3d8dd', roughness: 0.45, metalness: 0.3 });
+  // le rail et ses deux embouts
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(R.x1 - R.x0 + 0.04, 0.012, 0.022), alu);
+  rail.position.set((R.x0 + R.x1) / 2, R.haut + 0.006, R.z);
+  // le rail est fixé au plafond : il s'efface avec lui quand on regarde la pièce de l'extérieur
+  accrocher(['ouest', 'est', 'sud', 'nordFond'], rail, { ecraser: false, fondu: FONDU_PERMANENT, large: true, facteur: facteurPlafond });
+  const [nU, nV] = [R.plis * 6, 26];
+  const yBas = 0.012;
+  const yHaut = R.haut - 0.022;
+  const geo = new THREE.PlaneGeometry(1, 1, nU, nV);
+  const pos = geo.attributes.position;
+  // les coordonnées d'origine de chaque sommet (u le long du rail, v en hauteur, de 0 à 1), gardées à part : on
+  // déplace les sommets à chaque image, il ne faut pas relire les positions déjà déplacées
+  const U = Float32Array.from({ length: pos.count }, (_, i) => pos.getX(i) + 0.5);
+  const V = Float32Array.from({ length: pos.count }, (_, i) => pos.getY(i) + 0.5);
+  const toile = new THREE.Mesh(geo, mat);
+  toile.castShadow = true;
+  toile.receiveShadow = false; // il s'ombrerait lui-même pli par pli (un moiré en zigzag)
+  g.add(toile);
+  // un glisseur par pli, sur le rail
+  const geoGlisseur = new THREE.CylinderGeometry(0.006, 0.006, 0.016, 8);
+  const glisseurs = Array.from({ length: R.plis + 1 }, () => {
+    const m = new THREE.Mesh(geoGlisseur, alu);
+    g.add(m);
+    return m;
+  });
+  const longueur = R.x1 - R.x0;
+  let dernier = -1;
+  function fermer(f) {
+    if (Math.abs(f - dernier) < 1e-4) return; // rien n'a bougé
+    dernier = f;
+    const largeur = R.ouvert + (longueur - R.ouvert) * f; // la largeur occupée sur le rail
+    const xDebut = R.x1 - largeur; // le bord libre, côté mur ouest
+    const serre = 1 - (largeur - R.ouvert) / (longueur - R.ouvert); // 1 = ramassé, 0 = étiré
+    const amp = 0.012 + 0.024 * serre; // la profondeur des plis
+    for (let i = 0; i < pos.count; i++) {
+      const u = U[i]; // 0 : bord libre, 1 : contre le mur est
+      const v = V[i]; // 0 : en bas, 1 : en haut
+      const a = u * R.plis * 2 * Math.PI;
+      // les plis s'évasent un peu vers le bas, et l'ourlet ondule à peine
+      const evase = 1 + 0.25 * (1 - v);
+      const irreg = 1 + 0.3 * Math.sin(a * 0.37 + 1.1) * Math.sin(a * 0.11); // des plis un peu inégaux
+      const z = R.z + amp * irreg * evase * Math.sin(a + 0.25 * Math.sin(a * 0.23)) + 0.004 * Math.sin(a * 0.5 + v * 3);
+      const y = yBas + v * (yHaut - yBas) + (v < 0.02 ? 0.006 * Math.sin(a) : 0);
+      pos.setXYZ(i, xDebut + u * largeur, y, z);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    glisseurs.forEach((m, k) => m.position.set(xDebut + (k / R.plis) * largeur, R.haut - 0.012, R.z));
+  }
+  fermer(0);
+  const info = {
+    nom: 'rideau',
+    description: 'Le voilage crème qui sépare la chambre en deux, sur la ligne de l’ancien mur. Clique dessus (ou sur « Rideau ») pour l’ouvrir ou le fermer.',
+    groupe: g,
+    sansRecentrage: true,
+    auClic: () => basculer('rideau'),
+  };
+  g.userData.info = info;
+  toile.userData.info = info;
+  cliquables.push(info);
+  return { fermer };
+})();
 
 function majLumieres(dt) {
   for (const c of Object.values(commandes)) {
-    const cible = c.manuel === null ? (c.tv ? 0 : nuit) : c.manuel ? 1 : 0;
-    c.niveau += (cible - c.niveau) * Math.min(1, dt * 6);
+    const cible = c.manuel === null ? (c.tv || c.rideau ? 0 : nuit) : c.manuel ? 1 : 0;
+    c.niveau += (cible - c.niveau) * Math.min(1, dt * (c.vitesse ?? 6));
+    if (c.rideau) {
+      rideau?.fermer(c.niveau);
+      continue;
+    }
     const halo = c.niveau * (0.35 + 0.65 * nuit); // discret en plein jour, bien visible la nuit
     for (const l of c.lampes) {
       for (const lu of l.lumieres) lu.intensity = l.intensite * c.niveau;

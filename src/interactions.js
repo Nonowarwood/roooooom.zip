@@ -566,7 +566,7 @@ export function initialiserInteractions({
       for (const [id, b] of boutonsLumieres) b.classList.toggle('actif', estAllume(id));
       majActionsFiche(); // « Allumer » / « Éteindre » suit l'interrupteur
     }
-    bAuto.classList.toggle('actif', Object.values(commandes).every((c) => c.manuel === null));
+    bAuto.classList.toggle('actif', Object.values(commandes).every((c) => c.rideau || c.manuel === null));
   }
 
   // le mode du petit bonhomme prend la main sur la caméra et sur les clics

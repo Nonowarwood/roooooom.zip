@@ -82,12 +82,17 @@ export const agencementReve = {
       rotation: 0,
       description: 'Bureau en bouleau clair avec un plateau de verre, sous la fenêtre de la lucarne : on travaille face à la pièce, la lumière du jour dans le dos. Dessous, la boîte d’archives Lyreco et le panier « Flower Shop ».',
     },
+    // près du poteau de la charpente (qui finit en z = −2,48), à 11 cm de lui : ça libère le mur ouest entre elle
+    // et la porte
     vitrine: {
-      pos: [0.18, -1.55],
+      pos: [0.18, -2.14],
       rotation: Math.PI / 2,
-      description: 'Vitrine à quatre étagères de verre, contre le mur ouest du studio, entre la porte et la charpente.',
+      description: 'Vitrine à quatre étagères de verre, contre le mur ouest du studio, près de la charpente.',
     },
-    lampadaire: { pos: [3.3, 0.22] },
+    // tourné d'un quart de tour : la liseuse éclaire vers la commode et le lit (droite, elle rentrait dans le mur)
+    // et son câble arrive au pied du mur est, où est sa prise
+    // (et reculé vers la commode, pour que le rideau replié puisse se coller au mur est)
+    lampadaire: { pos: [3.3, 0.38], rotation: -Math.PI / 2 },
     // à gauche de la TV (vu du lit), entre son coffre et la charpente, tourné vers le lit
     'ventilateur sur pied': {
       pos: [0.4, 3.0],
@@ -97,12 +102,17 @@ export const agencementReve = {
   },
   nouveaux: [
     {
-      nom: 'bibliothèque basse',
-      glb: '/models/bibliotheque.glb', ajuster: false,
-      description: 'Étagère à huit cases blanche (147 × 77 × 39 cm) contre le mur est, sous les neuf portraits. En bas : deux boîtes en tissu (lilas, vert sauge), un panier en osier avec un plaid crème et une pile de magazines. En haut : des albums, un cadre photo, un pothos dans un pot en terre cuite qui retombe, des classeurs de photocards et une petite enceinte. Dessus : une lampe champignon, deux livres et une bougie.',
-      pos: [3.395, -1.35],
+      // à la place de l'ancienne bibliothèque basse, contre le mur est du studio, sous les neuf portraits :
+      // le meuble à vinyles au nord, le banc-canapé au sud (l'origine est au pied du mur, entre les deux)
+      nom: 'coin salon',
+      glb: '/models/coin-salon.glb', ajuster: false,
+      description: 'Le coin salon, d’après ta photo d’inspiration : un seul meuble en chêne. Le meuble à vinyles (vinyles et magazines, boîtier noir, vase, boule de verre, enceinte) et le banc-canapé qui part de son flanc jusqu’à une haute joue, avec deux gros coussins blancs et deux coussins de dossier noirs capitonnés.',
+      pos: [3.6, -1.75],
       rotation: -Math.PI / 2,
-      parties: [{ taille: [1.47, 0.77, 0.39], pos: [0, 0, 0], couleur: '#f2f0ea' }],
+      parties: [
+        { taille: [0.92, 0.75, 0.66], pos: [-0.46, 0, 0.33], couleur: '#e3c08f' }, // le meuble à vinyles
+        { taille: [1.77, 0.49, 0.66], pos: [0.885, 0, 0.33], couleur: '#f4f2ee' }, // le banc-canapé et son assise
+      ],
     },
     {
       nom: 'tapis rond',
@@ -174,13 +184,43 @@ export const agencementReve = {
       ],
     },
     {
-      // plié en deux sous la tasse, il passe par-dessus le bord avant du retour (x = 0,73) et pend vers la pièce ;
-      // son origine est ce bord, au milieu du tissu
+      // plié petit, de biais, sous la tasse ; son origine est son milieu
       nom: 'bandana NMIXX « Mixx on the Road »',
       glb: '/models/bandana.glb', ajuster: false,
-      description: 'Le bandana (65 × 65 cm) du Season’s Greetings 2027 de NMIXX, « Mixx on the Road » : plié en quatre sous la tasse, avec son grand emblème sur le dessus.',
-      pos: [0.7, 1.575],
-      parties: [{ taille: [0.325, 0.003, 0.32], pos: [-0.1625, 0.34, 0], couleur: '#e8dfe4' }],
+      description: 'Le bandana (65 × 65 cm) du Season’s Greetings 2027 de NMIXX, « Mixx on the Road » : plié petit et posé de biais sous la tasse, la plaque « 22.2.22 » sur le dessus.',
+      pos: [0.55, 1.585],
+      rotation: 0.45, // posé de biais
+      parties: [{ taille: [0.26, 0.003, 0.26], pos: [0, 0.34, 0], couleur: '#e8dfe4' }],
+    },
+    {
+      // contre le mur ouest du studio, entre la vitrine et la porte ; l'avant vers la pièce
+      nom: 'meuble hi-fi',
+      glb: '/models/meuble-hifi.glb', ajuster: false,
+      description: 'Un meuble bas en chêne, dans le style du bureau bas. Sur sa tablette, cinq vinyles présentés en éventail : CORTIS « GREENGREEN », Chuu « XO, My Cyberlove », YEONJUN « NO LABELS » et deux autres pochettes. Dessus : le lecteur CD Moondrop DiscDream 2 Ultra en aluminium brossé, entre les deux enceintes Edifier R1280DB en bois (l’active à droite, avec ses molettes).',
+      pos: [0.2, -1.47],
+      rotation: Math.PI / 2,
+      parties: [
+        { taille: [0.8, 0.5, 0.38], pos: [0, 0, 0], couleur: '#e3c08f' }, // le meuble
+        { taille: [0.146, 0.234, 0.196], pos: [-0.315, 0.5, -0.03], couleur: '#93633f' }, // les enceintes
+        { taille: [0.146, 0.234, 0.196], pos: [0.315, 0.5, -0.03], couleur: '#93633f' },
+      ],
+    },
+    {
+      // sur la planche du haut de l'étagère murale (au-dessus de la TV) ; tombent avec le mur ouest, comme elle
+      nom: 'coffrets Season’s Greetings',
+      glb: '/models/season-greetings.glb', ajuster: false,
+      mur: 'ouest',
+      description: 'Les deux coffrets des Season’s Greetings 2027, debout sur l’étagère : NMIXX « Mixx on the Road » (satin blanc, strass roses) et TWICE « Spotless » (bulles et lettres roses).',
+      pos: [0.09, 2.06],
+      parties: [],
+    },
+    {
+      // les prises murales et les câbles qui y mènent (modèle en coordonnées de la pièce)
+      nom: 'prises',
+      glb: '/models/branchements.glb', ajuster: false,
+      description: 'Les prises au ras du sol : celle du lampadaire au mur est, celle du ventilateur au mur bas, celle de la Tolomeo derrière le retour. Chaque câble finit dans sa fiche.',
+      pos: [0, 0],
+      parties: [],
     },
     {
       // sur le retour, devant la Tolomeo (côté pièce), l'anse tournée vers le siège
@@ -239,9 +279,26 @@ export const agencementReve = {
         { fichier: '/photos/reve/b3.jpg', s: 0.73, y: 1.3, taille: [0.28, 0.35] },
       ],
     },
+    {
+      // au-dessus des enceintes du meuble hi-fi (centré sur lui, z = −1,47)
+      mur: 'ouest',
+      nom: 'poster « study in china »',
+      description: 'Le petit poster au chat zen « 留学在中国 / study in china », au papier déchiré sur le côté, avec son autocollant Kodak Gold, scotché au-dessus des enceintes.',
+      posters: [{ fichier: '/photos/reve/study-in-china.jpg', s: -1.47, y: 1.2, taille: [0.3, 0.424] }],
+    },
   ],
-  // et leurs boutons (même format que `interrupteurs` plus bas)
-  interrupteurs: [{ id: 'tolomeo', label: 'Lampe de bureau', lumieres: ['lampe Tolomeo'] }],
+  // et leurs boutons (même format que `interrupteurs` plus bas) ; `rideau: true` = le bouton ouvre ou ferme le rideau
+  // (allumé = fermé), `vitesse` = la vitesse du fondu (6 par défaut)
+  interrupteurs: [
+    { id: 'tolomeo', label: 'Lampe de bureau', lumieres: ['lampe Tolomeo'] },
+    { id: 'rideau', label: 'Rideau', rideau: true, vitesse: 1.3 },
+  ],
+  // Le rideau qui sépare la pièce en deux, sur la ligne de l'ancien mur : un voilage crème suspendu à un rail au
+  // plafond, du mur ouest (le long du bord du bureau bas) jusqu'au mur est. Ouvert, il est ramassé en plis serrés
+  // contre le mur est, comme ancré dans le mur d'origine ; fermé, il court jusqu'au mur ouest.
+  //   z : la ligne du rail ; x0, x1 : ses bouts ; haut : sa hauteur ; ouvert : la largeur du rideau ramassé ;
+  //   plis : leur nombre
+  rideau: { z: 0.12, x0: 0.02, x1: 3.588, haut: 2.385, ouvert: 0.34, plis: 34, couleur: '#f3ead9' },
 };
 
 // Velux dans la pente, d'après tes photos. Le cadre est posé dans le plan extérieur du toit, le haut du cadre
