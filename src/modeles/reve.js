@@ -1897,33 +1897,44 @@ function drapeau() {
 // ===========================================================================================
 function discDream(m) {
   const [W, H] = [0.145, 0.026];
-  const alu = m.uni('#d5d9de');
+  const alu = mat('alu-moondrop', '#e4e7eb', { roughness: 0.42, metalness: 0.12 }); // l'aluminium poli, clair et satiné
   const aluFonce = m.uni('#b9bec5');
-  const noir = m.uni('#26242c');
+  const noir = m.uni('#16151a'); // l'intérieur, presque noir : les fentes ressortent comme sur les photos
   const el = [];
   const yH = H; // le dessus
-  el.push(boite([W, H - 0.004, W], alu, [0, 0.0015, 0], { r: 0.003 })); // le corps
+  const yFond = yH - 0.0105; // le fond de la cuve, sous les fentes
+  el.push(boite([W, yFond - 0.0015, W], alu, [0, 0.0015, 0], { r: 0.003 })); // le corps, jusqu'au fond de la cuve
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.012, 0.0015, m.noirMat, [sx * 0.055, 0, sz * 0.055], { segments: 10 })); // les pieds
   // dessous des fentes : le fond sombre et le disque
   el.push(boite([W - 0.026, 0.001, W - 0.026], noir, [0, yH - 0.0105, 0], { r: 0 }));
-  el.push(cylindre(0.12, 0.0012, m.uni('#3f3d48'), [0, yH - 0.0095, 0.004], { segments: 40 })); // le CD, sombre à travers les fentes (comme sur la photo)
-  el.push(cylindre(0.04, 0.0014, m.uni('#5d5b67'), [0, yH - 0.0095, 0.004], { segments: 24 }));
+  el.push(cylindre(0.12, 0.0012, m.uni('#2a2931'), [0, yH - 0.0095, 0.004], { segments: 40 })); // le CD, sombre à travers les fentes (comme sur la photo)
+  el.push(cylindre(0.04, 0.0014, m.uni('#3c3a44'), [0, yH - 0.0095, 0.004], { segments: 24 }));
   el.push(cylindre(0.015, 0.003, aluFonce, [0, yH - 0.0095, 0.004], { segments: 16 }));
   // le dessus : le cadre plein, puis les barres entre les fentes
   const bord = 0.013;
   const yB = yH - 0.0045;
+  // (le cadre fait aussi les parois de la cuve : du fond jusqu'au dessus ; on voit le noir et le CD par les fentes)
   for (const s of [-1, 1]) {
-    el.push(boite([W, 0.0045, bord], alu, [0, yB, s * (W / 2 - bord / 2)], { r: 0.0015 }));
-    el.push(boite([bord, 0.0045, W - 2 * bord], alu, [s * (W / 2 - bord / 2), yB, 0], { r: 0.0015 }));
+    el.push(boite([W, yH - yFond, bord], alu, [0, yFond, s * (W / 2 - bord / 2)], { r: 0.0015 }));
+    el.push(boite([bord, yH - yFond, W - 2 * bord], alu, [s * (W / 2 - bord / 2), yFond, 0], { r: 0.0015 }));
   }
   const n = 17;
   const zone = W - 2 * bord;
   const pas = zone / n;
   for (let k = 0; k < n - 1; k++) el.push(boite([pas * 0.5, 0.0045, zone], alu, [-zone / 2 + pas * (k + 1), yB, 0], { r: 0.0008 })); // des barres moitié moins larges que le pas : des fentes larges
-  // la gravure du bord gauche, et le petit logo du coin
-  el.push(boite([0.0015, 0.0002, 0.06], m.uni('#8f949c'), [-W / 2 + 0.0055, yH, 0.01], { r: 0 }));
-  el.push(boite([0.001, 0.0002, 0.042], m.uni('#a3a8af'), [-W / 2 + 0.009, yH, 0.0], { r: 0 }));
-  el.push(cylindre(0.006, 0.0002, m.uni('#a3a8af'), [-W / 2 + 0.0065, yH, -W / 2 + 0.008], { segments: 12 }));
+  // la gravure du bord gauche : « MOONDROP DISCDREAM 2 ULTRA » et, dessous, « Portable CD Player » (elle se lit de
+  // l'arrière vers l'avant, depuis la gauche du lecteur, comme sur la photo)
+  const gravure = decalque(0.1, 0.0105, (g, w, h) => {
+    g.fillStyle = '#6f747c';
+    g.textBaseline = 'middle';
+    g.font = `500 ${h * 0.4}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.fillText('MOONDROP  DISCDREAM 2 ULTRA', 0, h * 0.3);
+    g.font = `400 ${h * 0.24}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.fillText('Portable CD Player · Dual-DAC / Balanced Output', 0, h * 0.74);
+  }, { nom: 'imprime-moondrop', px: 26000 });
+  gravure.rotation.z = -PI / 2;
+  gravure.position.set(-W / 2 + 0.0068, yH + 0.0002, 0.006);
+  el.push(gravure);
   // la tranche avant : l'écran et les sept boutons
   const zF = W / 2;
   el.push(boite([0.028, 0.011, 0.001], m.uni('#18171c'), [-W / 2 + 0.024, 0.0075, zF], { r: 0.0005 }));

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { veinerBois, creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, plan, pales, grille, fusionner } from './outils.js';
+import { aleatoire } from '../textures.js';
 
 // Les meubles de la chambre, modélisés à la main (en code) d'après tes photos, dans
 // le style de la référence : couleurs unies, pastel, mates, et le détail dans la
@@ -106,6 +107,73 @@ function cableSurPied(haut, dessus, fin, rayon, materiau, marge = 0.003) {
   return tube([...haut, ...surPied, ...fin], rayon, materiau, 90);
 }
 
+// La couette : une nappe molletonnée qui couvre le dessus du matelas, s'arrondit sur ses arêtes et retombe sur les
+// côtés et au pied, l'ourlet juste au-dessus des rebords du cadre. On part d'une boîte plate (le tissu déplié à
+// plat) qu'on drape sommet par sommet : chaque point garde sa distance au bord du dessus du matelas, mesurée dans le
+// tissu ; au-delà, il fait le tour de l'arête (un quart de cercle) puis tombe, en s'évasant un peu, avec des plis
+// mous. Les carreaux du motif gonflent entre leurs coutures, l'épaisseur se pince vers les ourlets.
+// x0 / x1 : le pied et la tête du dessus plat du matelas (pas de retombée côté tête) ; z1 : sa demi-largeur ;
+// ref : la zone du motif (5 × 4 carreaux) dans le tissu déplié.
+function couetteDrapee(materiau, { x0, x1, z1, yHaut, rArete, retombee, ep, ref, graine = 3 }) {
+  const [u0, u1] = [x0 - retombee, x1];
+  const [v0, v1] = [-z1 - retombee, z1 + retombee];
+  const geo = new THREE.BoxGeometry(u1 - u0, ep, v1 - v0, 80, 1, 92);
+  const pos = geo.attributes.position;
+  const uv = geo.attributes.uv;
+  const [cu, cv] = [(u0 + u1) / 2, (v0 + v1) / 2];
+  const rho = rArete + ep / 2; // le rayon du milieu de la couette autour de l'arête du matelas
+  const yC = yHaut - rArete; // la hauteur du centre de cet arrondi
+  const quart = (rho * Math.PI) / 2;
+  const alea = aleatoire(graine);
+  const ondes = Array.from({ length: 5 }, () => ({ fu: 2 + alea() * 5, fv: 2 + alea() * 5, ph: alea() * 6.28, a: 0.5 + alea() * 0.5 }));
+  const [su, sv] = [(ref[1] - ref[0]) / 5, (ref[3] - ref[2]) / 4]; // la taille d'un carreau
+  const lisse = (t) => t * t * (3 - 2 * t);
+  for (let i = 0; i < pos.count; i++) {
+    const u = pos.getX(i) + cu;
+    const v = pos.getZ(i) + cv;
+    const dessus = pos.getY(i) > 0;
+    // l'épaisseur, pincée vers les ourlets ; les carreaux bombés entre leurs coutures ; quelques plis larges
+    const bord = Math.min(u - u0, u1 - u, v - v0, v1 - v);
+    let w = (dessus ? 1 : -1) * (ep / 2) * (0.25 + 0.75 * lisse(Math.min(1, bord / 0.07)));
+    if (dessus) {
+      const fu = ((((u - ref[0]) / su) % 1) + 1) % 1;
+      const fv = ((((v - ref[2]) / sv) % 1) + 1) % 1;
+      w += 0.013 * Math.sqrt(Math.sin(Math.PI * fu) * Math.sin(Math.PI * fv)) * lisse(Math.min(1, bord / 0.07));
+    }
+    let pli = 0;
+    for (const o of ondes) pli += o.a * Math.sin(u * o.fu + v * o.fv + o.ph);
+    w += (pli / ondes.length) * 0.008;
+    // le drapé
+    const qu = Math.max(u, x0);
+    const qv = THREE.MathUtils.clamp(v, -z1, z1);
+    const [du, dv] = [u - qu, v - qv];
+    const d = Math.hypot(du, dv);
+    let [X, Y, Z, nx, ny, nz] = [u, yHaut + ep / 2, v, 0, 1, 0];
+    if (d > 1e-9) {
+      const [ex, ez] = [du / d, dv / d];
+      let h;
+      if (d < quart) {
+        const t = d / rho;
+        [h, Y, nx, ny, nz] = [rho * Math.sin(t), yC + rho * Math.cos(t), ex * Math.sin(t), Math.cos(t), ez * Math.sin(t)];
+      } else {
+        const reste = d - quart;
+        [h, Y, nx, ny, nz] = [rho + reste * 0.12, yC - reste, ex, 0, ez];
+      }
+      // les plis qui tombent le long de l'ourlet, plus marqués vers le bas
+      const s = u * Math.abs(ez) + v * Math.abs(ex);
+      h += 0.011 * Math.sin(s * 23 + graine) * lisse(Math.min(1, Math.max(0, d - quart * 0.6) / 0.12));
+      [X, Z] = [qu + ex * h, qv + ez * h];
+    }
+    pos.setXYZ(i, X + nx * w, Y + ny * w, Z + nz * w);
+    uv.setXY(i, (u - ref[0]) / (ref[1] - ref[0]), (v - ref[2]) / (ref[3] - ref[2]));
+  }
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, materiau);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
 // --- Lit 160 × 210 : plateforme en chêne, couette à carreaux, tête de lit à deux lattes ---
 function lit() {
   const m = creerMateriaux();
@@ -125,7 +193,6 @@ function lit() {
   // la tête ronde d'une vis sur le pied du lit, comme sur la photo
   const vis = cylindre(0.026, 0.006, m.cheneClair, [-1.06, 0.16, 0.58], { rot: axeX, centre: true, segments: 14 });
 
-  const refCouette = [-1.04, 0.6, -0.83, 0.83]; // zone couverte par le motif à carreaux
   // tête de lit plaquée contre le mur est (x = 3,6 dans la pièce, donc 1,1 ici) :
   // deux grandes lattes de chêne, avec deux barres métalliques plates derrière,
   // visibles dans l'espace entre les lattes
@@ -143,8 +210,9 @@ function lit() {
     boite([0.06, 0.04, 1.7], m.cheneClair, [-1.02, 0.3, 0], { r: 0.01 }),
     // matelas posé sur la plateforme, à l'intérieur des rebords : rien ne se touche
     tissu([1.94, 0.29, 1.52], m.drap, [-0.015, 0.2, 0], { r: 0.05, froissement: 0.002, divisions: [8, 2, 8] }),
-    // couette : plus large que le matelas, elle descend jusque dans les rebords (qui s'arrêtent à 34 cm) : plus de fente
-    tissu([1.64, 0.27, 1.66], m.couette, [-0.22, 0.32, 0], { r: 0.05, froissement: 0.01, graine: 3, uvDessus: refCouette, divisions: [26, 4, 28] }),
+    // la couette (6 cm de molleton) : elle couvre le matelas jusqu'à l'oreiller et retombe sur les côtés et au pied ;
+    // son ourlet s'arrête à 35,5 cm, juste au-dessus des rebords (34 cm), et cache la fente entre matelas et cadre
+    couetteDrapee(m.couette, { x0: -0.935, x1: 0.5, z1: 0.71, yHaut: 0.49, rArete: 0.05, retombee: 0.21, ep: 0.06, ref: [-1.145, 0.5, -0.92, 0.92] }),
     // un seul oreiller, au centre du lit, contre la tête de lit
     oreiller(0.5, 0.2, 0.7, m.oreillerOrange, [0.76, 0.48, 0], 5),
     // les deux lattes (basse et haute) et les barres derrière

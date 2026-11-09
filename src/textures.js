@@ -1274,6 +1274,37 @@ export function couette() {
           g.fillRect((i * w) / colonnes, (j * h) / lignes, w / colonnes + 1, h / lignes + 1);
         }),
       );
+      // les coutures entre les carreaux : un trait d'ombre à peine plus sombre, et les points de la piqûre
+      g.strokeStyle = 'rgba(110, 45, 70, 0.16)';
+      g.lineWidth = 2.5;
+      for (let i = 1; i < colonnes; i++) {
+        g.beginPath();
+        g.moveTo((i * w) / colonnes, 0);
+        g.lineTo((i * w) / colonnes, h);
+        g.stroke();
+      }
+      for (let j = 1; j < lignes; j++) {
+        g.beginPath();
+        g.moveTo(0, (j * h) / lignes);
+        g.lineTo(w, (j * h) / lignes);
+        g.stroke();
+      }
+      g.strokeStyle = 'rgba(255, 245, 240, 0.35)';
+      g.lineWidth = 1;
+      g.setLineDash([3, 4]);
+      for (let i = 1; i < colonnes; i++) {
+        g.beginPath();
+        g.moveTo((i * w) / colonnes + 2.5, 0);
+        g.lineTo((i * w) / colonnes + 2.5, h);
+        g.stroke();
+      }
+      for (let j = 1; j < lignes; j++) {
+        g.beginPath();
+        g.moveTo(0, (j * h) / lignes + 2.5);
+        g.lineTo(w, (j * h) / lignes + 2.5);
+        g.stroke();
+      }
+      g.setLineDash([]);
     },
     false,
   );
