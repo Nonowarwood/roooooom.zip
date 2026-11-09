@@ -70,6 +70,8 @@ for (const nom of noms) {
   barre.insertBefore(b, document.getElementById('etat'));
 }
 document.getElementById('tous').addEventListener('click', () => voir(tout, 13));
+// (en développement : la caméra et les cases, pour les captures d'écran automatiques)
+if (import.meta.env.DEV) globalThis.__galerie = { camera, controls, cases, scene };
 
 function redimensionner() {
   renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);

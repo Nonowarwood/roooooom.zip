@@ -3,6 +3,7 @@ import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { champMiffy, MIFFY } from './miffy.js';
 import { macbook, bureauNu } from './meubles.js';
 import { creerMateriaux, boite, cylindre, sphere, tore, barre, tube, tourne, tissu, fusionner, veines, veinerBois, RoundedBoxGeometry } from './outils.js';
+import { agencementReve } from '../chambre.js';
 
 // Les meubles neufs de la chambre de rêve (ceux qui n'existent pas dans la chambre de Paris), modélisés en code
 // dans le même style que src/modeles/meubles.js : couleurs unies, pastel, mates, et le détail dans la géométrie.
@@ -241,19 +242,23 @@ function plante() {
   parts.push(tube([tigeAu(0.66), [-0.1, 0.55, 0.05], [-0.12, 0.42, 0.07], [-0.11, SOL - 0.005, 0.08]], 0.0035, racine, 18));
   parts.push(tube([tigeAu(0.82), [-0.09, 0.74, -0.05], [-0.1, 0.55, -0.08], [-0.07, SOL - 0.005, -0.1]], 0.003, racine, 18));
 
-  // les feuilles : [longueur, azimut (degrés, 0 = vers le mur, 90 = vers le lampadaire, 180 = vers la pièce),
-  // hauteur de l'attache, distance de l'attache au tuteur, pente (degrés), roulis]
+  // les feuilles : [longueur, azimut (degrés), hauteur de l'attache, distance de l'attache au tuteur, pente
+  // (degrés), roulis]. Le monstera est dans le coin à droite du bureau de la lucarne, posé sans rotation : 0 = vers
+  // le mur est, 90 = vers le meuble à vinyles (sud), 180 = vers le bureau et la fenêtre (ouest), 270 = vers le mur
+  // bas du nord. Comme une vraie plante, il penche vers la lumière : les grandes feuilles partent vers la fenêtre et
+  // la pièce ; celles qui passent au-dessus du meuble à vinyles restent plus haut que ses objets (~ 85 cm) ; les
+  // petites du bas remplissent le coin, sous la pente.
   const liste = [
-    [0.44, 165, 1.24, 0.1, 8, 0.1],
-    [0.42, 205, 1.12, 0.13, -6, -0.15],
-    [0.4, 128, 1.05, 0.14, -4, 0.2],
-    [0.38, 248, 0.98, 0.13, -2, -0.1],
-    [0.34, 95, 0.86, 0.1, 2, 0.25],
-    [0.36, 182, 0.84, 0.15, -10, 0.05],
-    [0.32, 150, 0.68, 0.15, 4, 0.15],
-    [0.3, 215, 0.6, 0.14, 0, -0.2],
-    [0.27, 112, 0.52, 0.12, 12, 0.1],
-    [0.18, 262, 1.3, 0.06, 38, -0.4], // une jeune feuille qui se déplie, en haut
+    [0.44, 150, 1.22, 0.1, 6, 0.1],
+    [0.42, 188, 1.1, 0.13, -6, -0.15],
+    [0.4, 115, 1.04, 0.14, -4, 0.2],
+    [0.38, 228, 0.86, 0.13, -2, -0.1],
+    [0.34, 72, 0.98, 0.1, 2, 0.25],
+    [0.36, 160, 0.86, 0.15, -8, 0.05],
+    [0.32, 300, 0.7, 0.15, 4, 0.15],
+    [0.3, 252, 0.6, 0.14, 0, -0.2],
+    [0.27, 345, 0.52, 0.12, 12, 0.1],
+    [0.18, 135, 1.28, 0.06, 38, -0.4], // une jeune feuille qui se déplie, en haut
   ];
   liste.forEach(([L, phiD, y, r, thetaD, roulis], k) => {
     const phi = (phiD * PI) / 180;
@@ -314,7 +319,7 @@ function rectArrondi(chemin, x0, y0, x1, y1, r) {
 // Origine : le dessous de la base, au centre ; le clavier regarde +z. Renvoie aussi le bout de la fiche VGA
 // (sortieVGA) et la direction dans laquelle le câble en sort (dirVGA), pour le tirer jusqu'à l'écran.
 // ===========================================================================================
-function thinkpad(m) {
+function thinkpad(m, { ecran = 'ecran-thinkpad' } = {}) {
   const W = 0.295;
   const D = 0.233;
   const HB = 0.021; // épaisseur de la base
@@ -469,7 +474,7 @@ function thinkpad(m) {
   const dalle = new THREE.Mesh(new THREE.PlaneGeometry(0.261, 0.163), m.ecran);
   dalle.rotation.x = PI / 2;
   dalle.position.set(0, -0.0016, zEcran); // 1,2 mm devant le cadre noir : plus près, les deux scintillaient de loin
-  dalle.name = 'ecran-thinkpad';
+  dalle.name = ecran; // (le maillage sur lequel le programme colle le fond d'écran)
   capot.add(dalle);
   // en haut du cadre : les deux crochets et la ThinkLight
   for (const s of [-1, 1]) capot.add(boite([0.007, 0.0028, 0.0035], m.uni('#24222b'), [s * 0.066, -0.0028, PC - 0.009], { r: 0.0008 }));
@@ -519,25 +524,36 @@ function prisme(profil, longueur, materiau, biseau = 0.002) {
 // --- Le tapis de souris (80 × 36,5 cm, taille estimée : tu ne me l'as pas donnée), avec ta pivoine noir et blanc ---
 // Mousse noire de 4 mm, coins arrondis, bordure cousue ; l'image est collée par le programme sur le maillage
 // « tapis-souris » (public/textures/tapis-souris.jpg), le haut de l'image du côté de l'écran (−z).
+// Sert aussi au sous-main du bureau du studio : `image` = le nom du maillage de l'image, `objet` = celui du groupe
+// (sa fiche au clic), `bord` = la couleur de la couture ; `auRas` : la mousse n'a pas de dessus, l'image EST la
+// surface du tapis (à 4 mm) : rien ne peut scintiller avec elle, elle n'a pas besoin de polygonOffset, et ce qui est
+// posé dessus ne risque pas d'être mordu par elle quand on la regarde de biais.
 // ===========================================================================================
-function tapisDeSouris(m, L, P) {
+function tapisDeSouris(m, L, P, { image: nomImage = 'tapis-souris', objet = 'objet_tapis', bord = '#1b1a20', auRas = false } = {}) {
   const R = 0.011;
   const E = 0.004;
   const forme = rectArrondi(new THREE.Shape(), -L / 2, -P / 2, L / 2, P / 2, R);
-  const mousse = new THREE.ExtrudeGeometry(forme, { depth: E, bevelEnabled: false, curveSegments: 6 });
+  let mousse = new THREE.ExtrudeGeometry(forme, { depth: E, bevelEnabled: false, curveSegments: 6 });
+  if (auRas) {
+    // on ne garde que les flancs (le groupe 1 ; le groupe 0, ce sont le dessus et le dessous)
+    const { start, count } = mousse.groups[1];
+    const flancs = new THREE.BufferGeometry();
+    for (const [nom, a] of Object.entries(mousse.attributes)) flancs.setAttribute(nom, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize));
+    mousse = flancs;
+  }
   mousse.rotateX(-PI / 2);
   const dessus = new THREE.ShapeGeometry(forme, 6);
   const uv = dessus.attributes.uv;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + L / 2) / L, (uv.getY(i) + P / 2) / P);
   dessus.rotateX(-PI / 2);
-  dessus.translate(0, E + 0.0008, 0); // 0,8 mm au-dessus de la mousse : plus près, l'image scintillait de loin
+  dessus.translate(0, auRas ? E : E + 0.0008, 0); // sinon 0,8 mm au-dessus de la mousse : plus près, l'image scintillait de loin
   const image = new THREE.Mesh(dessus, m.uni('#1d1b22'));
-  image.name = 'tapis-souris';
+  image.name = nomImage;
   image.receiveShadow = true;
   const k = [1 - 0.0016 / L, 1 - 0.0016 / P];
   const pts = forme.getSpacedPoints(200).slice(0, -1).map((q) => new THREE.Vector3(q.x * k[0], E - 0.0001, -q.y * k[1]));
   const couture = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 260, 0.0013, 5, true);
-  return groupe('objet_tapis', ombres(new THREE.Mesh(mousse, m.uni('#26242d'))), image, ombres(new THREE.Mesh(couture, m.uni('#1b1a20'))));
+  return groupe(objet, ombres(new THREE.Mesh(mousse, m.uni('#26242d'))), image, ombres(new THREE.Mesh(couture, m.uni(bord))));
 }
 
 // ===========================================================================================
@@ -1334,31 +1350,37 @@ function serviette() {
 // ===========================================================================================
 // --- Les prises : une prise murale française (plaque blanche, puits rond) avec sa fiche branchée ---
 // Origine : le centre de la plaque, sur le mur ; elle regarde vers +z. Le câble sort du dos de la fiche, en bas.
+// `double` : une plaque de deux prises côte à côte (puits en x = ±PAS_PRISE), une fiche dans chacune.
 // ===========================================================================================
-function prise(m) {
+const PAS_PRISE = 0.036;
+function prise(m, { double = false } = {}) {
   const fiche = m.uni('#3b3946');
-  return [
-    boite([0.08, 0.08, 0.009], m.uni('#f6f4f0'), [0, -0.04, 0.0045], { r: 0.006 }), // la plaque
-    cylindre(0.046, 0.002, m.uni('#e8e5df'), [0, 0, 0.009], { rot: [PI / 2, 0, 0], centre: true, segments: 28 }), // le puits
-    cylindre(0.037, 0.022, fiche, [0, 0, 0.021], { rot: [PI / 2, 0, 0], centre: true, segments: 24 }), // la fiche
-    cylindre(0.031, 0.006, fiche, [0, 0, 0.034], { rot: [PI / 2, 0, 0], centre: true, segments: 24 }),
-    ...[0, 1, 2, 3, 4, 5].map((k) => boite([0.0025, 0.016, 0.018], fiche, [0.0175 * Math.cos((k * PI) / 3), 0.0175 * Math.sin((k * PI) / 3) - 0.008, 0.021], { r: 0, rot: [0, 0, (k * PI) / 3 + PI / 2] })), // les nervures de prise en main
-    cylindre(0.011, 0.012, fiche, [0, -0.012, 0.036], { segments: 12 }), // le manchon du câble
-  ];
+  const el = [boite([double ? 0.152 : 0.08, 0.08, 0.009], m.uni('#f6f4f0'), [0, -0.04, 0.0045], { r: 0.006 })]; // la plaque
+  for (const x of double ? [-PAS_PRISE, PAS_PRISE] : [0]) {
+    el.push(
+      cylindre(0.046, 0.002, m.uni('#e8e5df'), [x, 0, 0.009], { rot: [PI / 2, 0, 0], centre: true, segments: 28 }), // le puits
+      cylindre(0.037, 0.022, fiche, [x, 0, 0.021], { rot: [PI / 2, 0, 0], centre: true, segments: 24 }), // la fiche
+      cylindre(0.031, 0.006, fiche, [x, 0, 0.034], { rot: [PI / 2, 0, 0], centre: true, segments: 24 }),
+      ...[0, 1, 2, 3, 4, 5].map((k) => boite([0.0025, 0.016, 0.018], fiche, [x + 0.0175 * Math.cos((k * PI) / 3), 0.0175 * Math.sin((k * PI) / 3) - 0.008, 0.021], { r: 0, rot: [0, 0, (k * PI) / 3 + PI / 2] })), // les nervures de prise en main
+      cylindre(0.011, 0.012, fiche, [x, -0.012, 0.036], { segments: 12 }), // le manchon du câble
+    );
+  }
+  return el;
 }
 
 // ===========================================================================================
-// --- Les branchements de la chambre de rêve : trois prises murales à 12 cm du sol (assez bas pour rester dans
+// --- Les branchements de la chambre de rêve : des prises murales à 12 cm du sol (assez bas pour rester dans
 // la bordure quand les murs s’abaissent) et les câbles qui y mènent : le lampadaire (mur est), le ventilateur (le
-// mur ouest, sur la multiprise derrière lui), la Tolomeo (sur la même multiprise).
+// mur ouest, sur la multiprise derrière lui), la Tolomeo (sur la même multiprise) ; dans le studio, la prise double
+// du coin NAS (le mini-rack et le Macintosh Plus) et le câble série qui relie le Mac au Raspberry Pi du rack.
 // Tout est en coordonnées de la pièce (le meuble est posé en [0, 0]).
 // ===========================================================================================
 function branchements() {
   const m = creerMateriaux();
   const el = [];
-  const poser = ([x, y, z], rotY) => {
+  const poser = ([x, y, z], rotY, options) => {
     const g = new THREE.Group();
-    g.add(...prise(m));
+    g.add(...prise(m, options));
     g.position.set(x, y, z);
     g.rotation.y = rotY;
     el.push(g);
@@ -1395,48 +1417,128 @@ function branchements() {
   el.push(tube([[0.025, 0.0165, 1.52], [0.026, 0.0168, 1.6], [0.03, 0.0168, 1.7], [0.04, 0.0168, 1.745], [0.055, 0.004, 1.775], [0.075, 0.003, 1.82], [0.082, 0.004, 1.86], [0.078, 0.025, 1.875], [0.061, yH + 0.017, 1.875]], 0.0025, m.uni('#3b3946'), 60));
   // le ventilateur : son câble passe par-dessus son pied (dans son modèle), retombe au sol et rejoint sa fiche par l'avant
   cable([[0.074, 0.006, 2.0716], [0.069, 0.03, 2.071], [0.061, yH + 0.017, 2.07]]);
+
+  // la TV : son cordon descend derrière le coffre en osier (dans son modèle) jusqu'au sol, en (0,106 ; 3,132) ; une
+  // prise au mur ouest juste derrière, sous l'entrait de la charpente
+  poser([0, 0.12, 3.13], PI / 2);
+  cable([[0.106, 0.004, 3.132], [0.08, 0.004, 3.131], [0.052, 0.01, 3.13], [0.04, 0.05, 3.13], [0.037, 0.09, 3.13], [0.036, 0.108, 3.13]], 0.0032);
+
+  // — le coin NAS du studio : une prise double au mur ouest, sous l'entrait de la charpente, là où était le
+  // monstera. Le mini-rack (le cordon de sa multiprise sort de son dos, en bas) et le Macintosh Plus (sa fiche
+  // secteur au dos) y sont branchés ; leurs câbles courent au sol, derrière et à côté du rack, bien en vue. Le Mac
+  // est relié au Raspberry Pi du rack par un câble série couleur platine : il lui sert de terminal. Les points
+  // d'attache suivent la pose des deux meubles (agencementReve, src/chambre.js).
+  const ZP = -3.0; // le centre de la prise double, sur le mur ouest
+  poser([0, 0.12, ZP], PI / 2, { double: true });
+  // (tournée vers la pièce, la fiche de gauche est au sud, celle de droite au nord ; leurs manchons en x = 3,6 cm)
+  const [zSud, zNord] = [ZP + PAS_PRISE, ZP - PAS_PRISE];
+  const repere = (nom) => {
+    const { pos: [px, pz], rotation: a = 0 } = agencementReve.nouveaux.find((n) => n.nom === nom);
+    const g = new THREE.Group();
+    g.position.set(px, 0, pz);
+    g.rotation.y = a;
+    el.push(g);
+    return { g, p: (x, y, z) => V3(x, y, z).applyAxisAngle(V3(0, 1, 0), a).add(V3(px, 0, pz)) };
+  };
+  // un câble posé : la courbe passe par ses points, relevée partout au-dessus du sol (sinon elle y plonge entre deux)
+  const poserCable = (pts, r, materiau) => {
+    const posee = new THREE.CatmullRomCurve3(pts).getSpacedPoints(160).map((q) => {
+      q.y = Math.max(q.y, r + 0.0006);
+      return q;
+    });
+    el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(posee), 260, r, 6), materiau)));
+  };
+  const rack = repere('mini-rack NAS');
+  const mac = repere('Macintosh Plus');
+  // le rack : le cordon sort de sa multiprise (en bas, au dos), descend derrière lui et file vers la prise du sud
+  rack.g.add(cylindre(0.012, 0.016, fiche, [-0.07, 0.046, -0.13], { rot: [PI / 2, 0, 0], centre: true, segments: 12 }));
+  poserCable([rack.p(-0.07, 0.046, -0.135), rack.p(-0.07, 0.042, -0.155), rack.p(-0.073, 0.02, -0.175), rack.p(-0.08, 0, -0.195), V3(0.4, 0, -3.07), V3(0.16, 0, -2.99), V3(0.075, 0, zSud - 0.002), V3(0.046, 0.02, zSud), V3(0.037, 0.07, zSud), V3(0.036, 0.108, zSud)], 0.0035, m.noirMat);
+  // le Mac : la fiche secteur enfoncée dans sa prise, au dos ; le cordon descend, passe derrière le rack et rejoint
+  // la prise du nord
+  const [xS, yS] = MAC_DOS.secteur;
+  const zD = MAC_DOS.z;
+  mac.g.add(boite([0.03, 0.021, 0.03], fiche, [xS, yS - 0.0105, zD - 0.015], { r: 0.003 }));
+  mac.g.add(cylindre(0.012, 0.018, fiche, [xS, yS, zD - 0.038], { rot: [PI / 2, 0, 0], centre: true, segments: 12 }));
+  poserCable([mac.p(xS, yS, zD - 0.045), mac.p(xS, yS - 0.006, zD - 0.07), mac.p(xS - 0.005, 0.04, zD - 0.092), mac.p(xS - 0.01, 0, zD - 0.105), mac.p(-0.05, 0, zD - 0.112), V3(0.8, 0, -3.27), V3(0.45, 0, -3.26), V3(0.16, 0, -3.13), V3(0.075, 0, zNord - 0.002), V3(0.046, 0.02, zNord), V3(0.037, 0.07, zNord), V3(0.036, 0.108, zNord)], 0.0032, m.noirMat);
+  // le câble série : sa fiche mini-DIN 8 dans la prise modem du Mac ; à l'autre bout, une fiche USB (l'adaptateur
+  // série est dedans) enfoncée dans le flanc droit du Raspberry Pi. Il descend le long du rack, dans l'espace entre
+  // lui et le Mac, et passe au sol derrière le Mac.
+  const platine = mat('cable-platine', '#cfc8b6', { roughness: 0.55 });
+  const [xMo, yMo] = MAC_DOS.modem;
+  mac.g.add(cylindre(0.011, 0.016, platine, [xMo, yMo, zD - 0.008], { rot: [PI / 2, 0, 0], centre: true, segments: 14 }));
+  mac.g.add(cylindre(0.0065, 0.012, platine, [xMo, yMo, zD - 0.022], { rot: [PI / 2, 0, 0], centre: true, segments: 10 }));
+  const yPi = 0.3557; // le milieu du boîtier du Raspberry Pi (voir rackNas)
+  rack.g.add(boite([0.026, 0.009, 0.016], platine, [0.129, yPi - 0.0045, 0.03], { r: 0.002 }));
+  poserCable([rack.p(0.141, yPi, 0.03), rack.p(0.151, yPi - 0.012, 0.028), rack.p(0.155, 0.26, 0.015), rack.p(0.155, 0.12, -0.02), rack.p(0.153, 0.03, -0.05), rack.p(0.15, 0, -0.085), mac.p(-0.1, 0, zD - 0.035), mac.p(-0.03, 0, zD - 0.04), mac.p(xMo - 0.015, 0, zD - 0.04), mac.p(xMo, 0.02, zD - 0.032), mac.p(xMo, yMo, zD - 0.028)], 0.0024, platine);
   return groupe('branchements', el);
 }
 
-// Un coussin d'assise : un pavé aux arêtes très arrondies, gonflé sur le dessus, froissé (posé par son dessous).
+// Le dos du Macintosh Plus (voir macPlus, repère du Mac) : le centre de la prise modem et de la prise secteur, et la
+// face arrière où elles affleurent
+const MAC_DOS = { modem: [0.0749, 0.0439], secteur: [0.0648, 0.0975], z: -0.1384 };
+
+// Un coussin d'assise : un pavé épais aux arêtes arrondies (les côtés restent assez droits, comme un vrai coussin
+// garni de plumes), un peu gonflé sur le dessus, froissé (posé par son dessous).
 function coussinAssise([l, h, p], materiau, [x, yBas, z], graine) {
-  const c = tissu([l, h, p], materiau, [0, 0, 0], { r: h * 0.42, froissement: 0.022, graine, divisions: [26, 5, 20] });
+  const c = tissu([l, h, p], materiau, [0, 0, 0], { r: h * 0.3, froissement: 0.018, graine, divisions: [30, 6, 22] });
   const pos = c.geometry.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const [vx, vy, vz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
     const gonfle = (1 - Math.min(1, Math.abs(vx) / (l / 2)) ** 4) * (1 - Math.min(1, Math.abs(vz) / (p / 2)) ** 4);
     const creux = vy > 0 ? 0.012 * Math.sin(vx * 8.5 + graine) * Math.sin(vz * 7.3 + 2 * graine) + 0.006 * Math.sin(vx * 23 + vz * 17 + graine) : 0;
-    pos.setY(i, vy + ((vy > 0 ? 0.032 : 0.004) * (vy / (h / 2)) + creux) * gonfle);
+    pos.setY(i, vy + ((vy > 0 ? 0.02 : 0.003) * (vy / (h / 2)) + creux) * gonfle);
   }
   c.geometry.computeVertexNormals();
   c.position.set(x, yBas + h / 2, z);
   return c;
 }
 
-// Un coussin capitonné (les dossiers noirs) : bombé au milieu, les bords et les coins pincés là où la housse est
-// cousue, un capiton au centre de chaque face (le bouton et les plis qui en rayonnent). Construit couché : l en
+// Un coussin capitonné (les dossiers en cuir noir) : un coussin carré, épais et plat au milieu, qui s'arrondit
+// vers sa couture tout autour (un passepoil la souligne) ; les coins pincés, les bords à peine creusés entre eux ;
+// un bouton au centre de chaque face, qui creuse un capiton d'où partent quelques plis. Construit couché : l en
 // largeur (x), h en épaisseur (y), p en hauteur (z), centré sur l'origine.
 function coussinCapitonne([l, h, p], materiau, bouton, graine) {
-  const geo = new THREE.BoxGeometry(l, h, p, 22, 4, 20);
+  const geo = new THREE.BoxGeometry(l, h, p, 30, 6, 26);
   const pos = geo.attributes.position;
+  const lisse = (a, b, t) => {
+    const u = Math.min(1, Math.max(0, (t - a) / (b - a)));
+    return u * u * (3 - 2 * u);
+  };
+  const tire = (n) => 1 - 0.035 * (1 - n * n); // les bords se creusent un peu entre les coins
   for (let i = 0; i < pos.count; i++) {
     const [vx, vy, vz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
-    const nx = Math.abs(vx) / (l / 2);
-    const nz = Math.abs(vz) / (p / 2);
-    // profil en lentille : épais au centre, fin aux coutures (les bords et les coins)
-    const bord = Math.max(nx, nz) ** 2.2 * 0.6 + ((nx ** 2 + nz ** 2) / 2) * 0.4;
-    const bombe = Math.max(0.1, Math.sqrt(Math.max(0, 1 - bord)));
+    const nx = Math.min(1, Math.abs(vx) / (l / 2));
+    const nz = Math.min(1, Math.abs(vz) / (p / 2));
+    // l'épaisseur : pleine au milieu, elle tombe sur les 25 % du bord jusqu'à la couture ; les coins plus pincés
+    const d = (nx ** 6 + nz ** 6) ** (1 / 6);
+    let t = Math.sqrt(Math.max(0, 1 - 0.8 * lisse(0.55, 1.02, d))) * (1 - 0.22 * nx * nx * nz * nz);
+    t *= 1 + 0.16 * (1 - (nx * nx + nz * nz) / 2); // bombé, moelleux
     const r = Math.hypot(vx, vz);
-    const capiton = 0.62 * Math.exp(-((r / 0.06) ** 2));
-    const plis = 0.007 * Math.sin(5 * Math.atan2(vz, vx) + graine) * Math.exp(-r / 0.13) * Math.min(1, r / 0.03);
-    const ride = 0.002 * Math.sin(vx * 29 + graine) * Math.sin(vz * 23 + 2 * graine);
-    // les bords se creusent entre les coins, qui pointent en oreilles (la housse tirée par les coutures)
-    pos.setXYZ(i, vx * (1 - 0.09 * (1 - nz ** 2)), vy * bombe * (1 - capiton) + Math.sign(vy) * (plis + ride), vz * (1 - 0.09 * (1 - nx ** 2)));
+    const capiton = 0.5 * Math.exp(-((r / 0.06) ** 2));
+    const plis = 0.007 * Math.sin(4 * Math.atan2(vz, vx) + graine) * Math.exp(-r / 0.12) * Math.min(1, r / 0.03);
+    const ride = 0.0012 * Math.sin(vx * 31 + graine) * Math.sin(vz * 27 + 2 * graine);
+    // le haut (z > 0) s'affaisse un peu au milieu, sous son propre poids
+    const affaisse = vz > 0 ? 0.016 * (1 - nx * nx) * nz ** 3 : 0;
+    pos.setXYZ(i, vx * tire(nz), vy * t * (1 - capiton) + Math.sign(vy) * (plis + ride), vz * tire(nx) - affaisse);
   }
   geo.computeVertexNormals();
   const g = new THREE.Group();
   g.add(ombres(new THREE.Mesh(geo, materiau)));
-  for (const s of [-1, 1]) g.add(sphere(0.026, bouton, [0, s * (h / 2) * 0.5, 0], { echelle: [1, 0.45, 1] }));
+  // le passepoil : un cordon de cuir sur la couture, tout autour
+  const tour = [];
+  for (let k = 0; k < 64; k++) {
+    const a = (k / 64) * 2 * PI;
+    const [c, sn] = [Math.cos(a), Math.sin(a)];
+    // un rectangle aux coins arrondis, parcouru par son angle
+    const ex = Math.sign(c) * Math.abs(c) ** 0.18;
+    const ez = Math.sign(sn) * Math.abs(sn) ** 0.18;
+    const x = (ex * l) / 2;
+    const z = (ez * p) / 2;
+    const affaisse = z > 0 ? 0.016 * (1 - ex * ex) * Math.abs(ez) ** 3 : 0;
+    tour.push(new THREE.Vector3(x * tire(Math.abs(ez)), 0, z * tire(Math.abs(ex)) - affaisse));
+  }
+  g.add(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tour, true), 128, 0.0055, 6, true), materiau)));
+  for (const s of [-1, 1]) g.add(sphere(0.024, bouton, [0, s * (h / 2) * 0.66, 0], { echelle: [1, 0.45, 1] }));
   return g;
 }
 
@@ -1444,9 +1546,8 @@ function coussinCapitonne([l, h, p], materiau, bouton, graine) {
 // --- Le coin salon du studio, d'après ta photo d'inspiration : un seul meuble en chêne, profond de 66 cm ---
 // À gauche, le meuble à vinyles (92 × 75 cm, sur quatre fins pieds de métal) : une haute case en bas, pleine de
 // vinyles et de magazines debout (tranches surtout blanches, grises et noires, quelques couleurs), une case plus
-// basse au-dessus (une pile de magazines à plat, une petite boîte blanche, un boîtier noir au fond), et dessus le
-// boîtier noir, le grand vase blanc, la boule de verre blanche devant lui et l'enceinte cylindrique à bagues au
-// dessus noir. À droite, le banc-canapé (177 cm) : son plateau épais part du flanc du meuble, qui lui sert
+// basse au-dessus (une pile de magazines à plat, une petite boîte blanche, un boîtier noir au fond) ; son dessus
+// est libre (les objets copiés de la photo ont été retirés, en attendant de savoir ce qu'on y pose). À droite, le banc-canapé (177 cm) : son plateau épais part du flanc du meuble, qui lui sert
 // d'accoudoir gauche, et finit contre une haute joue à la hauteur du meuble ; il a ses propres pieds. Dessus :
 // deux gros coussins d'assise blancs, gonflés et froissés, qui débordent un peu devant ; deux coussins de dossier
 // noirs capitonnés, penchés contre le mur (sans oreillers aux bouts, retirés à ta demande).
@@ -1459,7 +1560,7 @@ function coinSalon() {
   const alea = hasard(21);
   const blanc = m.uni('#f4f2ee');
   const blancOmbre = m.uni('#ebe8e3');
-  const noirCoussin = mat('cuir-noir', '#3b3945', { roughness: 0.38 });
+  const noirCoussin = mat('cuir-noir', '#2c2a31', { roughness: 0.62 }); // un cuir noir souple, à peine satiné
   const P = 0.66; // la profondeur commune
   const tige = (x, z, h, dx) => el.push(barre([x, h, z], [x + dx, 0.004, z], 0.0055, m.metalFonce, 8), cylindre(0.016, 0.004, m.uni('#9aa1a9'), [x + dx, 0, z], { segments: 10 }));
 
@@ -1497,18 +1598,6 @@ function coinSalon() {
   }
   el.push(boite([0.045, 0.022, 0.03], m.blanc, [xM + 0.08, yH, P - 0.08], { r: 0.004 }));
   el.push(boite([0.13, 0.035, 0.09], m.uni('#24222b'), [xM + 0.16, yH, 0.12], { r: 0.006 }));
-  // dessus : le boîtier noir, le grand vase blanc, la boule de verre blanche, l'enceinte cylindrique
-  el.push(boite([0.25, 0.055, 0.17], m.uni('#26242d'), [xM - 0.24, HM, 0.33], { r: 0.006 }));
-  el.push(boite([0.12, 0.004, 0.002], m.uni('#5d5b68'), [xM - 0.27, HM + 0.03, 0.33 + 0.086], { r: 0 })); // sa fente
-  el.push(revolution([[0, 0], [0.034, 0], [0.04, 0.012], [0.042, 0.15], [0.038, 0.2], [0.028, 0.225], [0.022, 0.245], [0.024, 0.255], [0.019, 0.256], [0, 0.256]], blanc, [xM - 0.03, HM, 0.2], 28));
-  el.push(sphere(0.12, mat('verre-opale', '#f7f6f3', { roughness: 0.3 }), [xM - 0.06, HM + 0.06, 0.34]));
-  el.push(cylindre(0.05, 0.006, m.uni('#ecebe8'), [xM - 0.06, HM, 0.34], { segments: 16 }));
-  const xE = xM + 0.12;
-  const zE = 0.32;
-  el.push(cylindre(0.12, 0.165, m.uni('#e9eaec'), [xE, HM, zE], { segments: 32 }));
-  for (const y of [0.045, 0.09, 0.13]) el.push(tore(0.121, 0.0022, m.uni('#a7adb5'), [xE, HM + y, zE], [PI / 2, 0, 0]));
-  el.push(cylindre(0.122, 0.016, m.uni('#2a2832'), [xE, HM + 0.165, zE], { segments: 32 }));
-  el.push(cylindre(0.05, 0.004, m.uni('#3f3d48'), [xE, HM + 0.181, zE], { segments: 20 }));
 
   // ---------- le banc-canapé ----------
   const LC = 1.77;
@@ -1518,6 +1607,9 @@ function coinSalon() {
   const EJ = 0.03; // la joue de droite
   el.push(boite([LC - EJ, EP, P], m.chene, [(LC - EJ) / 2, HB, P / 2], { r: 0.004 })); // le plateau, qui part du flanc du meuble
   el.push(boite([EJ, HM - HB, P], m.chene, [LC - EJ / 2, HB, P / 2], { r: 0.004 })); // la joue, à la hauteur du meuble
+  // un bandeau sous l'avant du plateau (en retrait d'un centimètre) : le banc a l'air d'un vrai meuble posé, pas
+  // d'une planche qui flotte sur des tiges ; les pieds de devant sont derrière lui
+  el.push(boite([LC - EJ - 0.012, 0.065, 0.022], m.chene, [(LC - EJ) / 2 + 0.003, HB - 0.065, P - 0.022], { r: 0.003 }));
   for (const [x, dx] of [[0.9, 0], [LC - 0.07, 0.008]]) for (const z of [0.07, P - 0.07]) tige(x, z, HB, dx);
   // les deux coussins de dossier noirs, penchés contre le mur
   for (const [k, cx] of [[0, 0.53], [1, 1.21]]) {
@@ -1836,6 +1928,184 @@ function meubleHifi() {
 }
 
 // ===========================================================================================
+// --- Ta Nintendo 3DS (la première, 2011), blanche « Ice White », ouverte sur Pokémon Lune ---
+// 134 × 74 mm, 21 mm fermée (la moitié basse 12 mm, le capot 9), d'après la photo officielle de la console ouverte.
+// En bas : l'écran tactile (3,02 pouces) dans son cadre argenté, SELECT, HOME et START imprimés dessous ; à gauche
+// le Circle Pad dans son anneau et la croix ; à droite A B X Y et POWER ; devant, la prise casque et les deux
+// témoins (le bleu allumé) ; derrière, la charnière argentée entre deux épaulements blancs, les gâchettes L et R, la
+// fente des cartes, le stylet. Le capot : coque blanche, face intérieure noire brillante (comme sur la Ice White),
+// l'écran 3D (3,53 pouces), la caméra intérieure au-dessus, les deux haut-parleurs (quatre trous en losange), le
+// curseur 3D sur le bord droit avec son coin de réglage, deux butées en caoutchouc ; au dos, les deux caméras.
+// Le capot tourne autour de la charnière (« pivot_ecran_3ds », fermé : 0 ; ouvert : −2,2 rad, à 125°) : le
+// programme l'ouvre ou le ferme au clic. Les écrans (« ecran-3ds-haut », « ecran-3ds-bas »), le cadre imprimé
+// (« imprime-3ds-cadre ») et les marquages (« marquage-3ds-… ») reçoivent leurs images du programme
+// (textures.ecrans3ds). Les surfaces plates superposées sont écartées d'au moins 0,8 mm (sinon elles scintillent de
+// loin). Origine : le centre du dessous ; le joueur vers +z, la charnière vers −z.
+// ===========================================================================================
+const OUVERTURE_3DS = -2.2;
+function nintendo3ds(m) {
+  const [W, D, HB, HL] = [0.134, 0.074, 0.012, 0.009];
+  const blanc = mat('3ds-blanc', '#f4f5f6', { roughness: 0.26 });
+  const blancGris = mat('3ds-blanc-gris', '#e2e5e9', { roughness: 0.32 });
+  const argent = mat('3ds-argent', '#cfd3d8', { roughness: 0.28, metalness: 0.45 });
+  const gris = mat('3ds-gris', '#b8bcc2', { roughness: 0.42 });
+  const noir = mat('3ds-noir', '#0c0d10', { roughness: 0.1 });
+  const trou = mat('3ds-trou', '#16171b', { roughness: 0.85 });
+  const el = [];
+  // une plaque aux bords adoucis : un rectangle arrondi (w × d, vu de dessus) extrudé sur la hauteur h, posé en y
+  const plaque = (w, d, r, h, materiau, y, b = Math.min(0.0016, h / 3)) => {
+    const g = new THREE.ExtrudeGeometry(rectArrondi(new THREE.Shape(), -w / 2 + b, -d / 2 + b, w / 2 - b, d / 2 - b, Math.max(0.0005, r - b)), { depth: h - 2 * b, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 3, curveSegments: 10 });
+    g.rotateX(-PI / 2);
+    g.translate(0, y + b, 0);
+    return ombres(new THREE.Mesh(g, materiau));
+  };
+  // un plan imprimé (décalque) tourné vers +y, ou vers −y si `dessous`
+  const decalque = (nom, w, d, [x, y, z], { dessous = false } = {}) => {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m.uni('#ffffff'));
+    p.rotation.x = dessous ? PI / 2 : -PI / 2;
+    p.position.set(x, y, z);
+    p.name = nom;
+    return p;
+  };
+  // une position sur le dessus de la moitié basse, mesurée sur la photo : u (mm, depuis le milieu), v (mm, depuis le dos)
+  const surBas = (u, v) => [u / 1000, -D / 2 + v / 1000];
+
+  // — la moitié basse —
+  el.push(plaque(W, D, 0.009, HB, blanc, 0));
+  // le cadre argenté de l'écran tactile : ses flancs, et son dessus imprimé (le cadre, la vitre noire, SELECT, HOME,
+  // START, le micro) ; sans dessus plein, rien ne scintille avec l'image
+  const [LC, PC, EC] = [0.0725, 0.0605, 0.001];
+  const zC = -D / 2 + 0.0115 + PC / 2;
+  {
+    const g = new THREE.ExtrudeGeometry(rectArrondi(new THREE.Shape(), -LC / 2, -PC / 2, LC / 2, PC / 2, 0.0035), { depth: EC, bevelEnabled: false, curveSegments: 8 });
+    const { start, count } = g.groups[1]; // (le groupe 1 : les flancs)
+    const flancs = new THREE.BufferGeometry();
+    for (const [nom, a] of Object.entries(g.attributes)) flancs.setAttribute(nom, new THREE.BufferAttribute(a.array.slice(start * a.itemSize, (start + count) * a.itemSize), a.itemSize));
+    flancs.rotateX(-PI / 2);
+    flancs.translate(0, HB, zC);
+    el.push(new THREE.Mesh(flancs, argent));
+    el.push(decalque('imprime-3ds-cadre', LC, PC, [0, HB + EC, zC]));
+  }
+  // l'écran tactile, 0,8 mm au-dessus du cadre (centré à 37,8 mm du dos)
+  const [, zEB] = surBas(0, 37.8);
+  el.push(decalque('ecran-3ds-bas', 0.06144, 0.04608, [0, HB + EC + 0.0008, zEB]));
+  // le Circle Pad : son puits sombre, l'anneau argenté, le champignon gris légèrement creusé
+  {
+    const [x, z] = surBas(-46.8, 27.7);
+    el.push(cylindre(0.0172, 0.0013, trou, [x, HB - 0.0005, z], { segments: 32 }));
+    el.push(tore(0.0186, 0.0012, argent, [x, HB + 0.0004, z], [PI / 2, 0, 0]));
+    el.push(cylindre(0.0042, 0.0016, gris, [x, HB, z], { segments: 16 })); // la tige
+    el.push(cylindre(0.0136, 0.0016, gris, [x, HB + 0.0014, z], { segments: 32, dBas: 0.0128 }));
+    el.push(cylindre(0.0108, 0.0004, mat('3ds-gris-clair', '#c6cace', { roughness: 0.5 }), [x, HB + 0.0029, z], { segments: 32 })); // le creux du dessus
+  }
+  // la croix : son puits en croix, les deux branches, une petite strie au bout de chacune
+  {
+    const [x, z] = surBas(-49.7, 50);
+    for (const [l, p] of [[0.0172, 0.0062], [0.0062, 0.0172]]) {
+      el.push(boite([l + 0.0012, 0.0013, p + 0.0012], trou, [x, HB - 0.0005, z], { r: 0.0008 }));
+      el.push(boite([l, 0.0022, p], blancGris, [x, HB, z], { r: 0.0009 }));
+    }
+    for (const [dx, dz, rot] of [[0.006, 0, 0], [-0.006, 0, 0], [0, 0.006, PI / 2], [0, -0.006, PI / 2]]) el.push(boite([0.0006, 0.0003, 0.0028], gris, [x + dx, HB + 0.0022, z + dz], { r: 0, rot: [0, rot, 0] }));
+  }
+  // A B X Y : quatre boutons ronds au bord biseauté, dans leurs puits, leur lettre imprimée dessus
+  {
+    const [x0, z0] = surBas(47.5, 29);
+    for (const [lettre, dx, dz] of [['x', 0, -0.0071], ['y', -0.0073, 0], ['a', 0.0073, 0], ['b', 0, 0.0071]]) {
+      const [x, z] = [x0 + dx, z0 + dz];
+      el.push(cylindre(0.0078, 0.0013, trou, [x, HB - 0.0005, z], { segments: 20 }));
+      el.push(cylindre(0.0069, 0.0016, blancGris, [x, HB, z], { segments: 24 }));
+      el.push(cylindre(0.0061, 0.0004, blanc, [x, HB + 0.0016, z], { segments: 24, dBas: 0.0069 }));
+      el.push(decalque(`marquage-3ds-${lettre}`, 0.0042, 0.0042, [x, HB + 0.0023, z]));
+    }
+  }
+  // POWER : le bouton carré dans son liseré argenté, son pictogramme, son nom à droite
+  {
+    const [x, z] = surBas(41.6, 62.5);
+    el.push(boite([0.0066, 0.0011, 0.0066], argent, [x, HB - 0.0003, z], { r: 0.0012 }));
+    el.push(boite([0.0052, 0.0012, 0.0052], blanc, [x, HB, z], { r: 0.0011 }));
+    el.push(decalque('marquage-3ds-power', 0.004, 0.004, [x, HB + 0.0015, z]));
+    el.push(decalque('marquage-3ds-power-nom', 0.0112, 0.0024, [x + 0.0098, HB + 0.0008, z]));
+  }
+  // les épaulements blancs de la charnière, de chaque côté de la partie argentée du capot
+  const [yP, zP] = [HB + 0.0045, -D / 2 + 0.0055];
+  for (const s of [-1, 1]) {
+    el.push(cylindre(0.0116, 0.0136, blanc, [s * 0.0566, yP, zP], { rot: [0, 0, PI / 2], centre: true, segments: 22 }));
+    el.push(boite([0.0136, 0.0042, 0.0116], blanc, [s * 0.0566, HB - 0.0006, zP], { r: 0.001 }));
+  }
+  // le témoin de notification, au bout droit de la charnière
+  el.push(boite([0.0016, 0.0012, 0.0005], gris, [0.0634, yP + 0.0015, zP + 0.0058], { r: 0 }));
+  // devant : la prise casque au milieu, les deux témoins à droite (l'alimentation, bleue, allumée), deux fentes
+  const zF = D / 2;
+  el.push(cylindre(0.0052, 0.0006, argent, [0, HB / 2, zF + 0.0001], { rot: [PI / 2, 0, 0], centre: true, segments: 18 }));
+  el.push(cylindre(0.0034, 0.0008, trou, [0, HB / 2, zF + 0.0004], { rot: [PI / 2, 0, 0], centre: true, segments: 16 }));
+  el.push(boite([0.0022, 0.0013, 0.0005], mat('3ds-temoin-bleu', '#4ea4ff', { emissive: '#4ea4ff', emissiveIntensity: 1.4 }), [0.0423, HB - 0.0036, zF + 0.0001], { r: 0 }));
+  el.push(boite([0.0022, 0.0013, 0.0005], gris, [0.0553, HB - 0.0036, zF + 0.0001], { r: 0 }));
+  for (const s of [-1, 1]) el.push(boite([0.0032, 0.0011, 0.0005], trou, [s * 0.0605, HB - 0.0036, zF + 0.0001], { r: 0 }));
+  // sur le flanc gauche, le curseur du volume et le cache de la carte SD ; sur le droit, l'interrupteur sans fil
+  el.push(boite([0.0006, 0.0022, 0.012], trou, [-W / 2 - 0.0001, HB / 2 - 0.0011, 0.008], { r: 0 }));
+  el.push(boite([0.0012, 0.0018, 0.0035], gris, [-W / 2 - 0.0004, HB / 2 - 0.0009, 0.004], { r: 0.0004 }));
+  el.push(boite([0.0005, 0.006, 0.024], blancGris, [-W / 2 - 0.0001, 0.0025, -0.012], { r: 0 }));
+  el.push(boite([0.0006, 0.0022, 0.009], trou, [W / 2 + 0.0001, HB / 2 - 0.0011, 0.0], { r: 0 }));
+  el.push(boite([0.0012, 0.0018, 0.003], gris, [W / 2 + 0.0004, HB / 2 - 0.0009, -0.002], { r: 0.0004 }));
+  // derrière : les gâchettes L et R dans les coins, la fente des cartes, la prise de charge, le bout du stylet
+  for (const s of [-1, 1]) el.push(boite([0.021, 0.0042, 0.003], blancGris, [s * 0.052, HB - 0.0062, -D / 2 - 0.0009], { r: 0.0012 }));
+  el.push(boite([0.036, 0.0024, 0.0005], trou, [-0.012, HB / 2 - 0.0026, -D / 2 - 0.0001], { r: 0 }));
+  el.push(boite([0.0075, 0.0026, 0.0005], trou, [0.018, HB / 2 - 0.0026, -D / 2 - 0.0001], { r: 0.0005 }));
+  el.push(cylindre(0.0038, 0.0012, gris, [0.034, HB / 2, -D / 2 - 0.0005], { rot: [PI / 2, 0, 0], centre: true, segments: 12 }));
+  // dessous : quatre patins
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.004, 0.0005, blancGris, [sx * 0.05, -0.0004, sz * 0.026], { segments: 10 }));
+
+  // — le capot, autour de la charnière —
+  const capot = new THREE.Group();
+  capot.name = 'pivot_ecran_3ds';
+  capot.position.set(0, yP, zP);
+  capot.rotation.x = OUVERTURE_3DS;
+  // la partie argentée de la charnière, qui tient le capot
+  capot.add(cylindre(0.0112, 0.0972, argent, [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 24 }));
+  // la coque : de 4 mm devant l'axe jusqu'au bout (fermé, elle recouvre exactement la moitié basse)
+  const [z0L, z1L] = [0.004, D - 0.0055];
+  const LP = z1L - z0L;
+  const zL = (z0L + z1L) / 2;
+  const coque = plaque(W, LP, 0.009, HL, blanc, -HL / 2);
+  coque.position.z = zL;
+  capot.add(coque);
+  // la face intérieure (vers −y quand il est fermé) : un panneau noir brillant, en relief de 1 mm, un liseré blanc autour
+  const face = plaque(W - 0.003, LP - 0.0028, 0.0075, 0.0013, noir, -HL / 2 - 0.001, 0.0004);
+  face.position.z = zL;
+  capot.add(face);
+  const yFace = -HL / 2 - 0.001; // la surface du panneau noir
+  // l'écran 3D, 0,8 mm devant le panneau, centré à 33 mm de l'axe (le haut de l'image vers le bout du capot)
+  capot.add(decalque('ecran-3ds-haut', 0.0768, 0.04608, [0, yFace - 0.0008, 0.033], { dessous: true }));
+  // la caméra intérieure, au-dessus de l'écran
+  capot.add(cylindre(0.0046, 0.0008, gris, [0, yFace - 0.0008, 0.0625], { segments: 18 }));
+  capot.add(cylindre(0.003, 0.0008, mat('3ds-objectif', '#1d2433', { roughness: 0.05, metalness: 0.3 }), [0, yFace - 0.0012, 0.0625], { segments: 16 }));
+  // les haut-parleurs : quatre trous en losange de chaque côté de l'écran
+  for (const s of [-1, 1]) for (const [du, dv] of [[0, 0.0017], [0, -0.0017], [0.0016, 0], [-0.0016, 0]]) {
+    capot.add(cylindre(0.0011, 0.0008, mat('3ds-grille', '#2b2d33', { roughness: 0.9 }), [s * 0.0533 + du, yFace - 0.0006, 0.0377 + dv], { segments: 8 }));
+  }
+  // le curseur 3D sur le bord droit : sa glissière, son bouton (sur OFF, côté charnière), le coin de réglage
+  capot.add(boite([0.0013, 0.001, 0.0135], trou, [W / 2 - 0.0024, yFace - 0.0007, 0.0245], { r: 0 }));
+  capot.add(boite([0.0024, 0.0016, 0.0032], argent, [W / 2 - 0.0012, yFace - 0.0012, 0.0198], { r: 0.0005 }));
+  {
+    const coin = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(0.0013, 0), new THREE.Vector2(0, 0.0125)]);
+    const g = new THREE.ShapeGeometry(coin);
+    g.rotateX(PI / 2); // à plat, tourné vers −y
+    const p = new THREE.Mesh(g, mat('3ds-reglage', '#c9ccd1', { roughness: 0.4, side: THREE.DoubleSide }));
+    p.position.set(W / 2 - 0.0052, yFace - 0.0007, 0.0185);
+    capot.add(p);
+  }
+  // deux butées en caoutchouc aux coins du bout
+  for (const s of [-1, 1]) capot.add(boite([0.0016, 0.0008, 0.0045], trou, [s * (W / 2 - 0.0042), yFace - 0.0006, z1L - 0.0075], { r: 0.0003 }));
+  // au dos (vers +y fermé) : les deux caméras extérieures, vers le bout du capot
+  for (const s of [-1, 1]) {
+    capot.add(cylindre(0.0062, 0.0006, argent, [s * 0.0175, HL / 2, z1L - 0.011], { segments: 20 }));
+    capot.add(cylindre(0.0042, 0.0009, mat('3ds-objectif', '#1d2433', { roughness: 0.05, metalness: 0.3 }), [s * 0.0175, HL / 2, z1L - 0.011], { segments: 18 }));
+  }
+  el.push(capot);
+  return groupe('objet_3ds', el);
+}
+
+// ===========================================================================================
 // --- Le bureau du studio (chambre de rêve) : le bureau en bouleau et son plateau de verre, avec ---
 //  - à gauche, le MacBook Air ouvert sur un support en aluminium incliné, comme le ThinkPad du bureau bas ;
 //  - un cahier ouvert (lignes, quelques lignes d'écriture, un stylo posé dessus) ;
@@ -1995,27 +2265,37 @@ function bureauStudio() {
   const m = creerMateriaux();
   const T = 0.756;
   const parts = [veinerBois(bureauNu())];
+  // le sous-main : un grand tapis de bureau (106 × 49,5 cm : pas plus grand, l'image n'a que 736 points de large)
+  // imprimé de ton plan bleu « Get task done more better » (public/textures/sous-main-plan.jpg, recadré par le haut
+  // pour garder la graduation du bas), sous tout ce qui est posé sur le bureau ; bordure cousue bleu nuit
+  const [LS, PS] = [1.06, 0.495];
+  const sousMain = tapisDeSouris(m, LS, PS, { image: 'sous-main-plan', objet: 'objet_sous_main', bord: '#0b2a4f', auRas: true });
+  sousMain.position.y = T; // posé sur le verre
+  parts.push(sousMain);
+  // ce qui est posé dessus : sur l'image, qui est la surface du tapis (4 mm), avec un demi-millimètre de marge
+  const TS = T + 0.004 + 0.0005;
   // le MacBook sur son support, à gauche, tourné un peu vers le milieu
   const { support, incl } = supportIncline(m, 0.215);
   incl.add(macbook(m, 0, 0, 0)[0]);
-  support.position.set(-0.43, T, -0.03);
+  support.position.set(-0.39, TS, -0.03);
   support.rotation.y = 0.12;
   parts.push(support);
   // le cahier ouvert, au milieu (l'iPad est sur la console du lit)
   const c = cahier(m);
-  c.position.set(0.06, T, 0.12);
+  c.position.set(0.06, TS, 0.12);
   c.rotation.y = 0.08;
   parts.push(c);
-  // dans le coin à droite : la lampe champignon au fond, la pile de livres devant elle
+  // dans le coin à droite du sous-main : la lampe champignon au fond, la pile de livres devant elle (tout entières
+  // dessus, à 2 cm de son bord)
   const { groupe: livres } = piledeLivres(m);
-  livres.position.set(0.52, T, 0.13);
+  livres.position.set(0.39, TS, 0.13);
   livres.rotation.y = -0.08;
   parts.push(livres);
   const lampe = lampeChampignon(m);
-  lampe.position.set(0.53, T, -0.15);
+  lampe.position.set(0.45, TS, -0.14);
   parts.push(lampe);
-  // son cordon : du dos du pied au bord arrière du bureau, puis il tombe derrière
-  parts.push(tube([[0.53, T + 0.012, -0.207], [0.535, T + 0.003, -0.24], [0.54, T + 0.003, -0.29], [0.543, T - 0.02, -0.303], [0.546, 0.4, -0.304], [0.55, 0.01, -0.304]], 0.0022, m.uni('#f4f2ee'), 40));
+  // son cordon : du dos du pied au bord arrière du sous-main, il descend sur le verre, puis tombe derrière le bureau
+  parts.push(tube([[0.45, TS + 0.012, -0.197], [0.452, TS + 0.0025, -0.222], [0.455, TS + 0.0025, -0.24], [0.457, T + 0.0028, -0.262], [0.46, T + 0.0028, -0.29], [0.462, T - 0.02, -0.303], [0.465, 0.4, -0.304], [0.47, 0.01, -0.304]], 0.0022, m.uni('#f4f2ee'), 40));
   return groupe('bureau', parts);
 }
 
@@ -2071,6 +2351,11 @@ function consoleLit() {
   ipad.position.set(-0.77, T + 0.001, 0.01);
   ipad.rotation.y = 0.08;
   parts.push(ipad);
+  // ta 3DS, ouverte, juste à côté de l'iPad (vers le pied du lit), tournée vers la pièce
+  const n3ds = nintendo3ds(m);
+  n3ds.position.set(-0.53, T + 0.001, 0.01);
+  n3ds.rotation.y = -0.12;
+  parts.push(n3ds);
   return groupe('console-lit', parts);
 }
 
@@ -2209,6 +2494,641 @@ function sacMantis() {
   return groupe('objet_sac', penche);
 }
 
+// ===========================================================================================
+// --- Le Macintosh Plus (1986), posé par terre à gauche du bureau du studio, d'après ta photo ---
+// 24,6 × 34,5 × 27,6 cm, en plastique beige platine. Devant : le cadre de l'écran aux arêtes adoucies, l'écran au
+// fond d'un entonnoir incliné, la vitre cathodique bombée (éteinte : il est par terre, débranché) ; la fente de la
+// disquette avec son élargissement et le trou d'éjection ; la pomme arc-en-ciel et « Macintosh Plus » ; le menton
+// en retrait avec les icônes de luminosité et du clavier, et la prise du clavier. Derrière : la poignée creusée
+// sous le haut, les ouïes d'aération (il n'a pas de ventilateur : l'air passe par le dessus et le dos), les prises
+// (souris, lecteur externe, SCSI, imprimante, modem, son), l'interrupteur et la prise secteur. Sur le flanc
+// gauche, le petit bouton « reset / interrupt ». La coque s'affine un peu vers l'arrière.
+// Les marquages sont des décalques (maillages « macplus-marque » et « macplus-icones », images
+// public/textures/macplus-*.png collées par le programme). Origine : le centre du dessous ; l'avant vers +z.
+// ===========================================================================================
+function macPlus() {
+  const [W, H, D] = [0.246, 0.345, 0.276];
+  const zF = D / 2; // la face avant du cadre
+  const EB = 0.028; // la profondeur du cadre
+  const yC = 0.052; // le haut du menton (le bas du cadre)
+  const beige = mat('macplus-beige', '#ddd6c4', { roughness: 0.55 });
+  const beigeFonce = mat('macplus-beige-fonce', '#cbc3af', { roughness: 0.6 });
+  const biseau = mat('macplus-biseau', '#d3ccb9', { roughness: 0.6, side: THREE.DoubleSide });
+  const noir = mat('macplus-noir', '#2a2824', { roughness: 0.7 });
+  const grille = mat('macplus-ouies', '#6a645a', { roughness: 0.8 });
+  const metal = mat('macplus-metal', '#b4b6b9', { roughness: 0.35, metalness: 0.6 });
+  const el = [];
+
+  // — la coque arrière, qui s'affine vers le dos (x −4 %, y −2,5 %) —
+  const zB0 = zF - EB + 0.004; // l'avant de la coque, caché dans le cadre
+  const affine = (z) => {
+    const t = Math.min(1, Math.max(0, (zB0 - z) / (zB0 + D / 2)));
+    return [1 - 0.04 * t, 1 - 0.025 * t];
+  };
+  // d'un seul tenant : son profil de côté (avec l'encoche de la poignée sous le haut du dos) extrudé sur la
+  // largeur, les arêtes arrondies
+  const wC = (W - 0.006) / 2;
+  {
+    const bc = 0.004;
+    const [zA0, zA1] = [-D / 2 + bc, zB0 - bc];
+    const [yA0, yA1] = [0.004 + bc, H - 0.003 - bc];
+    const yP0 = H - 0.076 + bc; // le bas de l'encoche
+    const yP1 = H - 0.035 - bc; // le haut de l'encoche (le dessous du rebord)
+    const profil = new THREE.Shape([[zA1, yA0], [zA1, yA1], [zA0, yA1], [zA0, yP1], [zA0 + 0.03, yP1], [zA0 + 0.03, yP0], [zA0, yP0], [zA0, yA0]].map(([u, v]) => new THREE.Vector2(u, v)));
+    const g = new THREE.ExtrudeGeometry(profil, { depth: 2 * wC - 2 * bc, bevelEnabled: true, bevelThickness: bc, bevelSize: bc, bevelSegments: 3, curveSegments: 4 });
+    g.rotateY(-PI / 2); // le profil passe dans le plan (z, y), l'épaisseur le long de x
+    g.computeBoundingBox();
+    g.translate(-(g.boundingBox.min.x + g.boundingBox.max.x) / 2, 0, 0);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const [kx, ky] = affine(p.getZ(i));
+      p.setXY(i, p.getX(i) * kx, p.getY(i) * ky);
+    }
+    g.computeVertexNormals();
+    el.push(ombres(new THREE.Mesh(g, beige)));
+  }
+  // un point de la coque à sa surface arrière ou sur le dessus, déformé comme elle
+  const surCoque = (x, y, z) => {
+    const [kx, ky] = affine(z);
+    return [x * kx, y * ky, z];
+  };
+
+  // — le cadre de l'écran : une plaque aux arêtes adoucies, percée de l'ouverture de l'écran —
+  const bs = 0.002; // le biseau du bord
+  const forme = new THREE.Shape();
+  {
+    const [x0, x1, y0, y1, rb, rh] = [-W / 2 + bs, W / 2 - bs, yC + bs, H - bs, 0.004, 0.012];
+    forme.moveTo(x0 + rb, y0);
+    forme.lineTo(x1 - rb, y0);
+    forme.quadraticCurveTo(x1, y0, x1, y0 + rb);
+    forme.lineTo(x1, y1 - rh);
+    forme.quadraticCurveTo(x1, y1, x1 - rh, y1);
+    forme.lineTo(x0 + rh, y1);
+    forme.quadraticCurveTo(x0, y1, x0, y1 - rh);
+    forme.lineTo(x0, y0 + rb);
+    forme.quadraticCurveTo(x0, y0, x0 + rb, y0);
+  }
+  const [oW, oH, oR, oY] = [0.212, 0.163, 0.014, 0.232]; // l'ouverture sur la face avant
+  forme.holes.push(rectArrondi(new THREE.Path(), -oW / 2 - bs, oY - oH / 2 - bs, oW / 2 + bs, oY + oH / 2 + bs, oR + bs));
+  const prof = EB - 2 * bs;
+  const cadre = new THREE.ExtrudeGeometry(forme, { depth: prof, bevelEnabled: true, bevelThickness: bs, bevelSize: bs, bevelSegments: 3, curveSegments: 12 });
+  cadre.translate(0, 0, zF - prof - bs);
+  el.push(ombres(new THREE.Mesh(cadre, beige)));
+
+  // — l'entonnoir de l'écran : de l'ouverture (sur la face) à la vitre, 2,3 cm plus loin —
+  const contour = (w, h, r, n = 8) => {
+    const pts = [];
+    const coins = [[w / 2 - r, h / 2 - r, 0], [-w / 2 + r, h / 2 - r, 0.5], [-w / 2 + r, -h / 2 + r, 1], [w / 2 - r, -h / 2 + r, 1.5]];
+    for (const [cx, cy, a0] of coins) for (let k = 0; k <= n; k++) {
+      const a = (a0 + (k / n) * 0.5) * PI;
+      pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+    }
+    return pts;
+  };
+  const [gW, gH, gR] = [0.19, 0.148, 0.02]; // la vitre
+  const zV = zF - 0.024;
+  {
+    const a = contour(oW, oH, oR);
+    const b = contour(gW, gH, gR);
+    const pos = [];
+    const n = a.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      const [p0, p1, q0, q1] = [[...a[i], zF - 0.0008], [...a[j], zF - 0.0008], [...b[i], zV], [...b[j], zV]].map(([x, y, z]) => [x, y + oY, z]);
+      pos.push(...p0, ...q0, ...p1, ...p1, ...q0, ...q1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.computeVertexNormals();
+    el.push(ombres(new THREE.Mesh(g, biseau)));
+  }
+  // la vitre : bombée de 5 mm, un peu plus grande que son ouverture (les coins sont cachés par l'entonnoir)
+  {
+    const g = new THREE.PlaneGeometry(gW + 0.006, gH + 0.006, 28, 22);
+    const p = g.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const [x, y] = [p.getX(i) / (gW / 2), p.getY(i) / (gH / 2)];
+      p.setZ(i, 0.005 * Math.max(0, 1 - x * x) * Math.max(0, 1 - y * y));
+    }
+    g.computeVertexNormals();
+    const vitre = new THREE.Mesh(g, mat('verre-crt', '#4c4e48', { roughness: 0.1, metalness: 0.2 }));
+    vitre.name = 'ecran-macplus';
+    vitre.position.set(0, oY, zV - 0.0004);
+    el.push(vitre);
+  }
+
+  // — la fente de la disquette, à droite sous l'écran : son lèvre en creux, la fente, l'élargissement, l'éjection —
+  const yF = 0.11;
+  el.push(boite([0.099, 0.011, 0.0014], beigeFonce, [0.047, yF - 0.0055, zF - 0.0004], { r: 0 }));
+  el.push(boite([0.028, 0.014, 0.0016], biseau, [0.083, yF - 0.0072, zF - 0.0003], { r: 0 }));
+  el.push(boite([0.094, 0.0042, 0.0018], noir, [0.047, yF - 0.0021, zF - 0.0002], { r: 0 }));
+  el.push(boite([0.022, 0.0075, 0.0018], noir, [0.084, yF - 0.0045, zF - 0.0001], { r: 0 }));
+  el.push(cylindre(0.0019, 0.0012, noir, [0.103, yF - 0.008, zF + 0.0001], { rot: [PI / 2, 0, 0], centre: true, segments: 10 }));
+  // la marque : la pomme arc-en-ciel et « Macintosh Plus » (un décalque, posé à 0,4 mm de la face)
+  const marque = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.024), mat('macplus-decalque', '#ddd6c4'));
+  marque.name = 'macplus-marque';
+  marque.position.set(-0.061, 0.106, zF + 0.0004);
+  el.push(marque);
+
+  // — le menton, en retrait de 1,2 cm sous le cadre : les icônes, la prise du clavier —
+  const zM = zF - 0.012;
+  el.push(boite([W - 0.01, yC - 0.004, 0.02], beige, [0, 0.004, zM - 0.01], { r: 0.003 }));
+  const icones = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.052), mat('macplus-decalque', '#ddd6c4'));
+  icones.name = 'macplus-icones';
+  icones.position.set(0, 0.026, zM + 0.0004);
+  el.push(icones);
+  el.push(boite([0.017, 0.021, 0.0012], beigeFonce, [0.092, 0.0185, zM - 0.0002], { r: 0.0008 }));
+  el.push(boite([0.0125, 0.0165, 0.0016], noir, [0.092, 0.0207, zM - 0.0002], { r: 0.0006 }));
+  el.push(boite([0.006, 0.0025, 0.0018], beigeFonce, [0.092, 0.0337, zM - 0.0003], { r: 0 })); // l'encoche du clip
+  for (let k = 0; k < 4; k++) el.push(boite([0.0008, 0.003, 0.0019], metal, [0.0882 + k * 0.0025, 0.0315, zM - 0.0004], { r: 0 })); // les contacts
+
+  // — les patins —
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.018, 0.004, noir, [sx * 0.09, 0, sz * 0.1], { segments: 14 }));
+
+  // — derrière (z = −D/2) : les ouïes sous la poignée, les prises, l'interrupteur et la prise secteur —
+  const zA = -D / 2 - 0.0004;
+  for (const cx of [-0.052, 0.052]) {
+    for (let k = 0; k < 11; k++) {
+      const [x, y] = surCoque(cx, H - 0.098 - k * 0.0095, -D / 2);
+      el.push(boite([0.078, 0.0026, 0.0012], grille, [x, y, zA], { r: 0 }));
+    }
+  }
+  const prise = (x, y, l, h, rond = false) => {
+    const [px, py] = surCoque(x, y, -D / 2);
+    if (rond) {
+      el.push(cylindre(h + 0.004, 0.0014, metal, [px, py, zA + 0.0002], { rot: [PI / 2, 0, 0], centre: true, segments: 18 }));
+      el.push(cylindre(h, 0.0016, noir, [px, py, zA - 0.0002], { rot: [PI / 2, 0, 0], centre: true, segments: 18 }));
+    } else {
+      el.push(boite([l + 0.006, h + 0.005, 0.0014], metal, [px, py - (h + 0.005) / 2, zA + 0.0002], { r: 0.0012 }));
+      el.push(boite([l, h, 0.0018], noir, [px, py - h / 2, zA - 0.0002], { r: 0.0015 }));
+    }
+  };
+  // (vu de dos, de gauche à droite : son, modem, imprimante, SCSI, lecteur externe, souris ; le centre de la prise
+  // modem et celui de la prise secteur sont repris dans MAC_DOS, pour brancher les câbles)
+  prise(0.098, 0.045, 0, 0.0055, true);
+  prise(0.078, 0.045, 0, 0.0105, true);
+  prise(0.055, 0.045, 0, 0.0105, true);
+  prise(0.012, 0.049, 0.05, 0.0085);
+  prise(-0.045, 0.049, 0.038, 0.0085);
+  prise(-0.085, 0.049, 0.019, 0.0085);
+  // l'interrupteur à bascule et la prise secteur, en bas à gauche vu de dos (côté droit du Mac)
+  {
+    const [px, py] = surCoque(0.08, 0.1, -D / 2);
+    el.push(boite([0.016, 0.022, 0.0016], noir, [px + 0.02, py - 0.011, zA], { r: 0.001 }));
+    el.push(boite([0.011, 0.016, 0.004], mat('macplus-bascule', '#3a3732', { roughness: 0.5 }), [px + 0.02, py - 0.008, zA - 0.002], { r: 0.001, rot: [0.12, 0, 0] }));
+    el.push(boite([0.03, 0.022, 0.0016], noir, [px - 0.012, py - 0.011, zA], { r: 0.0015 })); // la prise secteur
+    for (const dx of [-0.007, 0, 0.007]) el.push(boite([0.0018, 0.006, 0.0018], metal, [px - 0.012 + dx, py - 0.003 + (dx ? 0 : -0.004), zA - 0.0003], { r: 0 }));
+  }
+  // — sur le dessus, devant la poignée : les fentes d'aération —
+  for (let k = 0; k < 12; k++) {
+    const z = -D / 2 + 0.045 + k * 0.0075;
+    const [x, y] = surCoque(0, H - 0.003, z);
+    el.push(boite([0.15 * affine(z)[0], 0.0008, 0.0022], grille, [x, y - 0.0004, z], { r: 0 }));
+  }
+  // — le petit bouton « reset / interrupt » sur le flanc gauche, en bas vers l'arrière —
+  {
+    const z = -0.075;
+    const [kx] = affine(z);
+    const x = -wC * kx - 0.002;
+    el.push(boite([0.004, 0.045, 0.018], beige, [x, 0.028, z], { r: 0.0015 }));
+    for (const y of [0.038, 0.058]) el.push(boite([0.004, 0.009, 0.01], beigeFonce, [x - 0.0015, y, z], { r: 0.0012 }));
+  }
+  return groupe('macintosh-plus', el);
+}
+
+// ===========================================================================================
+// --- Le mini-rack NAS (10 pouces, 13 U), par terre à gauche du Macintosh Plus, d'après ta photo ---
+// Tout en beige platine, comme le Macintosh Plus à côté (ses teintes mêmes). Un cadre ouvert (quatre montants, deux
+// plateaux, des patins) et, de haut en bas : le panneau de brassage aux câbles bleus, la tablette des deux petits
+// switchs, la passerelle ; un cache ; la tablette du petit boîtier, du boîtier argent et du Raspberry Pi dans son boîtier ; un cache ; la tablette des deux mini-PC ; le panneau de
+// ventilation (deux ventilateurs, l'écran de température) ; un cache ; l'onduleur et son afficheur ; la multiprise
+// aux huit interrupteurs rouges allumés. Les câbles bleus passent en boucle devant les appareils.
+// Dessus : le ThinkPad, ouvert, qui sert de console (son écran, « ecran-thinkpad-nas », montre un tableau de bord
+// de supervision ; il se rabat au clic). Les deux afficheurs sont des maillages nommés (« rack-lcd-ventilo »,
+// « rack-lcd-onduleur ») : le programme y colle leurs chiffres lumineux.
+// Origine : le centre du dessous ; l'avant vers +z.
+// ===========================================================================================
+function rackNas() {
+  const m = creerMateriaux();
+  const el = [];
+  const U = 0.04445;
+  const NU = 13;
+  const [WR, DR] = [0.27, 0.25];
+  const XM = 0.118; // l'axe des montants (et des vis des panneaux)
+  const yR0 = 0.024; // le bas des montants (au-dessus du plateau du bas)
+  const yR1 = yR0 + NU * U; // leur haut
+  const zP = DR / 2 + 0.002; // la face avant des panneaux
+  // beige platine, comme le Macintosh Plus : le cadre dans le ton de son biseau, les façades dans le sien, les
+  // façades foncées dans son beige foncé, les ouïes dans le gris-brun de ses ouïes
+  const cadre = mat('rack-cadre', '#d3ccb9', { roughness: 0.55 });
+  const panneau = mat('rack-panneau', '#ddd6c4', { roughness: 0.55 });
+  const panneauFonce = mat('rack-panneau-fonce', '#cbc3af', { roughness: 0.6 });
+  const trou = mat('rack-trou', '#121116', { roughness: 0.8 });
+  const ouie = mat('rack-ouies', '#6a645a', { roughness: 0.8 });
+  const vis = mat('rack-vis', '#c9ccd2', { roughness: 0.3, metalness: 0.7 });
+  const argent = mat('rack-argent', '#c4c7cc', { roughness: 0.35, metalness: 0.5 });
+  const bleuCable = mat('rack-cable-bleu', '#3e6fd0', { roughness: 0.45 });
+  const led = (nom, c) => mat(nom, c, { emissive: c, emissiveIntensity: 1.6, roughness: 0.4 });
+  const vert = led('rack-led-verte', '#4be37a');
+  const bleu = led('rack-led-bleue', '#4ea4ff');
+  const rouge = led('rack-led-rouge', '#ff4038');
+
+  // — le cadre : deux plateaux, quatre montants, des traverses sur les côtés, quatre patins —
+  el.push(boite([WR, 0.012, DR], cadre, [0, 0.012, 0], { r: 0.003 }));
+  el.push(boite([WR, 0.012, DR], cadre, [0, yR1, 0], { r: 0.003 }));
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      el.push(boite([0.018, yR1 - yR0, 0.018], cadre, [sx * XM, yR0, sz * (DR / 2 - 0.009)], { r: 0.002 }));
+      el.push(cylindre(0.026, 0.012, m.noirMat, [sx * (WR / 2 - 0.025), 0, sz * (DR / 2 - 0.03)], { segments: 14 }));
+    }
+    for (const y of [yR0 + 0.004, yR1 - 0.02]) el.push(boite([0.012, 0.016, DR - 0.036], cadre, [sx * XM, y, 0], { r: 0.002 }));
+  }
+  // — un emplacement de n U, le k-ième depuis le haut : son bas et sa hauteur —
+  const fente = (k, n = 1) => [yR1 - (k + n) * U, n * U];
+  // une façade : la plaque (254 mm de large), ses oreilles vissées (deux vis de chaque côté)
+  const facade = (k, n = 1, materiau = panneau) => {
+    const [y0, h] = fente(k, n);
+    el.push(boite([0.254, h - 0.0012, 0.0025], materiau, [0, y0 + 0.0006, zP - 0.00125], { r: 0.0012 }));
+    for (const sx of [-1, 1]) for (const dy of n === 1 ? [h / 2] : [h * 0.25, h * 0.75]) {
+      el.push(cylindre(0.0062, 0.0018, vis, [sx * XM, y0 + dy, zP + 0.0009], { rot: [PI / 2, 0, 0], centre: true, segments: 12 }));
+      el.push(boite([0.0035, 0.0006, 0.0004], trou, [sx * XM, y0 + dy - 0.0003, zP + 0.0019], { r: 0 })); // la fente de la vis
+    }
+    return [y0, h];
+  };
+  // une tablette : une lèvre en bas de la façade, un plateau qui part vers l'arrière
+  const tablette = (k, n) => {
+    const [y0, h] = fente(k, n);
+    el.push(boite([0.254, 0.012, 0.0025], panneau, [0, y0 + 0.0006, zP - 0.00125], { r: 0.001 }));
+    el.push(boite([0.222, 0.0025, DR - 0.03], panneauFonce, [0, y0 + 0.004, -0.004], { r: 0.0008 }));
+    for (const sx of [-1, 1]) el.push(cylindre(0.0062, 0.0018, vis, [sx * XM, y0 + 0.0066, zP + 0.0009], { rot: [PI / 2, 0, 0], centre: true, segments: 12 }));
+    return [y0 + 0.0065, h];
+  };
+  // un port RJ45 sur une façade : le trou, et sa languette ; renvoie le point où se branche un câble
+  const rj45 = (x, y) => {
+    el.push(boite([0.0118, 0.0098, 0.0012], trou, [x, y - 0.0049, zP + 0.0001], { r: 0.0005 }));
+    el.push(boite([0.004, 0.002, 0.0013], panneauFonce, [x, y + 0.0028, zP + 0.0002], { r: 0 }));
+    return new THREE.Vector3(x, y, zP);
+  };
+  // un câble bleu branché : sa fiche (le manchon) et le câble qui part en boucle vers `fin`
+  const cable = (a, fin, { bombe = 0.05, couleur = bleuCable, chute = 0, dx = 0 } = {}) => {
+    el.push(boite([0.0118, 0.0095, 0.016], couleur, [a.x, a.y - 0.0047, a.z + 0.008], { r: 0.0015 }));
+    const b = fin.clone();
+    const pts = [a.clone().add(new THREE.Vector3(0, 0, 0.016)), a.clone().add(new THREE.Vector3(0, -0.006 - chute * 0.3, bombe * 0.6)),
+      a.clone().lerp(b, 0.5).add(new THREE.Vector3(dx, -0.025 - chute, bombe)), b.clone().add(new THREE.Vector3(0, -0.004, bombe * 0.6)), b.clone().add(new THREE.Vector3(0, 0, 0.016))];
+    el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 40, 0.0028, 7), couleur)));
+    if (fin.userData?.fiche !== false) el.push(boite([0.0118, 0.0095, 0.016], couleur, [b.x, b.y - 0.0047, b.z + 0.008], { r: 0.0015 }));
+  };
+  // une grille d'aération : des fentes horizontales
+  const ouies = (x, y, l, h, pas = 0.0042) => {
+    for (let yy = y + pas / 2; yy < y + h - pas / 2; yy += pas) el.push(boite([l, 0.0017, 0.0008], ouie, [x, yy, zP + 0.0002], { r: 0 }));
+  };
+  // une grille de ventilateur : cercles concentriques et quatre bras
+  const ventilo = (x, y, d) => {
+    el.push(cylindre(d, 0.0008, trou, [x, y, zP + 0.0002], { rot: [PI / 2, 0, 0], centre: true, segments: 32 }));
+    for (const k of [0.92, 0.72, 0.52, 0.32]) el.push(tore(d * k, 0.0011, panneau, [x, y, zP + 0.0009], [0, 0, 0]));
+    for (let a = 0; a < 4; a++) el.push(boite([d * 0.98, 0.0014, 0.001], panneau, [x, y - 0.0007, zP + 0.0009], { r: 0, rot: [0, 0, (a * PI) / 4] }));
+    el.push(cylindre(d * 0.22, 0.0016, panneau, [x, y, zP + 0.0011], { rot: [PI / 2, 0, 0], centre: true, segments: 20 }));
+  };
+
+  // 0 — le panneau de brassage : huit prises, quatre câbles bleus branchés à gauche
+  const portsBrassage = [];
+  {
+    const [y0, h] = facade(0);
+    for (let i = 0; i < 8; i++) portsBrassage.push(rj45(-0.083 + i * 0.0155, y0 + h / 2 + 0.004));
+    for (let i = 0; i < 8; i++) el.push(boite([0.008, 0.0016, 0.0004], m.uni('#f4f1e8'), [-0.083 + i * 0.0155, y0 + h / 2 - 0.0098, zP + 0.0002], { r: 0 })); // les étiquettes
+    el.push(boite([0.06, 0.012, 0.0006], panneauFonce, [0.07, y0 + h / 2 - 0.006, zP + 0.0002], { r: 0.0006 })); // le porte-étiquette
+    el.push(sphere(0.0032, bleu, [0.108, y0 + h / 2, zP + 0.0008]));
+  }
+  // 1 — la tablette des deux petits switchs (cinq ports chacun, des témoins verts)
+  const portsSwitch = [];
+  {
+    const [y, h] = tablette(1, 1);
+    for (const cx of [-0.058, 0.058]) {
+      el.push(boite([0.1, 0.026, 0.085], m.uni('#d6cfbc'), [cx, y, 0.06], { r: 0.003 }));
+      for (let i = 0; i < 5; i++) {
+        const x = cx - 0.035 + i * 0.016;
+        el.push(boite([0.0118, 0.0095, 0.0012], trou, [x, y + 0.006, 0.1029], { r: 0.0005 }));
+        portsSwitch.push(new THREE.Vector3(x, y + 0.0109, 0.1029)); // le centre de la prise
+        el.push(boite([0.0022, 0.0015, 0.0006], vert, [x - 0.004, y + 0.019, 0.1029], { r: 0 }));
+      }
+    }
+  }
+  // 2 — la passerelle : le logo lumineux, deux ports SFP, huit ports, les témoins
+  const portsPasserelle = [];
+  {
+    const [y0, h] = facade(2);
+    const yc = y0 + h / 2;
+    el.push(boite([0.052, 0.022, 0.0006], panneauFonce, [-0.07, yc - 0.011, zP + 0.0002], { r: 0.002 }));
+    el.push(tore(0.0085, 0.0011, bleu, [-0.087, yc, zP + 0.0008], [0, 0, 0]));
+    el.push(boite([0.0115, 0.0095, 0.0012], trou, [-0.068, yc - 0.0047, zP + 0.0001], { r: 0.0004 })); // l'USB
+    for (const x of [-0.048, -0.034]) el.push(boite([0.012, 0.009, 0.0012], argent, [x, yc - 0.0045, zP + 0.0001], { r: 0.0004 })); // les SFP
+    for (let i = 0; i < 8; i++) portsPasserelle.push(rj45(-0.012 + i * 0.0145, yc + 0.0045));
+    for (let i = 0; i < 8; i++) el.push(boite([0.0024, 0.0014, 0.0006], vert, [-0.012 + i * 0.0145, yc - 0.0085, zP + 0.0002], { r: 0 }));
+  }
+  // les câbles : quatre du brassage vers les switchs (en boucle, à droite), quatre de la passerelle vers le
+  // brassage ; un gris, un rouge et un vert courts
+  for (let i = 0; i < 4; i++) cable(portsBrassage[i], portsSwitch[5 + i], { bombe: 0.024 + i * 0.004, chute: 0.003 * i });
+  for (let i = 0; i < 4; i++) cable(portsPasserelle[2 + i], portsSwitch[i], { bombe: 0.02 + i * 0.003 });
+  cable(portsBrassage[5], portsPasserelle[0], { bombe: 0.03, couleur: m.uni('#a9adb4'), dx: -0.05 });
+  cable(portsSwitch[4], portsPasserelle[1], { bombe: 0.02, couleur: m.uni('#c9443d') });
+  cable(portsSwitch[9], portsPasserelle[7], { bombe: 0.028, couleur: m.uni('#3fa45e') });
+
+  // 3 — un cache
+  facade(3);
+  // 4-5 — la tablette du boîtier noir, du boîtier argent et du Raspberry Pi
+  {
+    const [y] = tablette(4, 2);
+    el.push(boite([0.07, 0.03, 0.07], m.uni('#d9d2bf'), [-0.08, y, 0.045], { r: 0.008 })); // le petit boîtier
+    el.push(boite([0.032, 0.0015, 0.0012], vert, [-0.08, y + 0.031, 0.08], { r: 0 }));
+    el.push(boite([0.1, 0.034, 0.09], argent, [0.005, y, 0.035], { r: 0.012 })); // le boîtier argent
+    el.push(boite([0.06, 0.012, 0.0012], m.uni('#1d1c22'), [0.005, y + 0.011, 0.0806], { r: 0.003 }));
+    for (const dx of [-0.009, 0, 0.009]) el.push(sphere(0.0034, vert, [0.005 + dx, y + 0.017, 0.0812]));
+    el.push(boite([0.062, 0.028, 0.09], m.uni('#d2cbb7'), [0.085, y, 0.03], { r: 0.004 })); // le Raspberry Pi, dans son boîtier
+    el.push(sphere(0.0045, rouge, [0.105, y + 0.018, 0.0752]));
+    for (const dx of [-0.018, -0.004]) el.push(boite([0.008, 0.0045, 0.0012], trou, [0.085 + dx, y + 0.008, 0.0751], { r: 0.0004 }));
+    el.push(tube([[0.085, y + 0.012, -0.015], [0.085, y + 0.03, -0.03], [0.07, y + 0.02, -0.08], [0.06, y + 0.005, -0.1]], 0.0022, m.uni('#1e1d22'), 20)); // son câble
+  }
+  // 6 — un cache
+  facade(6);
+  // 7 — la tablette des deux mini-PC (l'un à liseré rouge et grille à droite, l'autre à grille)
+  {
+    const [y] = tablette(7, 1);
+    for (const [cx, accent] of [[-0.058, false], [0.058, true]]) {
+      el.push(boite([0.1, 0.034, 0.12], m.uni('#d6cfbc'), [cx, y, 0.04], { r: 0.003 }));
+      const zf = 0.1003;
+      el.push(cylindre(0.0055, 0.001, m.uni('#bdb5a0'), [cx - 0.04, y + 0.017, zf], { rot: [PI / 2, 0, 0], centre: true, segments: 14 }));
+      el.push(sphere(0.002, bleu, [cx - 0.04, y + 0.017, zf + 0.0006]));
+      for (const dx of [-0.027, -0.016]) el.push(boite([0.008, 0.0035, 0.0008], trou, [cx + dx, y + 0.015, zf], { r: 0.0003 })); // l'USB
+      for (let r = 0; r < 4; r++) for (let c = 0; c < 9; c++) el.push(cylindre(0.0022, 0.0008, ouie, [cx + 0.008 + c * 0.0042, y + 0.008 + r * 0.0055, zf], { rot: [PI / 2, 0, 0], centre: true, segments: 6 }));
+      if (accent) el.push(boite([0.0035, 0.034, 0.0012], m.uni('#c3343c'), [cx + 0.0015, y, zf], { r: 0 }));
+    }
+  }
+  // 8-9 — le panneau de ventilation : deux ventilateurs, l'écran de température, ses boutons
+  {
+    const [y0, h] = facade(8, 2);
+    const yc = y0 + h / 2;
+    ventilo(-0.07, yc, 0.075);
+    ventilo(0.07, yc, 0.075);
+    el.push(boite([0.06, 0.036, 0.0008], panneauFonce, [0, yc - 0.018, zP + 0.0002], { r: 0.002 }));
+    const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.044, 0.022), m.uni('#1b2a3a'));
+    lcd.name = 'rack-lcd-ventilo';
+    lcd.position.set(0, yc + 0.002, zP + 0.0011);
+    el.push(lcd);
+    for (const [dx, dy] of [[-0.026, 0.006], [-0.026, -0.004], [0.026, 0.006], [0.026, -0.004]]) el.push(boite([0.004, 0.0045, 0.0014], m.uni('#c3bba6'), [dx, yc + dy - 0.0022, zP + 0.0008], { r: 0.0008 }));
+    el.push(boite([0.028, 0.0018, 0.0004], m.uni('#9a937f'), [0, yc - 0.0145, zP + 0.0008], { r: 0 })); // la marque
+  }
+  // 10 — un cache ajouré
+  {
+    const [y0, h] = facade(10);
+    ouies(0, y0 + 0.008, 0.19, h - 0.016);
+  }
+  // 11 — l'onduleur : deux grilles, l'afficheur, le bouton rond
+  {
+    const [y0, h] = facade(11, 1, panneauFonce);
+    const yc = y0 + h / 2;
+    ouies(-0.075, y0 + 0.008, 0.075, h - 0.016);
+    ouies(0.075, y0 + 0.008, 0.075, h - 0.016);
+    el.push(boite([0.036, 0.022, 0.0008], m.uni('#18171c'), [-0.012, yc - 0.011, zP + 0.0002], { r: 0.0015 }));
+    const lcd = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.016), m.uni('#1b2a3a'));
+    lcd.name = 'rack-lcd-onduleur';
+    lcd.position.set(-0.012, yc, zP + 0.0011);
+    el.push(lcd);
+    el.push(cylindre(0.012, 0.004, argent, [0.017, yc, zP + 0.002], { rot: [PI / 2, 0, 0], centre: true, segments: 20 }));
+    el.push(tore(0.0125, 0.0007, bleu, [0.017, yc, zP + 0.0042], [0, 0, 0]));
+  }
+  // 12 — la multiprise : huit interrupteurs à bascule rouges, allumés
+  {
+    const [y0, h] = facade(12, 1, panneauFonce);
+    const yc = y0 + h / 2;
+    for (let i = 0; i < 8; i++) {
+      const x = -0.0945 + i * 0.027;
+      el.push(boite([0.012, 0.016, 0.0012], m.uni('#141318'), [x, yc - 0.008, zP + 0.0001], { r: 0.001 }));
+      el.push(boite([0.009, 0.0125, 0.004], rouge, [x, yc - 0.006, zP + 0.0016], { r: 0.0012, rot: [-0.18, 0, 0] }));
+    }
+  }
+
+  // — dessus : le ThinkPad, ouvert, la console du rack —
+  const { groupe: tp } = thinkpad(m, { ecran: 'ecran-thinkpad-nas' });
+  tp.position.set(0, yR1 + 0.012, 0.004);
+  tp.rotation.y = -0.04;
+  el.push(tp);
+  return groupe('rack-nas', el);
+}
+
+// ===========================================================================================
+// --- Le rack à vêtements, sous la pente à gauche de la TV (vu du lit), d'après ta photo d'inspiration ---
+// Un portant chromé à roulettes, bas parce que le toit descend (le plafond n'est qu'à 1,03 m au pied du mur bas du
+// sud) : la barre à 97 cm, 40 cm entre les deux montants (du bout du coffre de la TV au mur bas), parallèle au mur
+// ouest. Les montants se courbent pour devenir la barre ; à leur pied, une traverse sur deux roulettes ; entre eux, un
+// panier en fil chromé (un magazine, un pull plié). Sur la barre, cinq cintres en fil vides (les vêtements ont été
+// retirés à ta demande ; pas de tote bag Arket non plus : il pendrait devant la TV).
+// Origine : le milieu du dessous ; la barre suit z, les vêtements s'étalent sur x (vers la pièce).
+// ===========================================================================================
+function rackVetements() {
+  const m = creerMateriaux();
+  const chrome = mat('rack-chrome', '#e4e8eb', { roughness: 0.22, metalness: 0.65 });
+  const fil = mat('rack-fil', '#d9dee2', { roughness: 0.3, metalness: 0.55 });
+  const el = [];
+  const [ZR, YR, R] = [0.2, 0.97, 0.0125]; // demi-écart des montants, hauteur de la barre, rayon des tubes
+  const P = (x, y, z) => new THREE.Vector3(x, y, z);
+  // — les montants et la barre : un seul tube aux coins arrondis —
+  {
+    const k = 0.05;
+    const c = new THREE.CurvePath();
+    c.add(new THREE.LineCurve3(P(0, 0.07, -ZR), P(0, YR - k, -ZR)));
+    c.add(new THREE.QuadraticBezierCurve3(P(0, YR - k, -ZR), P(0, YR, -ZR), P(0, YR, -ZR + k)));
+    c.add(new THREE.LineCurve3(P(0, YR, -ZR + k), P(0, YR, ZR - k)));
+    c.add(new THREE.QuadraticBezierCurve3(P(0, YR, ZR - k), P(0, YR, ZR), P(0, YR - k, ZR)));
+    c.add(new THREE.LineCurve3(P(0, YR - k, ZR), P(0, 0.07, ZR)));
+    el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(c, 140, R, 12), chrome)));
+  }
+  // — les pieds : une traverse sous chaque montant, son manchon, deux roulettes —
+  const YP = 0.062;
+  for (const s of [-1, 1]) {
+    const z = s * ZR;
+    el.push(barre([-0.24, YP, z], [0.24, YP, z], R, chrome, 12));
+    for (const x of [-0.24, 0.24]) el.push(sphere(2 * R, chrome, [x, YP, z]));
+    el.push(cylindre(0.032, 0.034, chrome, [0, YP - 0.006, z], { segments: 16 }));
+    for (const x of [-0.205, 0.205]) {
+      el.push(boite([0.02, 0.016, 0.026], chrome, [x, 0.036, z], { r: 0.003 })); // la chape
+      el.push(cylindre(0.042, 0.016, m.uni('#3a3b40'), [x, 0.021, z], { rot: [PI / 2, 0, 0], centre: true, segments: 18 })); // la roue
+      el.push(cylindre(0.02, 0.018, m.uni('#9a9ca2'), [x, 0.021, z], { rot: [PI / 2, 0, 0], centre: true, segments: 12 })); // son moyeu
+    }
+  }
+  // — le panier en fil, entre les montants : le fond quadrillé, les côtés, deux rebords, ses attaches —
+  {
+    const [XP, ZP, Y0, Y1, rf] = [0.17, ZR - 0.022, 0.09, 0.2, 0.0016];
+    for (let i = 0; i <= 10; i++) {
+      const x = -XP + (i * 2 * XP) / 10;
+      el.push(barre([x, Y0, -ZP], [x, Y0, ZP], rf, fil, 6));
+      for (const z of [-ZP, ZP]) el.push(barre([x, Y0, z], [x, Y1, z], rf, fil, 6));
+    }
+    for (let j = 0; j <= 8; j++) {
+      const z = -ZP + (j * 2 * ZP) / 8;
+      el.push(barre([-XP, Y0, z], [XP, Y0, z], rf, fil, 6));
+      for (const x of [-XP, XP]) el.push(barre([x, Y0, z], [x, Y1, z], rf, fil, 6));
+    }
+    for (const y of [Y0, Y1]) {
+      const bord = [P(-XP, y, -ZP), P(XP, y, -ZP), P(XP, y, ZP), P(-XP, y, ZP)];
+      bord.forEach((a, i) => el.push(barre(a.toArray(), bord[(i + 1) % 4].toArray(), 0.003, fil, 8)));
+    }
+    for (const s of [-1, 1]) el.push(barre([0, Y1, s * ZP], [0, Y1, s * (ZR - R)], 0.004, chrome, 8)); // les attaches aux montants
+    // dedans : un magazine (sa couverture en noir et blanc) et un pull beige plié
+    const mag = new THREE.Group();
+    mag.add(boite([0.21, 0.007, 0.275], m.uni('#f2f1ed'), [0, 0, 0], { r: 0.001 }));
+    mag.add(boite([0.17, 0.0004, 0.19], m.uni('#55565c'), [0.0, 0.007, -0.03], { r: 0 }));
+    mag.add(boite([0.12, 0.0004, 0.018], m.uni('#1e1e22'), [0.0, 0.007, 0.1], { r: 0 }));
+    mag.position.set(0.02, Y0 + 0.0025, -0.03);
+    mag.rotation.set(0, 0.12, -0.04);
+    el.push(mag);
+    el.push(tissu([0.24, 0.05, 0.17], m.uni('#d8cfbf'), [-0.03, Y0 + 0.004, 0.06], { r: 0.02, froissement: 0.004, graine: 5 }));
+  }
+
+  // — les cintres en fil, vides (les vêtements ont été retirés) : le crochet par-dessus la barre, le col tordu, le
+  // triangle ; un peu de travers, du nord (côté TV) au sud : [z, rotation autour de y]
+  const cintre = () => [
+    tube([[0, -0.046, 0], [-0.006, -0.026, 0], [-0.017, -0.003, 0], [-0.011, 0.013, 0], [0.003, 0.018, 0], [0.015, 0.009, 0], [0.017, -0.004, 0]], 0.0018, fil, 24),
+    tube([[0, -0.046, 0], [0.002, -0.056, 0], [0.19, -0.098, 0], [0.2, -0.108, 0], [0.0, -0.11, 0], [-0.2, -0.108, 0], [-0.19, -0.098, 0], [-0.002, -0.056, 0], [0, -0.046, 0]], 0.0017, fil, 60),
+  ];
+  for (const [z, ry] of [[-0.145, 0.11], [-0.08, -0.1], [-0.022, 0.08], [0.04, -0.13], [0.115, 0.08]]) {
+    const g = new THREE.Group();
+    g.add(...cintre());
+    g.position.set(0, YR, z);
+    g.rotation.y = ry;
+    el.push(g);
+  }
+  return groupe('rack-vetements', el);
+}
+
+// ===========================================================================================
+// --- La baguette étoile de KiiiKiii (« KiiiKiii OFFICIAL LIGHT STICK »), d'après le visuel des photocards de
+// précommande où les cinq membres la tiennent ---
+// Une étoile à cinq branches, blanc nacré un peu bleuté, toute gonflée (épaisse de 3,2 cm au cœur, ses bords
+// s'arrondissent jusqu'à la couture du moule) et aux pointes arrondies ; un col qui la tient, un manche blanc
+// brillant, une bague nacrée, la poignée et son bouton, le bout arrondi avec son anneau et la dragonne en satin
+// rouge. 12 cm de pointe à pointe, 30 cm de long. Le visuel est flou : les détails du manche sont ceux d'un light
+// stick (à corriger d'après une photo nette).
+// Posée à plat, l'étoile vers le haut, le manche vers +z (il touche à peine la surface : il est plus fin que
+// l'étoile), la dragonne repliée à côté de la poignée. L'étoile (matériau « etoile-kiiikiii ») s'allume au clic.
+// Origine : sous le centre de l'étoile, sur la surface où elle est posée.
+// ===========================================================================================
+function baguetteKiiikiii() {
+  const m = creerMateriaux();
+  const nacre = mat('etoile-kiiikiii', '#eef2f9', { roughness: 0.28, metalness: 0.08, emissive: '#ffe3f0', emissiveIntensity: 0 });
+  const blanc = mat('manche-kiiikiii', '#f6f6f8', { roughness: 0.26 });
+  const perle = mat('bague-kiiikiii', '#dfe4ec', { roughness: 0.22, metalness: 0.35 });
+  const satin = mat('dragonne-kiiikiii', '#c8243b', { roughness: 0.42, side: THREE.DoubleSide });
+  const [RE, RI, HC] = [0.06, 0.026, 0.0155]; // rayon des pointes, des creux, demi-épaisseur au cœur
+  const debout = new THREE.Group(); // la baguette debout : l'étoile dans le plan (x, y), le manche vers −y
+
+  // — le contour de l'étoile : dix sommets, chacun arrondi par un arc tangent à ses deux côtés —
+  const sommets = Array.from({ length: 10 }, (_, k) => {
+    const a = PI / 2 + (k * PI) / 5;
+    const r = k % 2 ? RI : RE;
+    return new THREE.Vector2(r * Math.cos(a), r * Math.sin(a));
+  });
+  const contour = [];
+  sommets.forEach((V, k) => {
+    const A = sommets[(k + 9) % 10];
+    const B = sommets[(k + 1) % 10];
+    const u1 = A.clone().sub(V).normalize();
+    const u2 = B.clone().sub(V).normalize();
+    const alpha = Math.acos(u1.dot(u2)) / 2;
+    const rf = k % 2 ? 0.004 : 0.0065; // l'arrondi des creux, des pointes
+    const d = rf / Math.tan(alpha);
+    const C = V.clone().add(u1.clone().add(u2).normalize().multiplyScalar(rf / Math.sin(alpha)));
+    const T1 = V.clone().add(u1.clone().multiplyScalar(d));
+    const T2 = V.clone().add(u2.clone().multiplyScalar(d));
+    let a1 = Math.atan2(T1.y - C.y, T1.x - C.x);
+    let a2 = Math.atan2(T2.y - C.y, T2.x - C.x);
+    // le petit arc (sens direct pour les pointes, rétrograde pour les creux)
+    let da = a2 - a1;
+    while (da > PI) da -= 2 * PI;
+    while (da < -PI) da += 2 * PI;
+    const n = 10;
+    for (let i = 0; i <= n; i++) {
+      const a = a1 + (da * i) / n;
+      contour.push(new THREE.Vector2(C.x + rf * Math.cos(a), C.y + rf * Math.sin(a)));
+    }
+  });
+  // — l'étoile gonflée : du cœur au contour, une épaisseur en ellipse (bord arrondi), dessus et dessous d'un seul
+  // tenant (les sommets du bord sont partagés : pas d'arête vive)
+  {
+    const NT = 18;
+    const N = contour.length;
+    const pos = [];
+    const idx = [];
+    const epais = (t) => HC * Math.pow(Math.max(0, 1 - Math.pow(t, 2.3)), 0.5);
+    for (let k = 0; k <= N; k++) {
+      const O = contour[k % N];
+      for (let j = 0; j <= 2 * NT; j++) {
+        const t = j <= NT ? j / NT : (2 * NT - j) / NT;
+        const z = j <= NT ? epais(t) : -epais(t);
+        pos.push(O.x * t, O.y * t, z);
+      }
+    }
+    const L = 2 * NT + 1;
+    for (let k = 0; k < N; k++) for (let j = 0; j < 2 * NT; j++) {
+      const a = k * L + j;
+      const b = (k + 1) * L + j;
+      idx.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    debout.add(ombres(new THREE.Mesh(g, nacre)));
+    // la couture du moule, tout autour
+    const couture = contour.map((p) => new THREE.Vector3(p.x, p.y, 0));
+    debout.add(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(couture, true), N, 0.0011, 5, true), perle)));
+  }
+  // — le manche : le col sous l'étoile, la tige, la bague, la poignée et son bouton, le bout et son anneau —
+  const axe = (d, h, mat, y, { dBas, segments = 24 } = {}) => debout.add(cylindre(d, h, mat, [0, y - h, 0], { dBas, segments }));
+  axe(0.024, 0.024, blanc, -0.018, { dBas: 0.0175 }); // le col, qui s'enfonce dans l'étoile
+  axe(0.017, 0.08, blanc, -0.042);
+  axe(0.0215, 0.0045, perle, -0.12);
+  axe(0.0205, 0.108, blanc, -0.1245, { dBas: 0.0215 });
+  for (const y of [-0.19, -0.2, -0.21, -0.22]) debout.add(tore(0.0216, 0.0006, perle, [0, y, 0], [PI / 2, 0, 0]));
+  debout.add(boite([0.007, 0.013, 0.003], m.uni('#f2d7e2'), [0, -0.158, 0.0098], { r: 0.0013 })); // le bouton
+  debout.add(sphere(0.0215, blanc, [0, -0.2325, 0], { echelle: [1, 0.55, 1] })); // le bout arrondi
+  debout.add(tore(0.009, 0.0012, perle, [0, -0.2405, 0], [0, 0, 0])); // l'anneau de la dragonne
+
+  // — posée à plat : l'étoile vers le haut, le manche vers +z, à peine incliné pour que le bout touche —
+  const couchee = new THREE.Group();
+  debout.rotation.x = -PI / 2;
+  debout.position.y = HC;
+  couchee.add(debout);
+  couchee.rotation.x = 0.024;
+  // — la dragonne en satin rouge, à plat sur la surface (hors du groupe incliné) : une boucle qui part de l'anneau et
+  // revient le long de la poignée (la baguette tient ainsi dans la vitrine) —
+  const dragonne = [];
+  {
+    const ancre = new THREE.Vector3(0, HC - 0.243 * Math.sin(0.024), 0.243); // l'anneau, au bout du manche incliné
+    const chemin = new THREE.CatmullRomCurve3(
+      [[0, 0.0012, 0.245], [0.012, 0.0012, 0.262], [0.03, 0.0012, 0.268], [0.045, 0.0012, 0.25], [0.051, 0.0012, 0.21], [0.046, 0.0012, 0.17], [0.031, 0.0012, 0.153], [0.019, 0.0012, 0.168], [0.016, 0.0012, 0.208], [0.012, 0.0012, 0.238], [0.004, 0.0012, 0.25]].map(([x, y, z]) => new THREE.Vector3(x, y, z)),
+      false,
+    );
+    const pts = chemin.getSpacedPoints(80);
+    const pos = [];
+    const idx = [];
+    pts.forEach((p, i) => {
+      const t = chemin.getTangentAt(i / 80);
+      const n = new THREE.Vector3(-t.z, 0, t.x).normalize().multiplyScalar(0.0045);
+      pos.push(p.x + n.x, p.y, p.z + n.z, p.x - n.x, p.y, p.z - n.z);
+      if (i) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    dragonne.push(ombres(new THREE.Mesh(g, satin)));
+    // le nœud qui la tient à l'anneau, et le bout de satin qui descend de l'anneau jusqu'à lui
+    dragonne.push(sphere(0.008, satin, [ancre.x, 0.003, ancre.z + 0.002], { echelle: [1, 0.6, 1.3] }));
+    dragonne.push(tube([[0, ancre.y, ancre.z], [0, ancre.y - 0.004, ancre.z + 0.003], [0, 0.003, ancre.z + 0.004]], 0.0022, satin, 10));
+  }
+  return groupe('objet_baguette', couchee, ...dragonne);
+}
+
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
 const fabrique = (f) => () => fusionner(f());
 export const modelesReve = {
@@ -2229,4 +3149,8 @@ export const modelesReve = {
   'season-greetings': fabrique(seasonGreetings),
   'meuble-hifi': fabrique(meubleHifi),
   drapeau: fabrique(drapeau),
+  'macintosh-plus': fabrique(macPlus),
+  'rack-nas': fabrique(rackNas),
+  'rack-vetements': fabrique(rackVetements),
+  'baguette-kiiikiii': fabrique(baguetteKiiikiii),
 };

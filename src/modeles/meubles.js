@@ -16,6 +16,12 @@ const groupe = (nom, ...enfants) => {
   g.add(...enfants);
   return g;
 };
+// un maillage qui porte et reçoit les ombres
+const ombres = (o) => {
+  o.castShadow = true;
+  o.receiveShadow = true;
+  return o;
+};
 const axeX = [0, 0, PI / 2]; // couche un cylindre pour que son axe soit x
 const axeZ = [PI / 2, 0, 0]; // … ou z
 
@@ -551,75 +557,219 @@ function vitrine() {
   );
 }
 
-// --- Coffre en osier blanc (85 × 44 × 45) et TV Brandt dessus. La face avant regarde +x (le lit). ---
+// --- Le coffre en osier blanc (84 × 44 × 45) et la TV Brandt posée dessus. La face avant regarde +x (le lit). ---
+// Le coffre est vraiment tressé : des montants ronds tout autour (un rectangle aux coins arrondis), et des brins
+// qui passent un coup devant, un coup derrière eux, en alternance d'un rang à l'autre. Les losanges de la face avant
+// sont tissés dans les brins (un brin couleur rotin là où passe un losange). Sur les petits côtés, les
+// poignées sont des jours dans le tressage, sous une barre gainée d'un brin enroulé. Des bordures tressées (deux
+// brins torsadés) en bas, en haut et autour du couvercle, dont le dessus est un tressage serré (la texture
+// « osier-couvercle », dessinée par le programme), quatre petits pieds.
+// La TV : la dalle au cadre noir laqué, la bande argentée et le logo Brandt (« marque-tv ») en bas, le récepteur de la
+// télécommande et son témoin de veille rouge ; derrière, la coque bombée aux ouïes, les quatre inserts VESA, les
+// prises (HDMI, USB, antenne, optique) et le cordon d'alimentation, qui descend derrière le coffre jusqu'au sol (dans
+// la chambre de rêve, il rejoint sa prise : voir branchements) ; le pied central (pas de télécommande : tu n'en as pas).
+// L'écran est le plan « ecran » : le programme y affiche l'image quand la TV est allumée.
 function tv() {
   const m = creerMateriaux();
+  const el = [];
   const DX = 0.44; // profondeur (x)
   const DZ = 0.84; // longueur (z)
-  // tressage : 17 rangs d'osier sur chaque face, alternés clair / foncé
-  const rangs = [];
-  for (let k = 0; k < 17; k++) {
-    const y = 0.03 + k * 0.0235;
-    const mat = k % 2 ? m.osierFonce : m.osier;
-    for (const x of [DX / 2 + 0.002, -DX / 2 - 0.002]) rangs.push(boite([0.012, 0.0195, DZ - 0.008], mat, [x, y, 0], { r: 0.004 }));
-    for (const z of [DZ / 2 + 0.002, -DZ / 2 - 0.002]) rangs.push(boite([DX - 0.004, 0.0195, 0.012], mat, [0, y, z], { r: 0.004 }));
-  }
-  const tiges = [];
-  for (let z = -0.38; z <= 0.381; z += 0.06) for (const x of [DX / 2 + 0.009, -DX / 2 - 0.009]) tiges.push(boite([0.006, 0.4, 0.02], m.osierFonce, [x, 0.03, z], { r: 0.003 }));
-  for (let x = -0.18; x <= 0.181; x += 0.06) for (const z of [DZ / 2 + 0.009, -DZ / 2 - 0.009]) tiges.push(boite([0.02, 0.4, 0.006], m.osierFonce, [x, 0.03, z], { r: 0.003 }));
-  const coins = [DX / 2, -DX / 2].flatMap((x) => [DZ / 2, -DZ / 2].map((z) => cylindre(0.034, 0.43, m.osierFonce, [x, 0.012, z])));
-  const pieds = [DX / 2 - 0.02, -DX / 2 + 0.02].flatMap((x) => [DZ / 2 - 0.02, -DZ / 2 + 0.02].map((z) => boite([0.04, 0.02, 0.04], m.osierFonce, [x, 0, z], { r: 0.006 })));
+  const HB = 0.415; // le haut du corps tressé
 
-  // motif en losanges sur la grande face avant : une chaîne de losanges plus foncés
-  const losanges = [];
-  [-0.3, -0.15, 0, 0.15, 0.3].forEach((z, i) => {
-    const taille = i % 2 ? 0.07 : 0.09;
-    losanges.push(boite([0.004, taille, taille], m.osierFonce, [DX / 2 + 0.018, 0.17 - taille / 2, z], { r: 0.001, rot: [PI / 4, 0, 0] }));
-    losanges.push(boite([0.005, taille * 0.6, taille * 0.6], m.osier, [DX / 2 + 0.0185, 0.17 - taille * 0.3, z], { r: 0.001, rot: [PI / 4, 0, 0] }));
-  });
-  // poignées découpées sur les deux petites faces, près du haut
-  const poignees = [DZ / 2, -DZ / 2].flatMap((z) => {
-    const zz = z + Math.sign(z) * 0.01;
-    return [
-      boite([0.13, 0.04, 0.006], m.noirMat, [0, 0.32, zz], { r: 0.003 }),
-      boite([0.15, 0.012, 0.01], m.osierFonce, [0, 0.36, zz], { r: 0.003 }),
+  // — le tressage —
+  const osier = m.osier;
+  const osierOmbre = m.uni('#e9e2d2');
+  const motif = m.uni('#d8c9a6');
+  // le contour des montants : un rectangle aux coins arrondis (demi-côtés a, b, rayon r) ; `point(s)` donne le
+  // point et la normale extérieure à l'abscisse s, en partant du milieu de la face avant et en tournant vers +z
+  const contour = (a, b, r) => {
+    const [lz, lx, q] = [2 * (b - r), 2 * (a - r), (PI * r) / 2];
+    const morceaux = [
+      [lz / 2, (t) => [a, t, 1, 0]],
+      [q, (t) => { const u = t / r; return [a - r + r * Math.cos(u), b - r + r * Math.sin(u), Math.cos(u), Math.sin(u)]; }],
+      [lx, (t) => [a - r - t, b, 0, 1]],
+      [q, (t) => { const u = PI / 2 + t / r; return [-a + r + r * Math.cos(u), b - r + r * Math.sin(u), Math.cos(u), Math.sin(u)]; }],
+      [lz, (t) => [-a, b - r - t, -1, 0]],
+      [q, (t) => { const u = PI + t / r; return [-a + r + r * Math.cos(u), -b + r + r * Math.sin(u), Math.cos(u), Math.sin(u)]; }],
+      [lx, (t) => [-a + r + t, -b, 0, -1]],
+      [q, (t) => { const u = (3 * PI) / 2 + t / r; return [a - r + r * Math.cos(u), -b + r + r * Math.sin(u), Math.cos(u), Math.sin(u)]; }],
+      [lz / 2, (t) => [a, -b + r + t, 1, 0]],
     ];
-  });
-  // aérations au dos de la TV
-  const aerations = [0.56, 0.58, 0.6, 0.62, 0.64, 0.66, 0.68, 0.7].map((y) => boite([0.004, 0.006, 0.3], m.noirMat, [-0.057, y, 0], { r: 0.001 }));
+    const L = morceaux.reduce((s, [l]) => s + l, 0);
+    const point = (s) => {
+      let t = ((s % L) + L) % L;
+      for (const [l, f] of morceaux) {
+        if (t <= l) return f(t);
+        t -= l;
+      }
+      return morceaux[0][1](0);
+    };
+    return { L, point };
+  };
+  const [aM, bM, rM] = [DX / 2 - 0.008, DZ / 2 - 0.008, 0.03];
+  const { L, point } = contour(aM, bM, rM);
+  const NM = 56; // les montants (un nombre pair : le tressage se referme juste)
+  const pas = L / NM;
+  // le cœur du coffre, un peu plus sombre (on l'aperçoit entre les brins et par les poignées)
+  el.push(boite([2 * aM - 0.006, HB - 0.03, 2 * bM - 0.006], m.uni('#d4c9b1'), [0, 0.03, 0], { r: 0.02 }));
+  for (const sz of [-1, 1]) el.push(boite([0.15, 0.06, 0.004], m.noirMat, [0, 0.292, sz * (bM - 0.004)], { r: 0.002 })); // le fond des poignées
+  for (let k = 0; k < NM; k++) {
+    const [x, z] = point(k * pas);
+    el.push(cylindre(0.007, HB - 0.026, osierOmbre, [x, 0.026, z], { segments: 7 }));
+  }
+  // les rangs : un brin par rang, qui ondule autour des montants ; découpé en tronçons de couleur (le fond, les
+  // losanges) et interrompu aux poignées
+  const losanges = [-0.3, -0.15, 0, 0.15, 0.3].map((zc, i) => [zc, 0.215, i % 2 ? 0.05 : 0.064]);
+  const classe = (x, y, z, nx, nz) => {
+    if (Math.abs(nz) > 0.9 && Math.abs(x) < 0.07 && y > 0.293 && y < 0.35) return -1; // le jour de la poignée
+    if (nx > 0.9) {
+      for (const [zc, yc, d] of losanges) {
+        const q = (Math.abs(z - zc) + Math.abs(y - yc)) / d;
+        if (q <= 1) return 1;
+      }
+    }
+    return 0;
+  };
+  const AMP = 0.0045;
+  const RB = 0.0075;
+  const N_ECH = 4; // points par intervalle entre deux montants
+  const brin = (pts, materiau) => {
+    if (pts.length < 2) return;
+    el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length - 1, RB, 4, false), materiau)));
+  };
+  const materiaux = { 0: osier, 1: motif };
+  for (let j = 0, y = 0.041; y < HB - 0.008; j++, y += 0.0158) {
+    const phase = j % 2 ? PI : 0;
+    const n = NM * N_ECH;
+    let courant = null;
+    let tronc = [];
+    for (let i = 0; i <= n; i++) {
+      const s = (i / n) * L;
+      const [x, z, nx, nz] = point(s);
+      const off = AMP * Math.cos((PI * s) / pas + phase);
+      const p = new THREE.Vector3(x + nx * off, y + 0.0012 * Math.sin((PI * s) / pas + phase), z + nz * off);
+      const c = classe(x, y, z, nx, nz);
+      if (c !== courant) {
+        if (courant !== null && courant >= 0) {
+          tronc.push(p);
+          brin(tronc, materiaux[courant]);
+        }
+        tronc = courant !== null && courant >= 0 && c >= 0 ? [tronc.at(-2) ?? p] : [];
+        courant = c;
+      }
+      if (c >= 0) tronc.push(p);
+    }
+    if (courant >= 0) brin(tronc, materiaux[courant]);
+  }
+  // les barres des poignées, gainées d'un brin enroulé
+  for (const sz of [-1, 1]) {
+    const zb = sz * (bM + 0.002);
+    el.push(barre([-0.075, 0.356, zb], [0.075, 0.356, zb], 0.0075, osier, 8));
+    const spirale = [];
+    for (let t = 0; t <= 1; t += 1 / 112) {
+      const a = t * 2 * PI * 14;
+      spirale.push(new THREE.Vector3(-0.07 + 0.14 * t, 0.356 + 0.0085 * Math.cos(a), zb + 0.0085 * Math.sin(a)));
+    }
+    el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(spirale), 112, 0.0022, 4), osierOmbre)));
+  }
+  // les bordures tressées : deux brins torsadés autour du contour (décalé de `ecart`), à la hauteur y
+  const bordure = (ecart, y, rayon, contourB = null) => {
+    const { L: Lb, point: pb } = contourB ?? contour(aM + ecart, bM + ecart, rM + ecart);
+    const lam = 0.026;
+    const nb = Math.round((Lb / lam) * 4);
+    for (const ph of [0, PI]) {
+      const pts = [];
+      for (let i = 0; i <= nb; i++) {
+        const s = (i / nb) * Lb;
+        const [x, z, nx, nz] = pb(s);
+        const a = (2 * PI * s) / lam + ph;
+        const o = rayon * 0.85 * Math.sin(a);
+        pts.push(new THREE.Vector3(x + nx * o, y + rayon * 0.85 * Math.cos(a), z + nz * o));
+      }
+      el.push(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), nb, rayon, 4, true), osier)));
+    }
+  };
+  bordure(0.004, 0.028, 0.0075);
+  bordure(0.004, HB + 0.004, 0.0075);
+  // quatre petits pieds
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.034, 0.02, m.uni('#cdbf9f'), [sx * (aM - 0.04), 0, sz * (bM - 0.05)], { segments: 14 }));
 
-  return groupe(
-    'tv',
-    boite([DX, 0.43, DZ], m.osierFonce, [0, 0.012, 0], { r: 0.01 }),
-    ...rangs,
-    ...tiges,
-    ...coins,
-    ...pieds,
-    ...losanges,
-    ...poignees,
-    // couvercle, avec son rebord tressé
-    boite([DX + 0.03, 0.026, DZ + 0.03], m.osier, [0, 0.424, 0], { r: 0.01 }),
-    boite([DX + 0.05, 0.012, DZ + 0.05], m.osierFonce, [0, 0.424, 0], { r: 0.005 }),
-    // pied et col de la TV
-    boite([0.18, 0.012, 0.38], m.noir, [0, 0.45, 0], { r: 0.005 }),
-    boite([0.03, 0.08, 0.1], m.noir, [0, 0.462, 0], { r: 0.006 }),
-    // corps, bosse arrière, aérations, prises, cadre, bande argentée, logo et voyant rouge
-    boite([0.032, 0.55, 0.95], m.noir, [0, 0.5, 0], { r: 0.01 }),
-    boite([0.04, 0.34, 0.6], m.plastique, [-0.036, 0.6, 0], { r: 0.008 }),
-    ...aerations,
-    boite([0.012, 0.022, 0.05], m.metal, [-0.058, 0.52, 0.2], { r: 0.003 }),
-    boite([0.012, 0.022, 0.05], m.metal, [-0.058, 0.52, 0.12], { r: 0.003 }),
-    boite([0.012, 0.022, 0.03], m.metalFonce, [-0.058, 0.52, 0.06], { r: 0.003 }),
-    boite([0.003, 0.03, 0.95], m.noir, [0.0175, 0.5, 0], { r: 0.001 }),
-    boite([0.0032, 0.011, 0.944], m.metalClair, [0.0182, 0.5006, 0], { r: 0.001 }), // bande argentée du bas, posée devant le cadre (plus de plans confondus)
-    boite([0.003, 0.03, 0.95], m.noir, [0.0175, 1.02, 0], { r: 0.001 }),
-    boite([0.003, 0.49, 0.025], m.noir, [0.0175, 0.53, 0.4625], { r: 0.001 }),
-    boite([0.003, 0.49, 0.025], m.noir, [0.0175, 0.53, -0.4625], { r: 0.001 }),
-    boite([0.002, 0.007, 0.05], m.metalFonce, [0.0206, 0.5025, 0], { r: 0.0005 }), // logo
-    sphere(0.006, m.uni('#f0707a'), [0.0204, 0.5035, -0.4]),
-    // l'écran : le programme le repère par son nom pour y afficher l'image quand la TV est allumée
-    plan(0.9, 0.49, m.ecran, [0.0165, 0.775, 0], { nom: 'ecran' }),
-  );
+  // — le couvercle : son dessus tressé serré, son épaisseur, sa bordure torsadée —
+  const [aC, bC] = [DX / 2 + 0.01, DZ / 2 + 0.01];
+  const YC = 0.446; // le dessus du couvercle
+  el.push(boite([2 * aC - 0.02, 0.02, 2 * bC - 0.02], osierOmbre, [0, YC - 0.022, 0], { r: 0.008 }));
+  {
+    const dessus = new THREE.Mesh(new THREE.PlaneGeometry(2 * bC - 0.004, 2 * aC - 0.004), m.uni('#f2ece0'));
+    dessus.rotation.set(-PI / 2, 0, PI / 2); // la longueur du tressage suit z
+    dessus.position.y = YC;
+    dessus.name = 'osier-couvercle';
+    dessus.receiveShadow = true;
+    el.push(dessus);
+  }
+  bordure(0, YC - 0.006, 0.0085, contour(aC - 0.004, bC - 0.004, 0.03));
+
+  // — la TV —
+  const laque = m.uni('#18181d');
+  const coque = m.uni('#26262d');
+  const sombre = m.uni('#0e0e12');
+  const YT = 0.5; // le bas de la TV
+  const [HT, LT] = [0.55, 0.95];
+  // le pied : une semelle aux bords arrondis, une colonne qui monte se loger dans la coque
+  {
+    const forme = new THREE.Shape();
+    const [ax, bz, r] = [0.1, 0.2, 0.07];
+    forme.moveTo(-ax + r, -bz);
+    forme.lineTo(ax - r, -bz);
+    forme.quadraticCurveTo(ax, -bz, ax, -bz + r);
+    forme.lineTo(ax, bz - r);
+    forme.quadraticCurveTo(ax, bz, ax - r, bz);
+    forme.lineTo(-ax + r, bz);
+    forme.quadraticCurveTo(-ax, bz, -ax, bz - r);
+    forme.lineTo(-ax, -bz + r);
+    forme.quadraticCurveTo(-ax, -bz, -ax + r, -bz);
+    const g = new THREE.ExtrudeGeometry(forme, { depth: 0.008, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.004, bevelSegments: 3, curveSegments: 10 });
+    g.rotateX(-PI / 2);
+    g.translate(-0.02, YC + 0.0035, 0);
+    el.push(ombres(new THREE.Mesh(g, laque)));
+    el.push(boite([0.034, 0.075, 0.11], laque, [-0.032, YC + 0.012, 0], { r: 0.008, rot: [0, 0, 0.12] }));
+    el.push(boite([0.05, 0.06, 0.15], coque, [-0.034, YT + 0.04, 0], { r: 0.01 }));
+  }
+  // la dalle et son cadre laqué ; la bande argentée et le logo en bas, le récepteur et son témoin
+  el.push(boite([0.028, HT, LT], coque, [0, YT, 0], { r: 0.008 }));
+  el.push(boite([0.0035, 0.03, LT], laque, [0.0155, YT, 0], { r: 0.001 })); // le bas du cadre
+  el.push(boite([0.0035, 0.03, LT], laque, [0.0155, YT + HT - 0.03, 0], { r: 0.001 })); // le haut
+  for (const s of [-1, 1]) el.push(boite([0.0035, HT - 0.06, 0.025], laque, [0.0155, YT + 0.03, s * (LT / 2 - 0.0125)], { r: 0.001 }));
+  el.push(boite([0.0036, 0.011, LT - 0.006], m.metalClair, [0.0158, YT + 0.0005, 0], { r: 0.001 })); // la bande argentée
+  {
+    const logo = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.012), m.uni('#c9ccd2'));
+    logo.rotation.y = PI / 2;
+    logo.position.set(0.0177, YT + 0.019, 0);
+    logo.name = 'marque-tv';
+    el.push(logo);
+  }
+  el.push(boite([0.0015, 0.009, 0.026], m.uni('#2a1d22'), [0.0175, YT + 0.0135, -0.4], { r: 0.0008 })); // le récepteur
+  el.push(sphere(0.0045, m.uni('#ff4a55'), [0.0182, YT + 0.018, -0.4]));
+  el.push(plan(0.9, 0.49, m.ecran, [0.0165, 0.775, 0], { nom: 'ecran' }));
+  // dessous : la grille des haut-parleurs (vers le bas), le petit bouton de commande
+  for (const s of [-1, 1]) el.push(boite([0.016, 0.0008, 0.2], sombre, [-0.002, YT - 0.0004, s * 0.27], { r: 0 }));
+  el.push(boite([0.008, 0.006, 0.012], sombre, [0.004, YT - 0.005, 0.05], { r: 0.002 }));
+  // derrière : la coque bombée, ses ouïes, les inserts VESA, le panneau des prises
+  const xD = -0.014;
+  el.push(boite([0.044, 0.36, 0.62], coque, [xD - 0.022, 0.58, 0], { r: 0.012 }));
+  for (let k = 0; k < 9; k++) el.push(boite([0.0012, 0.006, 0.36], sombre, [xD - 0.0445, 0.88 - k * 0.012, 0], { r: 0.001 }));
+  for (let k = 0; k < 14; k++) el.push(boite([0.03, 0.0012, 0.006], sombre, [xD - 0.022, 0.9405, -0.2 + k * 0.03], { r: 0 })); // sur le dessus
+  for (const [dy, dz] of [[-0.1, -0.1], [-0.1, 0.1], [0.1, -0.1], [0.1, 0.1]]) el.push(cylindre(0.012, 0.0015, sombre, [xD - 0.0445, 0.73 + dy, dz], { rot: [0, 0, PI / 2], centre: true, segments: 12 }));
+  el.push(boite([0.002, 0.11, 0.09], sombre, [xD - 0.045, 0.6, 0.22], { r: 0.002 }));
+  for (let k = 0; k < 3; k++) el.push(boite([0.003, 0.008, 0.016], m.metalFonce, [xD - 0.0465, 0.69 - k * 0.022, 0.2], { r: 0.0008 })); // les HDMI
+  el.push(boite([0.003, 0.006, 0.011], m.metalFonce, [xD - 0.0465, 0.62, 0.2], { r: 0.0008 })); // l'USB
+  el.push(cylindre(0.012, 0.004, m.metalFonce, [xD - 0.047, 0.625, 0.245], { rot: [0, 0, PI / 2], centre: true, segments: 14 })); // l'antenne
+  el.push(boite([0.003, 0.008, 0.008], m.uni('#2b2b33'), [xD - 0.0465, 0.66, 0.245], { r: 0.001 })); // l'optique
+  // le cordon d'alimentation : sa fiche dans la coque, il descend sur le couvercle, file vers l'arrière et tombe
+  // derrière le coffre jusqu'au sol
+  el.push(boite([0.016, 0.014, 0.022], coque, [xD - 0.052, 0.608, 0.28], { r: 0.003 }));
+  el.push(tube([[xD - 0.06, 0.615, 0.28], [xD - 0.075, 0.6, 0.285], [-0.1, 0.52, 0.29], [-0.12, YC + 0.004, 0.295], [-0.2, YC + 0.0035, 0.3], [-0.235, YC - 0.004, 0.3], [-0.244, YC - 0.03, 0.302], [-0.242, 0.3, 0.304], [-0.24, 0.05, 0.306], [-0.241, 0.012, 0.308], [-0.244, 0.004, 0.312]], 0.0032, m.noirMat, 60));
+
+  return groupe('tv', ...el);
 }
 
 // --- Tête de ventilateur : moteur à ailettes, pales, grilles avant et arrière ---

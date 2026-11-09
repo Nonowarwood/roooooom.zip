@@ -81,7 +81,7 @@ else camera.position.set(-4.6, 7.6, -6.2);
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 0.9, 0);
 // en développement seulement : les scripts de captures placent la caméra par là
-if (import.meta.env.DEV) globalThis.__debugCam = { camera, controls };
+if (import.meta.env.DEV) globalThis.__debugCam = { camera, controls, scene };
 // Réglages repris de la référence (inertie 0,08, zoom borné, caméra qui peut aller jusqu'à la verticale
 // du dessus mais pas passer sous le sol : 82° max depuis le haut), COMBINÉS avec l'ancien système :
 // le déplacement latéral reste possible (clic droit, Maj + glisser, ou deux doigts), mais la cible de
@@ -1304,6 +1304,39 @@ if (reve) {
   const { map, relief } = textures.tapisMiffy();
   matsEcrans['imprime-miffy'] = new THREE.MeshStandardMaterial({ map, bumpMap: relief, bumpScale: 2.5, roughness: 1 });
 }
+// le Macintosh Plus, allumé : terminal du NAS, il surveille le stockage (un écran qui vit, redessiné deux fois par
+// seconde dans la boucle d'animation) ; il luit, le verre du tube reste brillant
+const moniteurNas = reve ? textures.moniteurNas() : null;
+if (moniteurNas) matsEcrans['ecran-macplus'] = new THREE.MeshStandardMaterial({ color: '#0c0d0c', emissive: '#ffffff', emissiveMap: moniteurNas.texture, emissiveIntensity: 0.9, roughness: 0.12, metalness: 0.1 });
+// la Nintendo 3DS de la console du lit : ses deux écrans allumés sur Pokémon Lune (polygonOffset : rien n'est posé
+// dessus), le cadre imprimé de l'écran tactile, les lettres et POWER (détourés)
+if (reve) {
+  const t3ds = textures.ecrans3ds();
+  const ecran3ds = (map) => new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffffff', emissiveMap: map, emissiveIntensity: 0.9, roughness: 0.2, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  matsEcrans['ecran-3ds-haut'] = ecran3ds(t3ds.haut);
+  matsEcrans['ecran-3ds-bas'] = ecran3ds(t3ds.bas);
+  for (const nom of ['ecran-3ds-haut', 'ecran-3ds-bas']) matsEcrans[nom].userData.sansSurbrillance = true;
+  matsEcrans['imprime-3ds-cadre'] = new THREE.MeshStandardMaterial({ map: t3ds.cadre, roughness: 0.3, metalness: 0.15 });
+  const marquage = (map) => new THREE.MeshStandardMaterial({ map, transparent: true, alphaTest: 0.3, depthWrite: false, roughness: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  for (const c of ['a', 'b', 'x', 'y']) matsEcrans[`marquage-3ds-${c}`] = marquage(t3ds.lettres[c]);
+  matsEcrans['marquage-3ds-power'] = marquage(t3ds.power);
+  matsEcrans['marquage-3ds-power-nom'] = marquage(t3ds.powerNom);
+}
+// le coffre en osier de la TV : le dessus tressé de son couvercle (un motif de 6 cm répété) ; le logo Brandt de la TV
+{
+  const { map, relief } = textures.osierTresse();
+  for (const t of [map, relief]) t.repeat.set(14.5, 7.7);
+  matsEcrans['osier-couvercle'] = new THREE.MeshStandardMaterial({ map, bumpMap: relief, bumpScale: 1.6, roughness: 0.9 });
+  matsEcrans['marque-tv'] = new THREE.MeshStandardMaterial({ map: textures.logoBrandt(), transparent: true, alphaTest: 0.3, depthWrite: false, roughness: 0.35, metalness: 0.4, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
+// le mini-rack NAS : le tableau de bord sur l'écran du ThinkPad, et les chiffres des deux afficheurs
+matsEcrans['ecran-thinkpad-nas'] = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffffff', emissiveMap: textures.tableauDeBord(), emissiveIntensity: 0.85, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+matsEcrans['rack-lcd-ventilo'] = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffffff', emissiveMap: textures.afficheur([['24°', 14, 40, 52], ['26°', 140, 40, 52], ['IN', 18, 98, 24], ['OUT', 140, 98, 24], ['▲3', 200, 98, 24]]), emissiveIntensity: 1.1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+matsEcrans['rack-lcd-onduleur'] = new THREE.MeshStandardMaterial({ color: '#000000', emissive: '#ffffff', emissiveMap: textures.afficheur([['78', 70, 62, 84], ['%', 186, 76, 30]]), emissiveIntensity: 1.1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+// le Macintosh Plus : la pomme arc-en-ciel et son nom, les icônes du menton (des décalques détourés)
+for (const nom of ['marque', 'icones']) {
+  matsEcrans[`macplus-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/macplus-${nom}.png`), transparent: true, depthWrite: false, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
 // le drapeau punaisé au-dessus du coin hi-fi : un tissu satiné, à peine brillant
 matsEcrans['imprime-drapeau'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/drapeau-servir-le-peuple.jpg'), roughness: 0.68 });
 // le logo Arc'teryx brodé du sac à dos : le fil doré, détouré (le reste du décalque est transparent)
@@ -1312,6 +1345,9 @@ matsEcrans['logo-arcteryx'] = new THREE.MeshStandardMaterial({ map: textures.ima
 // la serviette du Season's Greetings de TWICE, sous la tasse : son imprimé, sur une éponge mate
 matsEcrans['imprime-serviette'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/serviette-twice.jpg'), roughness: 1 });
 matsEcrans['tapis-souris'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/tapis-souris.jpg'), roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+// le sous-main du bureau du studio : ton plan bleu, imprimé sur un tissu à peine satiné (c'est la surface même du
+// tapis : pas de polygonOffset, qui le ferait passer devant le bas des objets posés dessus, vus de biais)
+matsEcrans['sous-main-plan'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/sous-main-plan.jpg'), roughness: 0.8 });
 const matEcran = new THREE.MeshStandardMaterial({
   color: '#050507',
   emissive: '#ffffff',
@@ -1748,6 +1784,39 @@ if (reve) {
   contenuVitrine.rotation.y = vers.rotation - (de.rotation ?? 0);
 }
 for (const o of objetsVitrine) {
+  if (o.glb) {
+    // un objet livré en .glb (la baguette étoile de KiiiKiii), posé tel quel sur l'étagère ; son étoile (matériau
+    // « etoile-kiiikiii ») s'allume ou s'éteint au clic, d'une lueur rose pâle
+    const g = new THREE.Group();
+    g.name = o.nom;
+    g.position.set(o.pos[0], o.pos[1], o.z);
+    g.rotation.y = o.rotation ?? 0;
+    contenuVitrine.add(g);
+    const etoiles = [];
+    let allumee = false;
+    chargeur.load(textures.chemin(o.glb), (gltf) => {
+      gltf.scene.traverse((m) => {
+        if (!m.isMesh) return;
+        m.castShadow = true;
+        m.receiveShadow = true;
+        if (m.material?.name === 'etoile-kiiikiii') etoiles.push(m.material);
+      });
+      g.add(gltf.scene);
+    });
+    const info = {
+      nom: o.nom,
+      description: o.description,
+      groupe: g,
+      auClic: () => {
+        allumee = !allumee;
+        for (const mat of etoiles) mat.emissiveIntensity = allumee ? 0.9 : 0;
+        sons.mobile();
+      },
+    };
+    g.userData.info = info;
+    cliquables.push(info);
+    continue;
+  }
   if (o.baton) {
     // light stick : un cône (large en haut, la tête, qui s'affine vers le manche), dont la matière est
     // percée du logo (face) et de « FEARNOT » (côté). Un cœur lumineux dedans se voit par les ajours.
@@ -2064,9 +2133,19 @@ for (const m of meublesPiece) {
           for (const [objet, nom, description] of [
             ['objet_ipad', 'iPad Pro', 'L’iPad Pro 11 pouces argent, sans coque, posé sur la console au niveau des oreillers, son Apple Pencil Pro aimanté sur la tranche.'],
             ['objet_sac', 'Arc’teryx Mantis 26', 'Le sac à dos Arc’teryx Mantis 26 noir, adossé au pied du lit : la grande poche avant bordée de deux zips en courbe, l’archæoptéryx brodé en fil doré, les bretelles rembourrées et le dos en maille.'],
+            ['objet_sous_main', 'Sous-main « Get task done more better »', 'Un grand tapis de bureau de 106 × 49,5 cm, sous tout ce qui est posé sur le bureau : un plan bleu quadrillé, gradué, avec ses arcs et ses angles, et au milieu « Get task done more better ». Bordure cousue bleu nuit.'],
           ]) {
             const o = groupe.getObjectByName(objet);
             if (o) ouvrantCliquable(nom, description, o, o);
+          }
+          // ta Nintendo 3DS (sur la console du lit) : son capot se rabat ou se rouvre au clic, comme le ThinkPad
+          {
+            const capot = groupe.getObjectByName('pivot_ecran_3ds');
+            const console3ds = groupe.getObjectByName('objet_3ds');
+            if (capot && console3ds) {
+              const bascule = creerOuvrant(capot, 'x', 0, capot.rotation.x, { ouvertAuDepart: true, son: 'mac' });
+              ouvrantCliquable('Nintendo 3DS', 'Ta Nintendo 3DS, la première (2011), blanche « Ice White », ouverte à côté de l’iPad sur Pokémon Lune : le monde d’Alola sur l’écran du haut, le Motisma et la carte de Mele-Mele sur l’écran tactile. Clique pour la refermer ou la rouvrir.', console3ds, console3ds, bascule);
+            }
           }
           if (m.nom === 'bureau') {
             // le MacBook : le capot s'ouvre à 112° (comme sur la photo) ou se referme sur le clavier
@@ -2108,6 +2187,15 @@ for (const m of meublesPiece) {
             ]) {
               const o = groupe.getObjectByName(objet);
               if (o) ouvrantCliquable(nom, description, o, o);
+            }
+          }
+          if (m.nom === 'mini-rack NAS') {
+            // le ThinkPad posé sur le rack : son écran se rabat ou se rouvre au clic
+            const capot = groupe.getObjectByName('pivot_ecran_thinkpad');
+            const thinkpad = groupe.getObjectByName('objet_thinkpad');
+            if (capot && thinkpad) {
+              const bascule = creerOuvrant(capot, 'x', 0, -2.0, { ouvertAuDepart: true, son: 'mac' });
+              ouvrantCliquable('ThinkPad du rack', 'Un ThinkPad posé sur le mini-rack, ouvert : il sert de console au NAS et affiche son tableau de bord de supervision. Clique pour rabattre ou rouvrir son écran.', thinkpad, thinkpad, bascule);
             }
           }
           if (m.nom === 'vitrine') {
@@ -2335,71 +2423,308 @@ const toutAuto = () => {
 };
 
 // --- Le rideau de la chambre de rêve (agencementReve.rideau) ---
-// Un voilage crème : une surface verticale ondulée (les plis), accrochée à un rail au plafond par de petits
-// glisseurs. Quand il se ferme, il s'étire vers le mur ouest et ses plis s'ouvrent ; ouvert, il est ramassé contre
-// le lampadaire, les plis serrés et profonds. `fermer(f)` le pose (0 = ouvert, 1 = fermé) ; la commande « rideau »
-// l'anime (voir majLumieres). Un clic dessus l'ouvre ou le ferme.
+// Un voilage crème en lin léger, accroché à un rail au plafond par un glisseur par pli. Le tissu a une longueur
+// fixe (son ampleur) : déployé, il fait de larges ondulations souples ; ramassé contre le mur est, les mêmes plis
+// se resserrent en S aux sommets arrondis, plus profonds, et le paquet s'évase un peu vers le bas, comme un vrai
+// voilage tiré. Il bouge comme un tissu : départ et arrivée en douceur, le bas suit le haut avec du retard (un
+// ressort amorti) et se balance un peu à l'arrêt, une ondulation traverse les plis pendant qu'il glisse.
+// `viser(f)` lui donne sa position (0 = ouvert, ramassé ; 1 = fermé, déployé) et `animer(dt)` le fait avancer :
+// la commande « rideau » s'en sert (voir majLumieres). Un clic dessus l'ouvre ou le ferme.
 const rideau = (() => {
   const R = reve && agencementReve.rideau;
   if (!R) return null;
   const g = new THREE.Group();
   racine.add(g);
-  const mat = new THREE.MeshStandardMaterial({ color: R.couleur, roughness: 0.95, side: THREE.DoubleSide });
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: R.couleur,
+    map: textures.voilage(),
+    vertexColors: true,
+    roughness: 0.9,
+    sheen: 0.6,
+    sheenRoughness: 0.75,
+    sheenColor: new THREE.Color('#fffaf0'),
+    // un voilage laisse passer un peu de la lumière de l'autre pièce : une faible lueur de sa propre couleur
+    emissive: new THREE.Color(R.couleur),
+    emissiveIntensity: 0.14,
+    side: THREE.DoubleSide,
+  });
+  // l'ombre au fond des creux : le creux d'un pli dépend du côté d'où on regarde (un sommet vu du lit est un
+  // creux vu du studio). Chaque sommet porte cos θ (`pli` : +1 au sommet côté lit, −1 côté studio) et `uCote` dit
+  // de quel côté est la caméra ; les creux de son côté s'assombrissent, comme une occlusion douce.
+  const uCote = { value: 0 };
+  // (le max() compte : au sommet d'un pli tourné vers la caméra, le terme vaut 0 à un cheveu près, parfois
+  // un cheveu sous 0, et pow() d'un nombre négatif donne NaN : un pixel noir, des pointillés le long des plis)
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uCote = uCote;
+    sh.vertexShader = 'attribute float pli;\nvarying float vPli;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPli = pli;');
+    sh.fragmentShader = ('uniform float uCote;\nvarying float vPli;\n' + sh.fragmentShader).replace(
+      '#include <color_fragment>',
+      '#include <color_fragment>\n  diffuseColor.rgb *= 1.0 - 0.15 * pow(max(0.0, 0.5 * (1.0 - uCote * vPli)), 1.3);',
+    );
+  };
   const alu = new THREE.MeshStandardMaterial({ color: '#d3d8dd', roughness: 0.45, metalness: 0.3 });
   // le rail et ses deux embouts
   const rail = new THREE.Mesh(new THREE.BoxGeometry(R.x1 - R.x0 + 0.04, 0.012, 0.022), alu);
   rail.position.set((R.x0 + R.x1) / 2, R.haut + 0.006, R.z);
   // le rail est fixé au plafond : il s'efface avec lui quand on regarde la pièce de l'extérieur
   accrocher(['ouest', 'est', 'sud', 'nordFond'], rail, { ecraser: false, fondu: FONDU_PERMANENT, large: true, facteur: facteurPlafond });
-  const [nU, nV] = [R.plis * 6, 26];
+
+  const N = R.plis;
+  const longueur = R.x1 - R.x0;
+  const tissu = R.ampleur * (longueur / N); // la longueur de tissu d'un pli (du sommet d'un pli au suivant)
+  const PAR_PLI = 16; // colonnes de sommets par pli
+  const nU = N * PAR_PLI;
   const yBas = 0.012;
   const yHaut = R.haut - 0.022;
-  const geo = new THREE.PlaneGeometry(1, 1, nU, nV);
-  const pos = geo.attributes.position;
-  // les coordonnées d'origine de chaque sommet (u le long du rail, v en hauteur, de 0 à 1), gardées à part : on
-  // déplace les sommets à chaque image, il ne faut pas relire les positions déjà déplacées
-  const U = Float32Array.from({ length: pos.count }, (_, i) => pos.getX(i) + 0.5);
-  const V = Float32Array.from({ length: pos.count }, (_, i) => pos.getY(i) + 0.5);
+  const H = yHaut - yBas;
+  // les rangs de sommets (hauteur de 0 à 1), serrés autour des coutures de l'ourlet du bas et de la tête
+  const OURLET = 0.045 / H;
+  const TETE = 0.07 / H;
+  const e = 0.003 / H;
+  const rangs = [0, 0.004 / H, OURLET / 2, OURLET - e, OURLET, OURLET + e];
+  for (let k = 1; k <= 47; k++) rangs.push(OURLET + e + ((1 - TETE - OURLET - 2 * e) * k) / 48);
+  rangs.push(1 - TETE - e, 1 - TETE, 1 - TETE + e, 1 - TETE / 2, 1);
+  const nV = rangs.length;
+  const nb = (nU + 1) * nV;
+  const position = new Float32Array(nb * 3);
+  const couleur = new Float32Array(nb * 3);
+  const uv = new Float32Array(nb * 2);
+  const pli = new Float32Array(nb);
+  // la teinte fixe de chaque sommet : l'ourlet du bas et la tête en double épaisseur, leurs coutures, les ourlets
+  // de côté (le tissu y est plié, un peu plus dense)
+  const teinte = new Float32Array(nb);
+  const index = [];
+  for (let j = 0; j < nV; j++) {
+    const v = rangs[j];
+    for (let i = 0; i <= nU; i++) {
+      const k = j * (nU + 1) + i;
+      const s = (i / PAR_PLI) * tissu; // la distance le long du tissu depuis le bord libre
+      uv[2 * k] = s;
+      uv[2 * k + 1] = v * H;
+      pli[k] = Math.cos((2 * Math.PI * i) / PAR_PLI);
+      let t = 1;
+      if (v <= OURLET + 1e-6) t *= 0.955;
+      if (v >= 1 - TETE - 1e-6) t *= 0.95;
+      if (Math.abs(v - OURLET) < 1e-6 || Math.abs(v - (1 - TETE)) < 1e-6) t *= 0.9;
+      if (s < 0.025 || N * tissu - s < 0.025) t *= 0.965;
+      teinte[k] = t;
+      if (j < nV - 1 && i < nU) {
+        const c = k + nU + 1;
+        index.push(k, k + 1, c + 1, k, c + 1, c);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(position, 3));
+  geo.setAttribute('color', new THREE.BufferAttribute(couleur, 3));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.setAttribute('pli', new THREE.BufferAttribute(pli, 1));
+  geo.setIndex(index);
   const toile = new THREE.Mesh(geo, mat);
   toile.castShadow = true;
   toile.receiveShadow = false; // il s'ombrerait lui-même pli par pli (un moiré en zigzag)
   g.add(toile);
-  // un glisseur par pli, sur le rail
+
+  // La forme d'un pli, pour une largeur de pli `lam` : x(θ) = lam·θ/2π + k·lam/4π·sin 2θ et z(θ) = A·cos θ.
+  // k (0 → 0,62) resserre les flancs du pli en S quand il est ramassé ; A est l'amplitude qui garde la longueur
+  // de tissu. Tabulée une fois pour toutes, de la largeur ramassée à la largeur déployée.
+  const lamMin = R.ouvert / N;
+  const lamMax = longueur / N;
+  const longueurPli = (lam, k, A) => {
+    let l = 0;
+    let [px, pz] = [0, A];
+    for (let n = 1; n <= 48; n++) {
+      const th = (n / 48) * 2 * Math.PI;
+      const x = (lam * th) / (2 * Math.PI) + ((k * lam) / (4 * Math.PI)) * Math.sin(2 * th);
+      const z = A * Math.cos(th);
+      l += Math.hypot(x - px, z - pz);
+      [px, pz] = [x, z];
+    }
+    return l;
+  };
+  const TABLE = 64;
+  const table = Array.from({ length: TABLE + 1 }, (_, n) => {
+    const lam = lamMin + ((lamMax - lamMin) * n) / TABLE;
+    const serre = 1 - n / TABLE;
+    const k = 0.62 * serre * serre * (3 - 2 * serre);
+    let [a0, a1] = [0, tissu / 2];
+    for (let it = 0; it < 30; it++) {
+      const a = (a0 + a1) / 2;
+      if (longueurPli(lam, k, a) < tissu) a0 = a;
+      else a1 = a;
+    }
+    return { k, A: (a0 + a1) / 2 };
+  });
+  const forme = (lam) => {
+    const t = Math.min(TABLE, Math.max(0, ((lam - lamMin) / (lamMax - lamMin)) * TABLE));
+    const n = Math.min(TABLE - 1, Math.floor(t));
+    const a = t - n;
+    return { k: table[n].k * (1 - a) + table[n + 1].k * a, A: table[n].A * (1 - a) + table[n + 1].A * a };
+  };
+
+  // un glisseur par pli, sur le rail, là où le tissu croise la ligne du rail
   const geoGlisseur = new THREE.CylinderGeometry(0.006, 0.006, 0.016, 8);
-  const glisseurs = Array.from({ length: R.plis + 1 }, () => {
+  const glisseurs = Array.from({ length: N }, () => {
     const m = new THREE.Mesh(geoGlisseur, alu);
     g.add(m);
     return m;
   });
-  const longueur = R.x1 - R.x0;
-  let dernier = -1;
-  function fermer(f) {
-    if (Math.abs(f - dernier) < 1e-4) return; // rien n'a bougé
-    dernier = f;
-    const largeur = R.ouvert + (longueur - R.ouvert) * f; // la largeur occupée sur le rail
-    const xDebut = R.x1 - largeur; // le bord libre, côté mur ouest
-    const serre = 1 - (largeur - R.ouvert) / (longueur - R.ouvert); // 1 = ramassé, 0 = étiré
-    const amp = 0.012 + 0.024 * serre; // la profondeur des plis
-    for (let i = 0; i < pos.count; i++) {
-      const u = U[i]; // 0 : bord libre, 1 : contre le mur est
-      const v = V[i]; // 0 : en bas, 1 : en haut
-      const a = u * R.plis * 2 * Math.PI;
-      // les plis s'évasent un peu vers le bas, et l'ourlet ondule à peine
-      const evase = 1 + 0.25 * (1 - v);
-      const irreg = 1 + 0.3 * Math.sin(a * 0.37 + 1.1) * Math.sin(a * 0.11); // des plis un peu inégaux
-      const z = R.z + amp * irreg * evase * Math.sin(a + 0.25 * Math.sin(a * 0.23)) + 0.004 * Math.sin(a * 0.5 + v * 3);
-      const y = yBas + v * (yHaut - yBas) + (v < 0.02 ? 0.006 * Math.sin(a) : 0);
-      pos.setXYZ(i, xDebut + u * largeur, y, z);
+
+  // des plis plus ou moins larges le long du rideau : on déforme la position le long du rail (0 → 1), sans toucher
+  // aux bouts (des sinus entiers) ni changer l'ordre des plis (la pente reste positive)
+  const ecarter = (t) => t + (0.22 * Math.sin(2 * Math.PI * 2 * t)) / (2 * Math.PI * 2) + (0.12 * Math.sin(2 * Math.PI * 5 * t + 0)) / (2 * Math.PI * 5);
+  // l'état : fHaut suit la commande (en douceur), fBas le suit avec un ressort ; `agitation` fait onduler le tissu
+  let fHaut = 0;
+  let fBas = 0;
+  let vBas = 0;
+  let de = 0;
+  let vers = 0;
+  let depuis = 0;
+  let duree = 1;
+  let temps = 0;
+  let agitation = 0;
+  // L'embrasse : ramassé et immobile, le rideau est noué contre le mur est par un lien du même lin, à hauteur de
+  // hanche (vTie). `noue` (0 → 1) le resserre en sablier : bouffant au-dessus, évasé jusqu'au sol en dessous. Il se
+  // noue doucement une fois le rideau arrivé, et se dénoue dès qu'on le ferme.
+  const vTie = (0.95 - yBas) / H;
+  let noue = 0;
+  // le lien a une section de rectangle aux coins arrondis (une super-ellipse) : le paquet de tissu, à cet endroit,
+  // est plus carré qu'ovale, et une ellipse laissait passer ses coins à travers
+  const geoLien = new THREE.CylinderGeometry(1, 1, 0.045, 64, 1, true);
+  {
+    const pl = geoLien.attributes.position;
+    for (let i = 0; i < pl.count; i++) {
+      const a = Math.atan2(pl.getZ(i), pl.getX(i));
+      const [c, sn] = [Math.cos(a), Math.sin(a)];
+      pl.setX(i, Math.sign(c) * Math.abs(c) ** 0.5);
+      pl.setZ(i, Math.sign(sn) * Math.abs(sn) ** 0.5);
     }
-    pos.needsUpdate = true;
+    geoLien.computeVertexNormals();
+  }
+  const lien = new THREE.Mesh(
+    geoLien,
+    new THREE.MeshStandardMaterial({ color: new THREE.Color(R.couleur).multiplyScalar(0.93), map: mat.map, roughness: 0.9, emissive: new THREE.Color(R.couleur), emissiveIntensity: 0.12, side: THREE.DoubleSide, transparent: true, opacity: 0 }),
+  );
+  lien.castShadow = true;
+  const crochet = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 8), new THREE.MeshStandardMaterial({ color: '#c9a24c', roughness: 0.35, metalness: 0.6 }));
+  crochet.position.set(W - 0.006, yBas + vTie * H, R.z);
+  crochet.scale.set(0.6, 1, 1);
+  g.add(lien, crochet);
+  // la forme d'un rang de hauteur v : sa largeur sur le rail, et la forme de ses plis
+  function rang(v) {
+    // le haut suit le rail ; plus bas, le tissu traîne derrière
+    const f = Math.min(1, Math.max(-0.03, fBas + (fHaut - fBas) * Math.pow(v, 1.3)));
+    const ramasse = 1 - Math.max(0, f);
+    const serrer = noue * ramasse * 0.5 * Math.exp(-(((v - vTie) / 0.13) ** 2)); // le lien resserre le paquet
+    const sous = v < vTie ? noue * ramasse * 0.3 * ((vTie - v) / vTie) ** 1.4 : 0; // et il s'évase jusqu'au sol
+    const evase = (1 + 0.26 * ramasse * (1 - v) * (1 - v) + sous) * (1 - serrer);
+    const largeur = Math.min(longueur, (R.ouvert + (longueur - R.ouvert) * f) * evase);
+    const lam = largeur / N;
+    const { k, A } = forme(lam);
+    return { largeur, lam, k, A: A * (1 - 0.6 * serrer) }; // serré par le lien, le paquet est aussi moins profond
+  }
+  function poser() {
+    // le lien, à la hauteur de l'embrasse : il entoure le paquet (demi-largeurs hx, hz) ; à sa hauteur, le tissu qui
+    // dépasserait est resserré à l'intérieur (un vrai lien serre le voilage), en douceur au-dessus et en dessous
+    const tie = rang(vTie);
+    const yTie = yBas + vTie * H;
+    const cx = R.x1 - tie.largeur / 2;
+    const hx = tie.largeur / 2 + 0.01;
+    const hz = tie.A * 1.12 + 0.012;
+    const [hxIn, hzIn] = [hx - 0.005, hz - 0.005];
+    for (let j = 0; j < nV; j++) {
+      const v = rangs[j];
+      const { largeur, lam, k, A } = rang(v);
+      const xDebut = R.x1 - largeur;
+      const y = yBas + v * H;
+      const gonfle = 1 + 0.12 * (1 - v); // le tissu pend un peu plus ample en bas
+      const inegal = 0.07 + 0.1 * (k / 0.62); // ramassé, les plis sont plus inégaux
+      for (let i = 0; i <= nU; i++) {
+        const th = (2 * Math.PI * i) / PAR_PLI;
+        let x = xDebut + largeur * ecarter(((lam * th) / (2 * Math.PI) + ((k * lam) / (4 * Math.PI)) * Math.sin(2 * th)) / largeur);
+        const irr = 1 + inegal * (Math.sin(th * 0.37 + 1.3) + 0.7 * Math.sin(th * 0.13 + 0.4)); // des plis inégaux
+        let z = R.z + A * irr * gonfle * Math.cos(th);
+        z += agitation * 0.022 * Math.pow(1 - v, 1.2) * Math.sin(th / 5 - temps * 5); // l'onde qui traverse le tissu
+        const yy = y + (v < 1e-6 ? 0.003 * Math.sin(th * 0.5 + 0.7) : 0); // l'ourlet ondule à peine
+        if (noue > 0) {
+          const dy = Math.abs(yy - yTie);
+          const w = noue * (dy <= 0.026 ? 1 : Math.exp(-(((dy - 0.026) / 0.05) ** 2)));
+          const [dx, dz] = [x - cx, z - R.z];
+          const rho = ((dx / hxIn) ** 4 + (dz / hzIn) ** 4) ** 0.25;
+          if (w > 0.001 && rho > 1) {
+            const f = 1 + (1 / rho - 1) * w;
+            x = cx + dx * f;
+            z = R.z + dz * f;
+          }
+        }
+        const q = j * (nU + 1) + i;
+        position[3 * q] = x;
+        position[3 * q + 1] = yy;
+        position[3 * q + 2] = z;
+        // ramassé, les flancs des plis (au fond du paquet) prennent moins de lumière
+        const c = teinte[q] * (1 - 0.1 * k * (1 - Math.abs(Math.cos(th))));
+        couleur[3 * q] = couleur[3 * q + 1] = couleur[3 * q + 2] = c;
+      }
+      if (j === nV - 1) {
+        glisseurs.forEach((m, p) => {
+          const th = Math.PI / 2 + 2 * Math.PI * p;
+          const x = xDebut + largeur * ecarter(((lam * th) / (2 * Math.PI) + ((k * lam) / (4 * Math.PI)) * Math.sin(2 * th)) / largeur);
+          m.position.set(x, R.haut - 0.012, R.z);
+        });
+      }
+    }
+    geo.attributes.position.needsUpdate = true;
+    geo.attributes.color.needsUpdate = true;
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
-    glisseurs.forEach((m, k) => m.position.set(xDebut + (k / R.plis) * largeur, R.haut - 0.012, R.z));
+    // le lien autour du paquet, à la hauteur de l'embrasse ; il apparaît en fondu quand on noue
+    lien.position.set(cx, yTie, R.z);
+    lien.scale.set(hx, 1, hz);
+    lien.material.opacity = noue;
+    lien.visible = crochet.visible = noue > 0.01;
+    lien.material.depthWrite = noue > 0.99;
   }
-  fermer(0);
+  poser();
+  noue = 1;
+  poser();
+  function viser(c) {
+    if (c === vers) return;
+    de = fHaut;
+    vers = c;
+    depuis = 0;
+    duree = 0.6 + 2.2 * Math.abs(vers - de); // ~2,8 s d'un bout à l'autre
+  }
+  const oeil = new THREE.Vector3();
+  function animer(dt) {
+    dt = Math.min(dt, 0.05);
+    temps += dt;
+    racine.worldToLocal(oeil.copy(camera.position));
+    uCote.value = Math.max(-1, Math.min(1, (oeil.z - R.z) / 0.3));
+    let bouge = false;
+    if (fHaut !== vers) {
+      depuis += dt;
+      const s = Math.min(1, depuis / duree);
+      const e3 = s < 0.5 ? 4 * s * s * s : 1 - Math.pow(-2 * s + 2, 3) / 2; // lent, rapide, lent
+      fHaut = s >= 1 ? vers : de + (vers - de) * e3;
+      bouge = true;
+    }
+    // le bas : un ressort amorti (ζ ≈ 0,45 : il dépasse un peu et revient), en deux pas pour rester stable
+    for (let n = 0; n < 2; n++) {
+      const h = dt / 2;
+      vBas += (20 * (fHaut - fBas) - 4 * vBas) * h;
+      fBas += vBas * h;
+    }
+    agitation = Math.min(1, Math.abs(vBas) * 2.5 + Math.abs(fHaut - fBas) * 3);
+    // l'embrasse : on noue quand le rideau est arrivé ramassé et presque immobile, on dénoue dès qu'il repart
+    const arrive = vers === 0 && fHaut === 0 && Math.abs(fBas) < 0.01 && Math.abs(vBas) < 0.02;
+    const avant = noue;
+    noue = arrive ? Math.min(1, noue + dt / 0.9) : Math.max(0, noue - dt / 0.35);
+    if (noue !== avant) bouge = true;
+    if (bouge || Math.abs(vBas) > 2e-4 || Math.abs(fHaut - fBas) > 2e-4) poser();
+  }
   const info = {
     nom: 'rideau',
-    description: 'Le voilage crème qui sépare la chambre en deux, sur la ligne de l’ancien mur. Clique dessus (ou sur « Rideau ») pour l’ouvrir ou le fermer.',
+    description: 'Le voilage en lin crème qui sépare la chambre en deux, sur la ligne de l’ancien mur. Clique dessus (ou sur « Rideau ») pour l’ouvrir ou le fermer.',
     groupe: g,
     sansRecentrage: true,
     auClic: () => basculer('rideau'),
@@ -2407,7 +2732,7 @@ const rideau = (() => {
   g.userData.info = info;
   toile.userData.info = info;
   cliquables.push(info);
-  return { fermer };
+  return { viser, animer };
 })();
 
 function majLumieres(dt) {
@@ -2415,7 +2740,9 @@ function majLumieres(dt) {
     const cible = c.manuel === null ? (c.tv || c.rideau ? 0 : nuit) : c.manuel ? 1 : 0;
     c.niveau += (cible - c.niveau) * Math.min(1, dt * (c.vitesse ?? 6));
     if (c.rideau) {
-      rideau?.fermer(c.niveau);
+      // le rideau a sa propre animation (voir plus haut) : on lui donne seulement où aller
+      rideau?.viser(cible);
+      rideau?.animer(dt);
       continue;
     }
     const halo = c.niveau * (0.35 + 0.65 * nuit); // discret en plein jour, bien visible la nuit
@@ -2579,8 +2906,8 @@ const vuesPiece = reve
           const [nx, nz] = suivre([x, z], poseOrigine('bureau'), posesReve.bureau);
           return [nx, y, nz];
         };
-        // la caméra se décale de 40 cm vers la pièce : sans ça, elle se poserait dans les feuilles du monstera
-        // (dans le coin à gauche du bureau)
+        // la caméra se décale de 40 cm vers la pièce : elle regarde le bureau plus en face, le monstera à droite, et
+        // ne surplombe pas le coin du mini-rack
         const [cx, cy, cz] = sur(v.camera);
         return { ...v, cible: sur(v.cible), camera: [cx + 0.4, cy, cz] };
       }
@@ -2669,6 +2996,7 @@ renderer.setAnimationLoop(() => {
     dernierEcran = maintenant;
     dessinerEcran(maintenant);
   }
+  moniteurNas?.maj(maintenant);
   controls.update();
   // la cible reste dans la pièce : si un déplacement latéral la fait sortir, on ramène la caméra du même décalage
   const dedans = controls.target.clone().clamp(LIMITE_CIBLE.min, LIMITE_CIBLE.max);

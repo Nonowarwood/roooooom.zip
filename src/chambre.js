@@ -82,7 +82,7 @@ export const agencementReve = {
       pos: [1.9, -3.09],
       rotation: 0,
       glb: '/models/bureau-studio.glb', // le bureau du studio : celui de Paris, garni (voir bureauStudio, reve.js)
-      description: 'Bureau en bouleau clair avec un plateau de verre, sous la fenêtre de la lucarne. Dessus : le MacBook sur son support, un cahier ouvert, et dans le coin la lampe champignon, avec trois livres devant elle. Dessous, la boîte d’archives Lyreco et le panier « Flower Shop ».',
+      description: 'Bureau en bouleau clair avec un plateau de verre, sous la fenêtre de la lucarne. Dessus, sur un grand sous-main bleu en forme de plan (« Get task done more better ») : le MacBook sur son support, un cahier ouvert, et dans le coin la lampe champignon, avec trois livres devant elle. Dessous, la boîte d’archives Lyreco et le panier « Flower Shop ».',
     },
     // près du poteau de la charpente (qui finit en z = −2,48), à 11 cm de lui : ça libère le mur ouest entre elle
     // et la porte
@@ -114,7 +114,7 @@ export const agencementReve = {
       // le meuble à vinyles au nord, le banc-canapé au sud (l'origine est au pied du mur, entre les deux)
       nom: 'coin salon',
       glb: '/models/coin-salon.glb', ajuster: false,
-      description: 'Le coin salon, d’après ta photo d’inspiration : un seul meuble en chêne. Le meuble à vinyles (vinyles et magazines, boîtier noir, vase, boule de verre, enceinte) et le banc-canapé qui part de son flanc jusqu’à une haute joue, avec deux gros coussins blancs et deux coussins de dossier noirs capitonnés.',
+      description: 'Le coin salon, d’après ta photo d’inspiration : un seul meuble en chêne. Le meuble à vinyles (vinyles et magazines dans ses cases, le dessus libre) et le banc-canapé qui part de son flanc jusqu’à une haute joue, avec deux gros coussins blancs et deux coussins de dossier noirs capitonnés.',
       pos: [3.6, -1.75],
       rotation: -Math.PI / 2,
       parties: [
@@ -135,11 +135,11 @@ export const agencementReve = {
     {
       nom: 'monstera',
       glb: '/models/plante.glb', ajuster: false,
-      // dans le coin nord-ouest, à gauche du bureau de la lucarne, à côté de la charpente (en miroir du ventilateur) ;
-      // tourné d'un demi-tour pour que ses feuilles partent vers la pièce et pas vers le mur ouest
-      description: 'Un grand monstera de 1,30 m dans un cache-pot crème, qui grimpe le long d’un tuteur en fibre de coco, dans le coin à gauche du bureau de la lucarne, à côté de la charpente. Ses feuilles découpées partent toutes vers la pièce.',
-      pos: [0.4, -2.75],
-      rotation: Math.PI,
+      // dans le coin à droite du bureau de la lucarne (vu de la chaise), entre lui, le mur est et le meuble à vinyles ;
+      // sans rotation : ses feuilles sont orientées pour ce coin dans le modèle (plante, src/modeles/reve.js)
+      description: 'Un grand monstera de 1,30 m dans un cache-pot crème, qui grimpe le long d’un tuteur en fibre de coco, dans le coin à droite du bureau de la lucarne. Ses grandes feuilles découpées penchent vers la fenêtre et la pièce.',
+      pos: [3.12, -2.9],
+      rotation: 0,
       parties: [
         { forme: 'cylindre', taille: [0.34, 0.32], pos: [0, 0, 0], couleur: '#f4f2ee' },
         { forme: 'cylindre', taille: [0.06, 1.0], pos: [-0.02, 0.29, 0.01], couleur: '#b39477' }, // le tuteur
@@ -221,6 +221,36 @@ export const agencementReve = {
       ],
     },
     {
+      // par terre, à gauche du bureau du studio (vu de la chaise), presque contre son flanc (qui est en x = 1,2) ;
+      // un peu tourné vers la pièce
+      nom: 'Macintosh Plus',
+      glb: '/models/macintosh-plus.glb', ajuster: false,
+      description: 'Un Macintosh Plus de 1986, en plastique beige platine, posé par terre contre le bureau. Il sert de terminal au NAS : un câble série le relie au Raspberry Pi du mini-rack, et son petit écran cathodique de 9 pouces surveille le stockage en direct, en noir et blanc (le remplissage des disques, leur température, les lectures et écritures, le journal des sauvegardes). La fente de la disquette 3,5 pouces, la pomme arc-en-ciel ; derrière, sa poignée creusée et ses ouïes (il n’a pas de ventilateur).',
+      pos: [1.049, -3.0],
+      rotation: 0.12,
+      parties: [{ taille: [0.246, 0.345, 0.276], pos: [0, 0, 0], couleur: '#ddd6c4' }],
+    },
+    {
+      // par terre, à gauche du Macintosh Plus, tourné un peu vers la pièce ; sa prise est au mur ouest (branchements)
+      nom: 'mini-rack NAS',
+      glb: '/models/rack-nas.glb', ajuster: false,
+      description: 'Un mini-rack 10 pouces en plastique beige platine, assorti au Macintosh Plus : le NAS de la maison. Le panneau de brassage et ses câbles bleus, deux petits switchs, la passerelle ; un petit boîtier, un boîtier argent et le Raspberry Pi dans son boîtier ; deux mini-PC ; le panneau de ventilation et son écran de température ; l’onduleur ; la multiprise aux interrupteurs rouges allumés. Dessus, le ThinkPad qui lui sert de console ; à côté, le Macintosh Plus branché en terminal. Il est branché à la prise double du mur, avec le Mac.',
+      pos: [0.743, -3.0],
+      rotation: 0.2,
+      parties: [{ taille: [0.27, 0.62, 0.25], pos: [0, 0, 0], couleur: '#ddd6c4' }],
+    },
+    {
+      // sous la pente, à gauche de la TV vu du lit : entre le bout de son coffre (z = 3,24) et le mur bas du sud
+      // (z = 3,7), la barre parallèle au mur ouest ; assez bas pour passer sous le toit (1,03 m au pied du mur bas),
+      // et assez au sud pour ne pas cacher l'écran depuis le lit
+      nom: 'rack à vêtements',
+      glb: '/models/rack-vetements.glb', ajuster: false,
+      description: 'Un petit portant chromé à roulettes, glissé sous la pente à côté de la TV : cinq cintres en fil vides sur la barre ; en bas, un panier en fil avec un magazine et un pull beige plié.',
+      pos: [0.44, 3.475],
+      rotation: 0,
+      parties: [{ taille: [0.5, 1.0, 0.44], pos: [0, 0, 0], couleur: '#e4e8eb' }],
+    },
+    {
       // punaisé au mur ouest au-dessus des deux posters du coin hi-fi, centré sur le meuble (z = −1,47) : entre le
       // chambranle de la porte et le début de la pente ; tombe avec le mur ouest
       nom: 'drapeau « Servir le peuple »',
@@ -254,7 +284,7 @@ export const agencementReve = {
       // les tatamis (z 1,65), d'un bout à l'autre du lit ; son devant vers les tatamis
       nom: 'console du lit',
       glb: '/models/console-lit.glb', ajuster: false,
-      description: 'Un bureau bas en chêne clair, à la hauteur du retour (34 cm), tout le long du lit ; il dépasse un peu sur les tatamis. L’iPad est posé au bout, au niveau des oreillers.',
+      description: 'Un bureau bas en chêne clair, à la hauteur du retour (34 cm), tout le long du lit ; il dépasse un peu sur les tatamis. L’iPad est posé au bout, au niveau des oreillers, et ta Nintendo 3DS blanche juste à côté, ouverte sur Pokémon Lune.',
       pos: [2.5, 1.808],
       rotation: Math.PI,
       parties: [{ taille: [2.08, 0.34, 0.31], pos: [0, 0, 0], couleur: '#e3c08f' }],
@@ -328,7 +358,7 @@ export const agencementReve = {
       // la lampe champignon, dans le coin arrière droit du bureau du studio : son globe de verre opalin s'allume en
       // orangé (`corps` : le nom du matériau du modèle que le programme fait briller) et éclaire le bureau et le mur
       nom: 'lampe champignon',
-      pos: [2.43, 0.98, -3.24],
+      pos: [2.35, 0.985, -3.23],
       ampoules: [],
       corps: 'champignon-verre',
       couleur: '#ffb15e',
@@ -375,20 +405,36 @@ export const agencementReve = {
       description: 'L’affiche de la série chinoise « 难哄 / The First Frost » (Youku) : Zhang Miaoyi dans le rôle de Zhong Siqiao, accoudée à son pupitre, avec le compte à rebours « 开播倒计时 3 天 » (plus que 3 jours avant la diffusion). Scotchée à côté du poster au chat.',
       posters: [{ fichier: '/photos/reve/the-first-frost.jpg', s: -1.295, y: 1.2, taille: [0.27, 0.48] }],
     },
+    {
+      // au mur est, au-dessus du meuble à vinyles (son dessus est à 75 cm), entre la pente et la grille des neuf
+      // portraits (qui commence en z = −1,38) : elles prennent presque toute la place. Leurs bas sont alignés à 13 cm
+      // au-dessus du meuble ; le haut de l'affiche en portrait est sur celui de la 2ᵉ rangée de la grille (1,86), celle
+      // en paysage, plus basse, glisse sous la pente (son coin haut reste 20 cm sous elle), derrière les feuilles du
+      // monstera. 5 cm entre elles et jusqu'à la grille, comme entre les portraits.
+      mur: 'est',
+      nom: 'affiches du drama de JTBC',
+      description: 'Deux affiches du drama de JTBC « 모두가 자신의 무가치함과 싸우고 있다 » (« Chacun se bat contre sa propre insignifiance ») au-dessus du meuble à vinyles : en grand, elle, la nuit, en manteau noir et écharpe bordeaux, devant les lumières floues de la ville ; à côté, lui, penché sur son ordinateur au milieu des livres, une caméra derrière.',
+      posters: [
+        { fichier: '/photos/reve/drama-jtbc-nuit.jpg', s: -1.82, y: 1.3675, taille: [0.78, 0.975] },
+        { fichier: '/photos/reve/drama-jtbc-bureau.jpg', s: -2.58, y: 1.0933, taille: [0.64, 0.4267] },
+      ],
+    },
   ],
   // et leurs boutons (même format que `interrupteurs` plus bas) ; `rideau: true` = le bouton ouvre ou ferme le rideau
-  // (allumé = fermé), `vitesse` = la vitesse du fondu (6 par défaut)
+  // (allumé = fermé ; son animation est la sienne, dans src/main.js)
   interrupteurs: [
     { id: 'tolomeo', label: 'Lampe de bureau', lumieres: ['lampe Tolomeo'] },
     { id: 'champignon', label: 'Lampe champignon', lumieres: ['lampe champignon'] },
-    { id: 'rideau', label: 'Rideau', rideau: true, vitesse: 1.3 },
+    { id: 'rideau', label: 'Rideau', rideau: true },
   ],
-  // Le rideau qui sépare la pièce en deux, sur la ligne de l'ancien mur : un voilage crème suspendu à un rail au
-  // plafond, du mur ouest (le long du bord du bureau bas) jusqu'au mur est. Ouvert, il est ramassé en plis serrés
-  // contre le mur est, comme ancré dans le mur d'origine ; fermé, il court jusqu'au mur ouest.
+  // Le rideau qui sépare la pièce en deux, sur la ligne de l'ancien mur : un voilage en lin crème suspendu à un
+  // rail au plafond, du mur ouest (le long du bord du bureau bas) jusqu'au mur est. Ouvert, il est ramassé en plis
+  // profonds contre le mur est, comme ancré dans le mur d'origine ; fermé, il court jusqu'au mur ouest en larges
+  // ondulations.
   //   z : la ligne du rail ; x0, x1 : ses bouts ; haut : sa hauteur ; ouvert : la largeur du rideau ramassé ;
-  //   plis : leur nombre
-  rideau: { z: 0.12, x0: 0.02, x1: 3.588, haut: 2.385, ouvert: 0.34, plis: 34, couleur: '#f3ead9' },
+  //   plis : leur nombre ; ampleur : la longueur de tissu rapportée à celle du rail (1,35 : déployé, il ondule
+  //   encore en souplesse). Ramassé, il est noué à une embrasse sur le mur est.
+  rideau: { z: 0.12, x0: 0.02, x1: 3.588, haut: 2.385, ouvert: 0.42, plis: 18, ampleur: 1.35, couleur: '#f3ead9' },
 };
 
 // La visite guidée de la chambre de rêve (src/visite.js) : les plans, dans l'ordre, en coordonnées de la pièce.
@@ -410,12 +456,16 @@ export const visiteReve = [
     de: { camera: [1.05, 1.45, 1.35], cible: [2.6, 0.45, 2.75] }, a: { camera: [1.15, 1.3, 1.95], cible: [2.7, 0.45, 2.9] },
   },
   {
-    partie: 'Le coin nuit', titre: 'La console du lit', texte: 'Un bureau bas tout le long du lit, et l’iPad posé au niveau des oreillers.',
-    de: { camera: [2.5, 0.85, 1.25], cible: [3.2, 0.34, 1.82] }, a: { camera: [2.8, 0.78, 1.35], cible: [3.28, 0.34, 1.82] }, projecteur: true,
+    partie: 'Le coin nuit', titre: 'La console du lit', texte: 'Un bureau bas tout le long du lit ; l’iPad et ta 3DS, ouverte sur Pokémon Lune, au niveau des oreillers.',
+    de: { camera: [2.5, 0.85, 1.25], cible: [3.15, 0.36, 1.81] }, a: { camera: [2.8, 0.75, 1.38], cible: [3.15, 0.37, 1.8] }, projecteur: true,
   },
   {
-    partie: 'Le coin nuit', titre: 'La TV et le ventilateur', texte: 'Pile en face du lit, sur son coffre en osier.',
-    de: { camera: [2.7, 1.0, 2.95], cible: [0.35, 0.85, 2.75] }, a: { camera: [2.35, 0.95, 2.55], cible: [0.35, 0.85, 2.45] },
+    partie: 'Le coin nuit', titre: 'La TV, le rack et le ventilateur', texte: 'La TV pile en face du lit ; le rack à vêtements glissé sous la pente, le ventilateur de l’autre côté.',
+    de: { camera: [2.7, 1.0, 2.95], cible: [0.35, 0.75, 2.85] }, a: { camera: [2.35, 0.95, 2.6], cible: [0.35, 0.75, 2.6] },
+  },
+  {
+    partie: 'Le coin nuit', titre: 'Le coffre en osier', texte: 'Tressé brin par brin autour de ses montants, et ses losanges couleur rotin.',
+    de: { camera: [1.25, 0.62, 2.45], cible: [0.4, 0.33, 2.85] }, a: { camera: [1.12, 0.55, 2.75], cible: [0.4, 0.33, 2.85] }, projecteur: true,
   },
   {
     partie: 'Le coin nuit', titre: 'Les Season’s Greetings', texte: 'NMIXX « Mixx on the Road » et TWICE « Spotless », sur l’étagère.',
@@ -468,20 +518,24 @@ export const visiteReve = [
     de: { camera: [1.9, 1.75, -0.6], cible: [3.6, 1.65, -0.88] }, a: { camera: [1.95, 1.7, -1.1], cible: [3.6, 1.65, -0.88] },
   },
   {
-    partie: 'Le studio', titre: 'Le meuble à vinyles', texte: 'Vinyles et magazines dans les cases, le vase et l’enceinte dessus.',
-    de: { camera: [2.2, 1.1, -1.45], cible: [3.3, 0.55, -2.2] }, a: { camera: [2.25, 1.05, -1.85], cible: [3.3, 0.55, -2.2] },
+    partie: 'Le studio', titre: 'Le meuble à vinyles', texte: 'Vinyles et magazines dans les cases ; au-dessus, les deux affiches du drama de JTBC.',
+    de: { camera: [1.75, 1.3, -1.25], cible: [3.4, 1.08, -2.25] }, a: { camera: [1.75, 1.3, -1.55], cible: [3.4, 1.15, -2.25] },
   },
   {
-    partie: 'Le studio', titre: 'Le bureau sous la lucarne', texte: 'Le MacBook sur son support, un cahier ouvert, des livres.',
+    partie: 'Le studio', titre: 'Le bureau sous la lucarne', texte: 'Le MacBook sur son support, un cahier ouvert, des livres ; le monstera dans le coin.',
     de: { camera: [1.9, 1.55, -1.7], cible: [1.9, 0.85, -3.1] }, a: { camera: [2.2, 1.45, -2.0], cible: [1.9, 0.85, -3.1] },
   },
   {
     partie: 'Le studio', titre: 'La lampe champignon', texte: 'Son globe de verre opalin s’allume en orangé.',
-    de: { camera: [2.65, 1.15, -2.55], cible: [2.43, 0.92, -3.24] }, a: { camera: [2.7, 1.1, -2.7], cible: [2.43, 0.92, -3.24] }, duree: 4.5, geste: 'champignon',
+    de: { camera: [2.0, 1.2, -2.5], cible: [2.35, 0.92, -3.23] }, a: { camera: [2.08, 1.13, -2.68], cible: [2.35, 0.92, -3.23] }, duree: 4.5, geste: 'champignon',
   },
   {
-    partie: 'Le studio', titre: 'Le monstera et la vitrine', texte: 'Le grand monstera dans le coin, la vitrine contre la charpente.',
-    de: { camera: [1.6, 1.35, -1.35], cible: [0.3, 0.95, -2.45] }, a: { camera: [1.45, 1.3, -1.75], cible: [0.3, 0.95, -2.45] },
+    partie: 'Le studio', titre: 'Le mini-rack NAS', texte: 'Le serveur de la maison, entre la vitrine et le bureau, branché à sa prise au mur.',
+    de: { camera: [1.6, 1.1, -1.9], cible: [0.6, 0.45, -2.85] }, a: { camera: [1.45, 0.98, -2.15], cible: [0.6, 0.4, -2.9] },
+  },
+  {
+    partie: 'Le studio', titre: 'Le Macintosh Plus', texte: 'Relié au Raspberry Pi du rack, il surveille les disques en direct.',
+    de: { camera: [1.14, 0.37, -2.38], cible: [1.06, 0.23, -2.89] }, a: { camera: [1.11, 0.33, -2.54], cible: [1.06, 0.23, -2.89] },
   },
   {
     partie: 'Le studio', titre: 'Le drapeau', texte: 'Punaisé au-dessus de The First Frost et du chat zen.',
@@ -752,6 +806,18 @@ export const objetsVitrine = [
     devant: 'TourBook KiiiKiii (Guide Book Ver.)',
   },
   {
+    // la baguette étoile (un modèle .glb, voir baguetteKiiikiii dans src/modeles/reve.js) : couchée devant les
+    // objets de l'album, l'étoile à gauche, le manche vers la droite et un peu vers la porte vitrée ; `z` = la
+    // profondeur de son axe, `rotation` = son orientation (π/2 : le manche vers +x)
+    nom: 'light stick KiiiKiii',
+    description:
+      "La baguette étoile de KiiiKiii, celle que les cinq membres tiennent sur les photocards de précommande : une étoile blanc nacré toute gonflée, aux pointes arrondies, sur un manche blanc (sa bague nacrée, sa poignée striée et son bouton), sa dragonne en satin rouge repliée à côté. Clique pour l'allumer ou l'éteindre.",
+    glb: '/models/baguette-kiiikiii.glb',
+    pos: [VX - 0.13, 1.328],
+    z: 0.262,
+    rotation: Math.PI / 2 - 0.1,
+  },
+  {
     nom: "carte d'identité KiiiKiii",
     description:
       "Une des cinq cartes « ID Photo Card » (85 × 55 mm) : une fausse carte d'identité de l'île, ici celle de Jiyu, née le 14 mai 2006, posée devant la pochette.",
@@ -952,7 +1018,7 @@ export const meubles = [
     nom: 'TV sur coffre en osier',
     glb: '/models/tv.glb', ajuster: false,
     description:
-      "TV à écran plat posée sur un coffre en osier blanc, pile en face du lit. Clique sur « Allumer » pour la mettre en marche.",
+      "Ta TV Brandt, sur son pied central, posée sur le coffre en osier blanc tressé à la main (les losanges couleur rotin sur la face avant, les poignées dans les côtés, le couvercle tressé serré), pile en face du lit. Clique sur « Allumer » pour la mettre en marche.",
     interrupteur: 'tv',
     pos: [0.25, 2.2],
     parties: [
