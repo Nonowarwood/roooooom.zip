@@ -345,7 +345,11 @@ function thinkpad(m, { ecran = 'ecran-thinkpad' } = {}) {
   const HT = 0.0028; // hauteur d'une touche
   const yt = yd + 0.0002; // le pied des touches
   const xk = (u) => -7.5 * U + u * U;
-  const tch = (u0, w, z0, h, materiau = touche) => el.push(boite([w * U - JEU, HT, h * U - JEU], materiau, [xk(u0 + w / 2), yt, z0 + (h * U) / 2], { r: 0.0009 }));
+  const touches = []; // chaque touche, dans l'ordre de pose : pour y imprimer sa légende
+  const tch = (u0, w, z0, h, materiau = touche) => {
+    touches.push({ x: xk(u0 + w / 2), z: z0 + (h * U) / 2, l: w * U - JEU, p: h * U - JEU });
+    el.push(boite([w * U - JEU, HT, h * U - JEU], materiau, [xk(u0 + w / 2), yt, z0 + (h * U) / 2], { r: 0.0009 }));
+  };
   const zClavier = -D / 2 + 0.013;
   let zr = zClavier;
   // 1re rangée : Échap à gauche ; les boutons ; les touches système à droite
@@ -390,6 +394,133 @@ function thinkpad(m, { ecran = 'ecran-thinkpad' } = {}) {
     tch(u + k * wf, wf, zr, 0.6);
     tch(u + k * wf, wf, zr + 0.64 * U, 0.6);
   }
+  // les légendes, imprimées en blanc sur le dessus des touches (clavier français AZERTY ; Fn en bleu) : une
+  // décalcomanie d'un seul tenant, détourée, posée 0,4 mm au-dessus des touches, dessinée d'après leurs positions
+  {
+    const D2 = (h, b) => [h, b]; // [en haut, en bas]
+    const legendes = [
+      'Esc', 'PrtSc', 'ScrLk', 'Pause', 'Insert', 'Home', 'PgUp',
+      'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'F11', 'F12', 'Delete', 'End', 'PgDn',
+      '²', D2('1', '&'), D2('2', 'é'), D2('3', '"'), D2('4', "'"), D2('5', '('), D2('6', '-'), D2('7', 'è'), D2('8', '_'), D2('9', 'ç'), D2('0', 'à'), D2('°', ')'), D2('+', '='), '⟵',
+      '⇥', 'A', 'Z', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', D2('¨', '^'), D2('£', '$'), D2('µ', '*'),
+      '⇪', 'Q', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M', D2('%', 'ù'), '↵',
+      '⇧', 'W', 'X', 'C', 'V', 'B', 'N', D2('?', ','), D2('.', ';'), D2('/', ':'), D2('§', '!'), '⇧',
+      'Fn', 'Ctrl', '⊞', 'Alt', '', 'Alt Gr', '▤', 'Ctrl',
+      '«', '←', '↑', '↓', '»', '→',
+    ];
+    const [X0, X1] = [xk(0) - 0.002, xk(15) + 0.002];
+    const [Z0, Z1] = [zClavier - 0.002, zr + 1.3 * U];
+    const S = 8000; // pixels par mètre
+    const mm = (v) => (v * S) / 1000; // une cote en millimètres, en pixels
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round((X1 - X0) * S);
+    canvas.height = Math.round((Z1 - Z0) * S);
+    const g = canvas.getContext('2d');
+    // les tailles sont celles du vrai clavier : lettres d'environ 3,3 mm de haut, chiffres doublés 2,5 mm, mots 2 mm
+    const police = (corps) => `500 ${mm(corps)}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    const BLANC = '#ebeaf0';
+    const BLEU = '#7aa3ec';
+    const symbole = /^[←↑↓→«»⇥⇪⇧↵⟵⊞▤]$/;
+    const ecrire = (texte, x, y, { corps, aligne = 'left', ligne = 'alphabetic' }) => {
+      g.font = police(corps);
+      g.textAlign = aligne;
+      g.textBaseline = ligne;
+      g.fillText(texte, x, y);
+    };
+    // les pictogrammes bleus des fonctions Fn, dessinés au trait (centre x, z en pixels ; cotes en mm)
+    const pictos = {
+      9: (x, z) => { // F3 : la batterie
+        g.lineWidth = mm(0.32);
+        g.strokeRect(x - mm(1.8), z - mm(0.85), mm(3.3), mm(1.7));
+        g.fillRect(x + mm(1.5), z - mm(0.4), mm(0.45), mm(0.8));
+        g.fillRect(x - mm(1.45), z - mm(0.5), mm(1.6), mm(1));
+      },
+      10: (x, z) => { // F4 : la veille (un croissant de lune)
+        g.beginPath();
+        g.arc(x, z, mm(1.35), 0, 2 * PI);
+        g.fill();
+        g.globalCompositeOperation = 'destination-out';
+        g.beginPath();
+        g.arc(x + mm(0.75), z - mm(0.45), mm(1.15), 0, 2 * PI);
+        g.fill();
+        g.globalCompositeOperation = 'source-over';
+      },
+      11: (x, z) => { // F5 : le sans-fil (trois ondes et un point)
+        g.lineWidth = mm(0.32);
+        for (const r of [0.75, 1.45, 2.15]) {
+          g.beginPath();
+          g.arc(x, z + mm(1), mm(r), -PI * 0.75, -PI * 0.25);
+          g.stroke();
+        }
+        g.beginPath();
+        g.arc(x, z + mm(1), mm(0.3), 0, 2 * PI);
+        g.fill();
+      },
+      13: (x, z) => { // F7 : l'écran externe (deux écrans)
+        g.lineWidth = mm(0.3);
+        g.strokeRect(x - mm(1.9), z - mm(1.1), mm(2.3), mm(1.6));
+        g.strokeRect(x - mm(0.4), z - mm(0.4), mm(2.3), mm(1.6));
+      },
+      18: (x, z) => { // F12 : la mise en veille prolongée
+        ecrire('z', x - mm(0.6), z + mm(1.1), { corps: 2.6, aligne: 'center' });
+        ecrire('z', x + mm(0.7), z - mm(0.1), { corps: 1.9, aligne: 'center' });
+      },
+    };
+    const soleil = (x, z, plus) => { // Origine / Fin : la luminosité de l'écran (+ / −)
+      g.beginPath();
+      g.arc(x, z, mm(0.75), 0, 2 * PI);
+      g.fill();
+      g.lineWidth = mm(0.28);
+      for (let k = 0; k < 8; k++) {
+        const a = (k * PI) / 4;
+        g.beginPath();
+        g.moveTo(x + Math.cos(a) * mm(1.15), z + Math.sin(a) * mm(1.15));
+        g.lineTo(x + Math.cos(a) * mm(1.65), z + Math.sin(a) * mm(1.65));
+        g.stroke();
+      }
+      ecrire(plus ? '+' : '−', x + mm(2.5), z, { corps: 2.6, aligne: 'center', ligne: 'middle' });
+    };
+    pictos[5] = (x, z) => soleil(x - mm(0.6), z, true);
+    pictos[20] = (x, z) => soleil(x - mm(0.6), z, false);
+    touches.forEach((t, i) => {
+      const lg = legendes[i];
+      if (!lg) return;
+      const gx = (t.x - t.l / 2 - X0) * S; // le bord gauche du dessus de la touche
+      const hz = (t.z - t.p / 2 - Z0) * S; // son bord haut (côté écran)
+      const bz = (t.z + t.p / 2 - Z0) * S; // son bord bas
+      const [cx, cz] = [(t.x - X0) * S, (t.z - Z0) * S];
+      const large = t.l > 1.3 * U;
+      g.fillStyle = g.strokeStyle = lg === 'Fn' ? BLEU : BLANC;
+      if (Array.isArray(lg)) {
+        // deux caractères à gauche : en haut avec Maj., en bas sans
+        ecrire(lg[0], gx + mm(1.7), hz + mm(4.4), { corps: 3.5 });
+        ecrire(lg[1], gx + mm(1.7), bz - mm(2), { corps: 3.5 });
+      } else if (lg.length === 1 && /[A-Z²]/.test(lg)) {
+        ecrire(lg, gx + mm(1.7), hz + mm(5.2), { corps: 4.6 });
+      } else if (symbole.test(lg)) {
+        if (large) ecrire(lg, gx + mm(2), cz, { corps: 4.6, ligne: 'middle' });
+        else ecrire(lg, cx, cz, { corps: 4.2, aligne: 'center', ligne: 'middle' });
+      } else if (pictos[i]) {
+        // le nom de la touche à gauche, le pictogramme bleu à droite
+        ecrire(lg, gx + mm(1.4), cz, { corps: lg.length > 2 ? 2.4 : 2.7, ligne: 'middle' });
+        g.fillStyle = g.strokeStyle = BLEU;
+        pictos[i](cx + t.l * S * 0.24, cz);
+      } else {
+        ecrire(lg, cx, cz, { corps: lg.length > 4 ? 2.3 : 2.7, aligne: 'center', ligne: 'middle' });
+      }
+    });
+    // du texte détouré en transparence (pas d'alphaTest : il rongeait l'anticrénelage et ne laissait que des points de loin)
+    const carte = new THREE.CanvasTexture(canvas);
+    carte.colorSpace = THREE.SRGBColorSpace;
+    carte.anisotropy = 16;
+    const materiauLegendes = new THREE.MeshStandardMaterial({ map: carte, transparent: true, depthWrite: false, roughness: 0.55 });
+    materiauLegendes.name = 'legendes-thinkpad';
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Z1 - Z0), materiauLegendes);
+    plan.rotation.x = -PI / 2;
+    plan.position.set((X0 + X1) / 2, yt + HT + 0.0004, (Z0 + Z1) / 2);
+    plan.name = 'legendes-thinkpad';
+    el.push(plan);
+  }
   // le creux sombre sous les touches (on le voit entre elles)
   el.push(boite([15 * U + 0.004, 0.0003, zr + U - zClavier + 0.004], creux, [0, yd, (zClavier + zr + U) / 2], { r: 0.0015 }));
   el.push(boite([3 * wf * U + 0.004, 0.0003, 0.3 * U], creux, [xk(u + 1.5 * wf), yd, zr + 1.13 * U], { r: 0.0015 }));
@@ -421,10 +552,43 @@ function thinkpad(m, { ecran = 'ecran-thinkpad' } = {}) {
   el.push(boite([0.012, 0.0002, 0.006], m.uni('#3e74c4'), [-0.127, yd + 0.0003, D / 2 - 0.037], { r: 0.001 }));
   el.push(boite([0.012, 0.0002, 0.0035], m.uni('#d7a3ad'), [-0.127, yd + 0.0003, D / 2 - 0.027], { r: 0.0008 }));
   // le logo ThinkPad, en biais en bas à droite, avec le point rouge sur le « i »
-  const logo = (y) => {
+  // les lettres argentées en italique (« ThinkPad », le « i » sans point), détourées ; le point rouge est un petit
+  // carré posé au-dessus du « i » (lumineux sur le capot, comme sur le vrai X201)
+  const [LW, LH] = [0.036, 0.0070];
+  const lettres = (() => {
+    const c = document.createElement('canvas');
+    [c.width, c.height] = [512, 100];
+    const g = c.getContext('2d');
+    g.font = 'italic 700 76px "Helvetica Neue", Helvetica, Arial, sans-serif';
+    g.fillStyle = '#e4e7ec';
+    g.textBaseline = 'alphabetic';
+    const y = 84;
+    let x = 10;
+    g.fillText('Th', x, y);
+    x += g.measureText('Th').width;
+    const wi = g.measureText('ı').width;
+    g.fillText('ı', x, y);
+    const point = [x + wi / 2 + 13, 22]; // (l'italique décale le haut du « i » vers la droite)
+    x += wi;
+    g.fillText('nkPad', x, y);
+    const carte = new THREE.CanvasTexture(c);
+    carte.colorSpace = THREE.SRGBColorSpace;
+    carte.anisotropy = 8;
+    const materiau = new THREE.MeshStandardMaterial({ map: carte, alphaTest: 0.4, roughness: 0.3, metalness: 0.5 });
+    materiau.name = 'logo-thinkpad';
+    return { materiau, point: [(point[0] / 512 - 0.5) * LW, (point[1] / 100 - 0.5) * LH] };
+  })();
+  const pointLumineux = mat('thinkpad-point-rouge', '#ff4a52', { emissive: '#ff2a36', emissiveIntensity: 1.4 });
+  const logo = (y, { lumineux = false, retourne = false } = {}) => {
     const g = new THREE.Group();
-    g.add(boite([0.034, 0.0003, 0.0052], argent, [0, 0, 0], { r: 0.0008 }));
-    g.add(boite([0.0026, 0.0005, 0.0026], rouge, [-0.0083, 0, -0.0045], { r: 0.0008 }));
+    const dedans = new THREE.Group();
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(LW, LH), lettres.materiau);
+    plan.rotation.x = -PI / 2;
+    plan.position.y = 0.0006;
+    dedans.add(plan);
+    dedans.add(boite([0.0024, 0.0006, 0.0024], lumineux ? pointLumineux : rouge, [lettres.point[0], 0.0003, lettres.point[1]], { r: 0.0005 }));
+    if (retourne) dedans.rotation.y = PI; // il se lit capot ouvert, depuis l'autre côté
+    g.add(dedans);
     g.position.y = y;
     g.rotation.y = 0.85;
     return g;
@@ -485,7 +649,7 @@ function thinkpad(m, { ecran = 'ecran-thinkpad' } = {}) {
   capot.add(boite([0.021, 0.0003, 0.0032], argent, [0.064, -0.0003, 0.012], { r: 0.0006 }));
   capot.add(boite([0.013, 0.0003, 0.003], argent, [0.116, -0.0003, 0.012], { r: 0.0006 }));
   // au dos du capot : le logo ThinkPad dans le coin, et « lenovo »
-  const logoCapot = logo(EPC);
+  const logoCapot = logo(EPC, { lumineux: true, retourne: true });
   logoCapot.position.x = 0.1;
   logoCapot.position.z = PC - 0.035;
   capot.add(logoCapot);
@@ -3130,6 +3294,295 @@ function baguetteKiiikiii() {
 }
 
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
+// ===========================================================================================
+// --- La platine vinyle Rega Planar 1, blanc mat, posée sur le meuble à vinyles du coin salon ---
+// D'après les photos officielles de Rega et ses cotes : 447 × 360 mm, 117 mm de haut couvercle fermé. Le socle blanc
+// mat sur quatre pieds noirs (l'interrupteur dessous, à l'avant gauche ; le logo « P1 » gris dans le coin avant
+// droit) ; le plateau en résine phénolique noire brillante de 23 mm sur son sous-plateau, le feutre et un vinyle
+// (l'étiquette, maillage « etiquette-rega », reçoit une pochette dans main.js) ; le bras RB110 : tube noir conique,
+// chape du roulement, contrepoids, lève-bras à manette chromée, repose-bras en U ; la cellule Rega Carbon grise et
+// ses quatre fils de couleur ; le couvercle en acrylique clair sur ses deux charnières.
+// Quatre sous-groupes s'animent (main.js) : le plateau tourne sur son axe (pivot_plateau_rega), le bras pivote sur
+// son roulement vertical (pivot_bras_rega) et se lève (pivot_levee_rega), le couvercle s'ouvre sur ses charnières
+// (pivot_couvercle_rega). Bras au repos : il pointe droit vers l'avant (rotation 0).
+// Origine : le centre du socle au sol, la façade vers +z.
+// ===========================================================================================
+export const REGA = { L: 0.24, axe: [-0.0495, 0.011], pivot: [0.1325, -0.116] }; // longueur effective du bras, axe du plateau, roulement du bras
+
+// un tube droit qui s'affine de a vers b (le tube du bras)
+function barreConique(a, b, rA, rB, materiau, segments = 16) {
+  const A = new THREE.Vector3(...a);
+  const B = new THREE.Vector3(...b);
+  const dir = B.clone().sub(A);
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rB, rA, dir.length(), segments), materiau);
+  mesh.position.copy(A).add(B).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return ombres(mesh);
+}
+
+// un décalque imprimé : un plan détouré dessiné sur un canvas, à plat (normale +y) ou debout (normale +z) ;
+// main.js le passe devant son support (polygonOffset) grâce à son nom en « imprime-… »
+function decalque(l, p, dessiner, { nom, px = 12000, debout = false, rugosite = 0.6 } = {}) {
+  const c = document.createElement('canvas');
+  c.width = Math.round(l * px);
+  c.height = Math.round(p * px);
+  const g = c.getContext('2d');
+  dessiner(g, c.width, c.height);
+  const carte = new THREE.CanvasTexture(c);
+  carte.colorSpace = THREE.SRGBColorSpace;
+  carte.anisotropy = 8;
+  const materiau = new THREE.MeshStandardMaterial({ map: carte, transparent: true, depthWrite: false, roughness: rugosite });
+  materiau.name = nom;
+  const plan = new THREE.Mesh(new THREE.PlaneGeometry(l, p), materiau);
+  if (!debout) plan.rotation.x = -PI / 2;
+  plan.name = nom;
+  return plan;
+}
+
+// la face gravée du vinyle : les sillons en anneaux de reflets, les silences entre les morceaux, l'entrée et la
+// sortie lisses (vue de dessus ; le centre du canvas est l'axe)
+function sillonsVinyle() {
+  const N = 1024;
+  const R = 0.151;
+  const c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  const px = (r) => (r / R) * (N / 2);
+  const anneau = (r, largeur, couleur) => {
+    g.strokeStyle = couleur;
+    g.lineWidth = Math.max(px(largeur), 0.6);
+    g.beginPath();
+    g.arc(N / 2, N / 2, px(r), 0, 2 * PI);
+    g.stroke();
+  };
+  g.fillStyle = '#1b1920';
+  g.fillRect(0, 0, N, N);
+  const alea = hasard(77);
+  // les sillons : de fines bandes plus ou moins claires (le reflet change d'un tour à l'autre)
+  const teintes = ['#1d1b22', '#222027', '#26242c', '#1a1820'];
+  for (let r = 0.0605; r < 0.1462; r += 0.00032) anneau(r, 0.00034, teintes[Math.floor(alea() * teintes.length)]);
+  // cinq morceaux : les silences entre eux sont lisses, un peu plus sombres et brillants
+  for (const r of [0.072, 0.088, 0.104, 0.121, 0.135]) anneau(r, 0.0011, '#141217');
+  // l'entrée (bord) et la sortie (près de l'étiquette) : lisses
+  anneau(0.1484, 0.0042, '#17151b');
+  anneau(0.0555, 0.0098, '#17151b');
+  anneau(0.0512, 0.0012, '#2a2830'); // le petit bourrelet autour de l'étiquette
+  const carte = new THREE.CanvasTexture(c);
+  carte.colorSpace = THREE.SRGBColorSpace;
+  carte.anisotropy = 8;
+  carte.userData.mimeType = 'image/jpeg'; // opaque : en JPEG dans le .glb (le PNG des anneaux pesait 1 Mo)
+  return carte;
+}
+
+function platineRega() {
+  const m = creerMateriaux();
+  const el = [];
+  const [W, D] = [0.447, 0.36];
+  const PIED = 0.014;
+  const EP = 0.025; // l'épaisseur du socle (avec les pieds : 117 mm couvercle fermé, le contrepoids passe dessous)
+  const yP = PIED + EP; // le dessus du socle
+  const blanc = mat('rega-blanc', '#f1efea', { roughness: 0.82 });
+  const noir = mat('rega-noir', '#2b2932', { roughness: 0.62 }); // le noir mat du bras, des pieds, de la cellule
+  const noirTube = mat('rega-tube', '#2d2b34', { roughness: 0.48 }); // le tube anodisé, un rien satiné
+  const plateauNoir = mat('rega-plateau', '#1f1d24', { roughness: 0.14, metalness: 0.1 }); // la résine phénolique, brillante
+  const feutre = mat('rega-feutre', '#2c2b31', { roughness: 1 });
+  const vinyle = mat('rega-vinyle', '#1c1a21', { roughness: 0.3 });
+  const gris = mat('rega-carbon', '#cfd0d3', { roughness: 0.55 }); // le corps de la cellule Carbon
+  const vis = m.chrome;
+
+  // — le socle, ses pieds, l'interrupteur dessous, les fentes des charnières au bord arrière —
+  el.push(boite([W, EP, D], blanc, [0, PIED, 0], { r: 0.004 }));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.036, PIED, noir, [sx * (W / 2 - 0.058), 0, sz * (D / 2 - 0.05)], { dBas: 0.032, segments: 22 }));
+  el.push(boite([0.012, 0.006, 0.018], noir, [-W / 2 + 0.035, PIED - 0.006, D / 2 - 0.045], { r: 0 }));
+  for (const sx of [-1, 1]) el.push(boite([0.026, 0.0004, 0.0032], m.uni('#3a3842'), [sx * (W / 2 - 0.05), yP, -D / 2 + 0.0065], { r: 0 }));
+  // le logo « P1 » (un p arrondi et un 1 au trait fin) et « planar one » en petit, gris, dans le coin avant droit
+  const logo = decalque(0.034, 0.034, (g, w, h) => {
+    g.strokeStyle = g.fillStyle = '#a19fa6';
+    g.lineWidth = w * 0.03;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.arc(w * 0.36, h * 0.34, w * 0.17, PI * 0.5, PI * 2.5);
+    g.stroke();
+    g.beginPath();
+    g.moveTo(w * 0.19, h * 0.34);
+    g.lineTo(w * 0.19, h * 0.74);
+    g.moveTo(w * 0.62, h * 0.2);
+    g.lineTo(w * 0.7, h * 0.17);
+    g.lineTo(w * 0.7, h * 0.51);
+    g.stroke();
+    g.font = `400 ${h * 0.085}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.textBaseline = 'middle';
+    g.fillText('planar one', w * 0.26, h * 0.7);
+  }, { nom: 'imprime-rega-p1' });
+  logo.position.set(W / 2 - 0.038, yP + 0.0003, D / 2 - 0.034);
+  el.push(logo);
+
+  // — le plateau : sous-plateau (moyeu), plateau brillant au bord adouci, feutre, vinyle, étiquette, axe —
+  const [xs, zs] = REGA.axe;
+  const plateau = new THREE.Group();
+  plateau.name = 'pivot_plateau_rega';
+  plateau.position.set(xs, yP, zs);
+  plateau.add(cylindre(0.14, 0.006, noir, [0, 0, 0], { segments: 40 }));
+  plateau.add(
+    tourne(
+      [[0, 0.006], [0.1452, 0.006], [0.1483, 0.0072], [0.149, 0.0095], [0.149, 0.0262], [0.1484, 0.0282], [0.1463, 0.029], [0, 0.029]],
+      plateauNoir,
+      [0, 0, 0],
+      { segments: 96 },
+    ),
+  );
+  plateau.add(cylindre(0.292, 0.003, feutre, [0, 0.029, 0], { segments: 72 }));
+  const yDisque = 0.032;
+  const EV = 0.0016; // l'épaisseur du vinyle
+  const tranche = new THREE.Mesh(new THREE.CylinderGeometry(0.151, 0.151, EV, 96, 1, true), vinyle);
+  tranche.position.y = yDisque + EV / 2;
+  plateau.add(ombres(tranche));
+  const face = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.151, 128, 1), mat('rega-sillons', '#ffffff', { map: sillonsVinyle(), roughness: 0.32 }));
+  face.rotation.x = -PI / 2;
+  face.position.y = yDisque + EV;
+  plateau.add(ombres(face));
+  const etiquette = new THREE.Mesh(new THREE.CircleGeometry(0.05, 64), mat('etiquette-rega', '#e8dcc2', { roughness: 0.7 }));
+  etiquette.rotation.x = -PI / 2;
+  etiquette.position.y = yDisque + EV;
+  etiquette.name = 'etiquette-rega';
+  plateau.add(ombres(etiquette));
+  plateau.add(cylindre(0.0072, 0.0465 - 0.029, noir, [0, 0.029, 0], { segments: 16 }));
+  plateau.add(sphere(0.0072, noir, [0, 0.0465, 0], { echelle: [1, 0.6, 1] }));
+  el.push(plateau);
+
+  // — le bras RB110 —
+  const [xp, zp] = REGA.pivot;
+  const L = REGA.L;
+  const BETA = 0.4; // l'angle de la tête (offset), tournée vers l'axe du plateau
+  const yR = yDisque + EV; // le dessus du disque : la pointe du diamant s'y pose
+  const yB = yR + 0.0165 + 0.0035 + 0.0039; // l'axe du tube, juste au-dessus de la coquille
+  // l'embase fixe : un pied rond à trois lobes vissés, et une barre vers l'avant (« RB110 ») qui porte le repose-bras
+  el.push(cylindre(0.054, 0.011, noir, [xp, yP, zp], { dBas: 0.06, segments: 32 }));
+  for (const a of [0.7, 2.75, -1.55]) {
+    const [x, z] = [xp + Math.cos(a) * 0.033, zp + Math.sin(a) * 0.033];
+    el.push(cylindre(0.017, 0.006, noir, [x, yP, z], { segments: 16 }));
+    el.push(cylindre(0.0072, 0.0016, m.uni('#45434d'), [x, yP + 0.006, z], { segments: 6 }));
+  }
+  el.push(boite([0.013, 0.0072, 0.072], noir, [xp + 0.013, yP, zp + 0.049], { r: 0.002 }));
+  const rb110 = decalque(0.024, 0.0075, (g, w, h) => {
+    g.fillStyle = '#f2f1f4';
+    g.font = `300 ${h * 0.72}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('RB110', w / 2, h * 0.54);
+  }, { nom: 'imprime-rega-rb110', px: 24000 });
+  rb110.rotation.z = PI / 2; // il se lit le long de la barre, de l'avant vers l'arrière
+  rb110.position.set(xp + 0.013, yP + 0.0075, zp + 0.05);
+  el.push(rb110);
+  // le repose-bras : un petit fût et un U où se cale le tube
+  const [xr, zr] = [xp + 0.0045, zp + 0.079]; // (le tube y passe à 4,5 mm de l'axe du roulement)
+  el.push(cylindre(0.0075, yB - 0.008 - 0.0072, noir, [xr + 0.006, yP + 0.0072, zr], { segments: 12 }));
+  el.push(boite([0.018, 0.003, 0.006], noir, [xr, yP + yB - 0.008, zr], { r: 0 }));
+  for (const sx of [-1, 1]) el.push(boite([0.0024, 0.009, 0.006], noir, [xr + sx * 0.0072, yP + yB - 0.005, zr], { r: 0 }));
+  // le lève-bras : une colonne côté plateau, une palette en arc sous le tube (là où il passe pendant la lecture),
+  // et sa manette chromée qui part vers l'avant
+  const auBras = (a, rho) => [xp + rho * Math.sin(a), zp + rho * Math.cos(a)];
+  const [xc, zc] = auBras(-1.02, 0.05);
+  el.push(cylindre(0.011, 0.004, noir, [xc, yP, zc], { segments: 16 }));
+  el.push(cylindre(0.0072, yB - 0.0095 - 0.004, m.uni('#8f939b'), [xc, yP + 0.004, zc], { segments: 14 }));
+  const [xa, za] = auBras(-0.9, 0.05);
+  const [xb, zb] = auBras(-0.24, 0.05);
+  el.push(barre([xc, yP + yB - 0.0095, zc], [xa, yP + yB - 0.0095, za], 0.0022, noir, 10));
+  el.push(barre([xa, yP + yB - 0.0095, za], [xb, yP + yB - 0.0095, zb], 0.0022, noir, 10));
+  el.push(barre([xc, yP + 0.012, zc], [xc + 0.012, yP + 0.0065, zc + 0.046], 0.0019, vis, 10));
+  el.push(sphere(0.0052, vis, [xc + 0.0125, yP + 0.0063, zc + 0.048], { echelle: [1, 1, 1.6] }));
+
+  // ce qui tourne avec le bras : le fût du roulement vertical et la chape du roulement horizontal
+  const bras = new THREE.Group();
+  bras.name = 'pivot_bras_rega';
+  bras.position.set(xp, yP, zp);
+  bras.add(cylindre(0.025, yB - 0.011 - 0.009, noir, [0, 0.011, 0], { segments: 24 }));
+  bras.add(boite([0.031, 0.021, 0.027], noir, [0, yB - 0.012, 0], { r: 0.007 })); // la chape, bombée
+  for (const sx of [-1, 1]) {
+    bras.add(cylindre(0.016, 0.004, noir, [sx * 0.0175, yB, 0], { rot: [0, 0, PI / 2], centre: true, segments: 20 })); // les chapeaux des roulements
+    bras.add(tore(0.011, 0.0007, m.uni('#4a4852'), [sx * 0.0196, yB, 0], [0, PI / 2, 0]));
+  }
+  // ce qui se lève : le tube, le contrepoids, la coquille et la cellule (charnière : l'axe du roulement horizontal)
+  const levee = new THREE.Group();
+  levee.name = 'pivot_levee_rega';
+  levee.position.y = yB;
+  bras.add(levee);
+  const H = [0.034 * Math.sin(BETA), 0, L - 0.034 * Math.cos(BETA)]; // l'arrière de la coquille, où arrive le tube
+  levee.add(barreConique([0, 0, 0.012], H, 0.0053, 0.0039, noirTube, 20));
+  levee.add(barre([0, 0, 0.014], [0, 0, -0.072], 0.0052, noirTube, 16)); // le tube traverse la chape, puis la queue
+  levee.add(cylindre(0.0118, 0.006, noir, [0, 0, 0.014], { rot: [PI / 2, 0, 0], centre: true, segments: 18 })); // la bague à la sortie de la chape
+  // le contrepoids (111 g) : un cylindre aux arêtes adoucies, une gorge, et le bout de la queue
+  levee.add(
+    tourne(
+      [[0.0053, -0.01], [0.0158, -0.01], [0.0168, -0.009], [0.0168, 0.009], [0.0158, 0.01], [0.0053, 0.01]],
+      noir,
+      [0, 0, -0.05],
+      { rot: [PI / 2, 0, 0], segments: 40 },
+    ),
+  );
+  levee.add(tore(0.0336, 0.0006, m.uni('#3c3a44'), [0, 0, -0.047], [0, 0, 0]));
+  levee.add(cylindre(0.0092, 0.012, m.uni('#3a3842'), [0, 0, -0.072], { rot: [PI / 2, 0, 0], centre: true, segments: 16 }));
+  // la coquille et la cellule, tournées de l'angle d'offset : origine à la pointe du diamant
+  const tete = new THREE.Group();
+  tete.position.set(0, yR - yB, L);
+  tete.rotation.y = -BETA;
+  levee.add(tete);
+  tete.add(boite([0.019, 0.0035, 0.04], noir, [0, 0.0165, -0.014], { r: 0 })); // la coquille
+  tete.add(boite([0.011, 0.005, 0.012], noir, [0, 0.0185, -0.031], { r: 0 })); // son col, qui rejoint le tube
+  for (const sx of [-1, 1]) tete.add(cylindre(0.0032, 0.0009, vis, [sx * 0.0063, 0.02, -0.012], { segments: 10 })); // les vis
+  tete.add(tube([[0.008, 0.0183, 0.004], [0.017, 0.019, 0.006], [0.026, 0.0215, 0.006], [0.033, 0.0225, 0.0035], [0.036, 0.02, 0.002]], 0.0017, noir, 16)); // le lève-doigt
+  tete.add(boite([0.0165, 0.0145, 0.022], gris, [0, 0.002, -0.0095], { r: 0 })); // le corps de la Carbon
+  tete.add(boite([0.007, 0.0026, 0.009], noir, [0, 0.0005, -0.0035], { r: 0 })); // le porte-pointe
+  tete.add(barre([0, 0.0012, -0.0015], [0, 0.0001, 0.0012], 0.0004, m.chrome, 6)); // le cantilever et le diamant
+  const carbon = decalque(0.0145, 0.0125, (g, w, h) => {
+    g.fillStyle = '#26242c';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = `700 ${h * 0.36}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.fillText('rega', w / 2, h * 0.36);
+    g.font = `500 ${h * 0.2}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    g.fillText('CARBON', w / 2, h * 0.72);
+  }, { nom: 'imprime-rega-carbon', px: 30000, debout: true });
+  carbon.position.set(0, 0.0092, 0.00155);
+  tete.add(carbon);
+  // les quatre fils (rouge, vert, bleu, blanc) des broches de la cellule jusqu'au bout du tube
+  [['#d8454f', -0.004, 0.006], ['#4fa36b', 0.004, 0.006], ['#4a74c9', -0.004, 0.011], ['#f2f2f4', 0.004, 0.011]].forEach(([c, x, y]) => {
+    tete.add(tube([[x, y, -0.0205], [x * 0.9, y + 0.002, -0.026], [x * 0.5, 0.0185, -0.033], [0, yB - yR - 0.001, -0.038]], 0.00055, m.uni(c), 8));
+  });
+  el.push(bras);
+
+  // — les câbles : la paire RCA et le cordon d'alimentation sortent sous l'arrière et filent vers le mur —
+  for (const dx of [-0.0025, 0.0025]) el.push(tube([[0.12 + dx, PIED + 0.004, -D / 2 + 0.01], [0.12 + dx, 0.004, -D / 2 - 0.03], [0.1 + dx, 0.0028, -0.25], [0.09 + dx, 0.0028, -0.296], [0.09 + dx, -0.02, -0.297]], 0.0022, m.uni('#26242b'), 24));
+  el.push(tube([[-0.17, PIED + 0.004, -D / 2 + 0.01], [-0.17, 0.003, -D / 2 - 0.03], [-0.15, 0.0022, -0.25], [-0.14, 0.0022, -0.296], [-0.14, -0.02, -0.297]], 0.0018, m.uni('#26242b'), 24));
+
+  // — le couvercle : une boîte d'acrylique clair (parois de 3 mm, chants un peu plus visibles), sur deux charnières —
+  const couvercle = new THREE.Group();
+  couvercle.name = 'pivot_couvercle_rega';
+  couvercle.position.set(0, yP, -D / 2);
+  const HC = 0.117 - yP;
+  const EC = 0.003;
+  const acrylique = mat('rega-couvercle', '#f2f6f8', { transparent: true, opacity: 0.13, roughness: 0.04, depthWrite: false });
+  const chant = mat('rega-couvercle-chant', '#e3eeee', { transparent: true, opacity: 0.38, roughness: 0.1, depthWrite: false });
+  couvercle.add(boite([W, EC, D], acrylique, [0, HC - EC, D / 2], { r: 0 }));
+  for (const z of [EC / 2, D - EC / 2]) couvercle.add(boite([W - 2 * EC, HC - EC, EC], acrylique, [0, 0, z], { r: 0 }));
+  for (const sx of [-1, 1]) couvercle.add(boite([EC, HC - EC, D], acrylique, [sx * (W / 2 - EC / 2), 0, D / 2], { r: 0 }));
+  // les chants : le tour du dessus et les quatre arêtes verticales
+  const c = 0.0032;
+  for (const z of [c / 2, D - c / 2]) couvercle.add(boite([W, c, c], chant, [0, HC - c, z], { r: 0 }));
+  for (const sx of [-1, 1]) {
+    couvercle.add(boite([c, c, D - 2 * c], chant, [sx * (W / 2 - c / 2), HC - c, D / 2], { r: 0 }));
+    for (const z of [c / 2, D - c / 2]) couvercle.add(boite([c, HC - c, c], chant, [sx * (W / 2 - c / 2), 0, z], { r: 0 }));
+  }
+  // les charnières : une platine noire sur la paroi arrière, une languette qui entre dans la fente du socle
+  for (const sx of [-1, 1]) {
+    couvercle.add(boite([0.02, 0.011, 0.004], noir, [sx * (W / 2 - 0.05), 0.001, -0.002], { r: 0 }));
+    couvercle.add(boite([0.024, 0.012, 0.0025], noir, [sx * (W / 2 - 0.05), -0.012, 0.0065], { r: 0 }));
+  }
+  el.push(couvercle);
+
+  return groupe('platine-rega', el);
+}
+
 const fabrique = (f) => () => fusionner(f());
 export const modelesReve = {
   'tapis-miffy': fabrique(tapisMiffy),
@@ -3153,4 +3606,5 @@ export const modelesReve = {
   'rack-nas': fabrique(rackNas),
   'rack-vetements': fabrique(rackVetements),
   'baguette-kiiikiii': fabrique(baguetteKiiikiii),
+  'platine-rega': fabrique(platineRega),
 };

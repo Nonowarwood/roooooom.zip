@@ -123,6 +123,17 @@ export const agencementReve = {
       ],
     },
     {
+      // sur le meuble à vinyles (dessus à 75 cm), au milieu de sa largeur, l'arrière à 12 cm du mur est : le
+      // couvercle a la place de s'ouvrir ; la façade regarde la pièce (ouest)
+      nom: 'platine Rega Planar 1',
+      hauteur: 0.75,
+      glb: '/models/platine-rega.glb', ajuster: false,
+      description: 'La platine vinyle Rega Planar 1, blanc mat, sur le meuble à vinyles : son plateau en résine phénolique noire, le bras RB110 et sa cellule Carbon, un vinyle de YEONJUN (« NO LABELS ») prêt à jouer. Clique pour la lancer : le couvercle s’ouvre, le plateau tourne à 33 tours et le bras se pose sur le disque. Clique encore pour l’arrêter.',
+      pos: [3.3, -2.21],
+      rotation: -Math.PI / 2,
+      parties: [{ taille: [0.447, 0.117, 0.36], pos: [0, 0, 0], couleur: '#f1efea' }],
+    },
+    {
       // à la place de l'ancien tapis rond noir, au milieu du studio, un peu de travers ; les oreilles vers le
       // sud-est (vers le coin nuit) : Miffy est à l'endroit dans la vue d'ensemble
       nom: 'tapis Miffy',
@@ -518,7 +529,7 @@ export const visiteReve = [
     de: { camera: [1.9, 1.75, -0.6], cible: [3.6, 1.65, -0.88] }, a: { camera: [1.95, 1.7, -1.1], cible: [3.6, 1.65, -0.88] },
   },
   {
-    partie: 'Le studio', titre: 'Le meuble à vinyles', texte: 'Vinyles et magazines dans les cases ; au-dessus, les deux affiches du drama de JTBC.',
+    partie: 'Le studio', titre: 'Le meuble à vinyles', texte: 'Vinyles et magazines dans les cases, la platine Rega Planar 1 sur le dessus ; au-dessus, les deux affiches du drama de JTBC.',
     de: { camera: [1.75, 1.3, -1.25], cible: [3.4, 1.08, -2.25] }, a: { camera: [1.75, 1.3, -1.55], cible: [3.4, 1.15, -2.25] },
   },
   {

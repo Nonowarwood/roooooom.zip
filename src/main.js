@@ -1295,6 +1295,14 @@ for (const nom of ['nmixx-face', 'nmixx-tranche', 'twice-face', 'twice-tranche']
 for (const nom of ['yeonjun', 'machine', 'sphere', 'cortis', 'chuu']) {
   matsEcrans[`vinyle-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/vinyle-${nom}.jpg`), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
 }
+// l'étiquette du vinyle posé sur la platine Rega : la pochette de YEONJUN « NO LABELS » montre le disque lui-même ;
+// on y découpe son étiquette blanche (« A », « PART III », la liste des titres), centrée en (0,693 ; 0,5), rayon 0,178
+{
+  const t = textures.image('/textures/vinyle-yeonjun.jpg');
+  t.repeat.set(0.356, 0.356);
+  t.offset.set(0.693 - 0.178, 0.5 - 0.178);
+  matsEcrans['etiquette-rega'] = new THREE.MeshStandardMaterial({ map: t, roughness: 0.65, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+}
 // les deux jewel cases à plat sur la tablette du meuble hi-fi : la photo du boîtier, sous son plastique brillant
 for (const nom of ['h2h', 'lngshot']) {
   matsEcrans[`jewel-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/jewel-${nom}.jpg`), roughness: 0.22, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
@@ -2060,6 +2068,76 @@ function animerOuvrants(dt) {
     o.pivot.rotation[o.axe] = THREE.MathUtils.lerp(o.ferme, o.ouvert, o.f);
   }
 }
+// La platine Rega du coin salon. Au clic : le couvercle s'ouvre, le plateau prend ses 33 tours ⅓, le bras se lève,
+// quitte son repose-bras, se pose au bord du disque puis avance (très) lentement vers l'étiquette, comme une vraie
+// face de vingt minutes. Au clic suivant (ou en fin de face) : le bras se lève, revient, se repose, le plateau
+// ralentit et le couvercle se referme. Chaque étape attend la précédente.
+let platine = null;
+function creerPlatine(groupe) {
+  const plateau = groupe.getObjectByName('pivot_plateau_rega');
+  const bras = groupe.getObjectByName('pivot_bras_rega');
+  const levee = groupe.getObjectByName('pivot_levee_rega');
+  const couvercle = groupe.getObjectByName('pivot_couvercle_rega');
+  if (!plateau || !bras || !levee || !couvercle) return null;
+  // l'angle du bras (24 cm du roulement à la pointe, au repos il pointe droit devant) quand la pointe est à `r` de
+  // l'axe du plateau : dx·sin φ + dz·cos φ = (L² + d² − r²) / 2L
+  const L = 0.24;
+  const [dx, dz] = [plateau.position.x - bras.position.x, plateau.position.z - bras.position.z];
+  const d = Math.hypot(dx, dz);
+  const angle = (r) => Math.PI - Math.asin(THREE.MathUtils.clamp((L * L + d * d - r * r) / (2 * L * d), -1, 1)) - Math.atan2(dz, dx);
+  const [DEBUT, FIN] = [angle(0.1465), angle(0.0605)]; // le bord du disque, la fin des sillons
+  const OUVERT = -1.45; // le couvercle relevé, un peu penché vers le mur
+  const OMEGA = (2 * Math.PI * (100 / 3)) / 60;
+  const FACE = 20 * 60;
+  const e = { couvercle: 0, levee: 0, bras: 0, sillon: 0, vitesse: 0, cibleVitesse: 0 };
+  let joue = false;
+  let file = [];
+  const lisse = (t) => t * t * (3 - 2 * t);
+  const lancer = () => [
+    { cle: 'couvercle', cible: 1, vitesse: 0.9, debut: () => sons.ouvrant('mac', true) },
+    { cle: 'levee', cible: 1, vitesse: 2.5, debut: () => (e.cibleVitesse = OMEGA) },
+    { cle: 'bras', cible: 1, vitesse: 0.65 },
+    { cle: 'levee', cible: 0, vitesse: 1.1 },
+  ];
+  const arreter = () => [
+    { cle: 'levee', cible: 1, vitesse: 2.5, debut: () => (e.cibleVitesse = 0) },
+    { cle: 'bras', cible: 0, vitesse: 0.65 },
+    { cle: 'levee', cible: 0, vitesse: 2, debut: () => (e.sillon = Math.min(e.sillon, 1)) },
+    { cle: 'couvercle', cible: 0, vitesse: 0.9, debut: () => sons.ouvrant('mac', false), fin: () => (e.sillon = 0) },
+  ];
+  const basculer = () => {
+    joue = !joue;
+    file = joue ? lancer() : arreter();
+  };
+  function maj(dt) {
+    const etape = file[0];
+    if (etape) {
+      if (!etape.parti) {
+        etape.parti = true;
+        etape.debut?.();
+      }
+      const v = e[etape.cle];
+      const pas = etape.vitesse * dt;
+      e[etape.cle] = v < etape.cible ? Math.min(etape.cible, v + pas) : Math.max(etape.cible, v - pas);
+      if (e[etape.cle] === etape.cible) {
+        etape.fin?.();
+        file.shift();
+      }
+    } else if (joue) {
+      // la lecture : la pointe suit le sillon ; en fin de face, la platine s'arrête d'elle-même
+      e.sillon += dt / FACE;
+      if (e.sillon >= 1) basculer();
+    }
+    // le plateau : 1,5 s pour prendre sa vitesse, 4 s pour s'arrêter
+    const acc = (e.cibleVitesse > e.vitesse ? OMEGA / 1.5 : OMEGA / 4) * dt;
+    e.vitesse = e.cibleVitesse > e.vitesse ? Math.min(e.cibleVitesse, e.vitesse + acc) : Math.max(e.cibleVitesse, e.vitesse - acc);
+    plateau.rotation.y -= e.vitesse * dt; // dans le sens des aiguilles d'une montre, vu du dessus
+    bras.rotation.y = lisse(e.bras) * (DEBUT + (FIN - DEBUT) * e.sillon);
+    levee.rotation.x = -0.03 * lisse(e.levee);
+    couvercle.rotation.x = OUVERT * lisse(e.couvercle);
+  }
+  return { basculer, maj };
+}
 // un objet cliquable à lui seul à l'intérieur d'un meuble (le Mac, la porte de la vitrine)
 function ouvrantCliquable(nom, description, partie, groupe, basculer) {
   const info = { nom, description, groupe, auClic: basculer };
@@ -2126,6 +2204,8 @@ for (const m of meublesPiece) {
             // le Mac du bureau : une capture du site dans une fenêtre de navigateur
             if (o.name === 'ecran-mac') o.material = matEcranMac;
             if (matsEcrans[o.name]) o.material = matsEcrans[o.name];
+            // les légendes du clavier et les logos du ThinkPad (dessinés dans le modèle) : toujours devant leur support
+            if (o.name === 'legendes-thinkpad' || o.material?.name === 'logo-thinkpad' || o.name.startsWith('imprime-rega')) Object.assign(o.material, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
             if (corpsLumineux[o.material.name]) o.material = corpsLumineux[o.material.name];
           });
           remplacerParModele(groupe, gltf.scene, m);
@@ -2188,6 +2268,10 @@ for (const m of meublesPiece) {
               const o = groupe.getObjectByName(objet);
               if (o) ouvrantCliquable(nom, description, o, o);
             }
+          }
+          if (m.nom === 'platine Rega Planar 1') {
+            platine = creerPlatine(groupe);
+            if (platine) groupe.userData.info.auClic = platine.basculer;
           }
           if (m.nom === 'mini-rack NAS') {
             // le ThinkPad posé sur le rack : son écran se rabat ou se rouvre au clic
@@ -2989,6 +3073,7 @@ renderer.setAnimationLoop(() => {
   animerMobile(dt);
   animerStore(dt);
   animerOuvrants(dt);
+  platine?.maj(dt);
   // l'image de la TV change environ 8 fois par seconde, seulement si elle est allumée
   const maintenant = performance.now() / 1000;
   suivreClip();
