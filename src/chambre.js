@@ -134,14 +134,25 @@ export const agencementReve = {
       parties: [{ taille: [0.447, 0.117, 0.36], pos: [0, 0, 0], couleur: '#f1efea' }],
     },
     {
-      // à la place de l'ancien tapis rond noir, au milieu du studio, un peu de travers ; les oreilles vers le
-      // sud-est (vers le coin nuit) : Miffy est à l'endroit dans la vue d'ensemble
+      // à la place de l'ancien tapis rond noir, au milieu du sol libre du studio, un peu de travers (décalé vers la porte
+      // pour laisser la place à la table basse, à 17 cm d'elle) ; les oreilles vers le sud-est (vers le coin nuit) :
+      // Miffy est à l'endroit dans la vue d'ensemble
       nom: 'tapis Miffy',
       glb: '/models/tapis-miffy.glb', ajuster: false,
       description: 'Un tapis tufté en forme de tête de Miffy (environ 60 × 80 cm) : bouclette blanche toute douce, gros contour noir, deux yeux ronds et la petite bouche en croix. Il est posé au milieu du studio.',
-      pos: [1.75, -1.15],
+      pos: [1.25, -1.1],
       rotation: -2.5,
       parties: [{ taille: [0.6, 0.017, 0.8], pos: [0, 0, -0.15], couleur: '#f2efe8' }],
+    },
+    {
+      // devant le banc-canapé du coin salon (dont le devant est en x 2,94) : centrée sur son assise (z −0,88), à 30 cm
+      // de lui ; le fil du plateau parallèle au canapé
+      nom: 'table basse',
+      glb: '/models/table-basse.glb', ajuster: false,
+      description: 'Une table basse japonaise ronde, un chabudai : un plateau de 75 cm en chêne clair, cinq lames au chant adouci, à 33 cm du sol, devant le banc-canapé. Ses quatre pieds carrés se replient sous la ceinture, sur leurs ferrures d’acier.',
+      pos: [2.265, -0.88],
+      rotation: Math.PI / 2,
+      parties: [{ forme: 'cylindre', taille: [0.75, 0.33], pos: [0, 0, 0], couleur: '#e3c08f' }],
     },
     {
       nom: 'monstera',
@@ -521,7 +532,7 @@ export const visiteReve = [
     de: { camera: [3.0, 1.9, 0.05], cible: [1.5, 0.6, -2.0] }, a: { camera: [2.6, 1.8, -0.4], cible: [1.5, 0.6, -2.0] }, transition: 3,
   },
   {
-    partie: 'Le studio', titre: 'Le coin salon', texte: 'Le banc-canapé en chêne, ses coussins blancs et ses dossiers capitonnés.',
+    partie: 'Le studio', titre: 'Le coin salon', texte: 'Le banc-canapé en chêne, ses coussins blancs, ses dossiers capitonnés et la table basse ronde à la japonaise.',
     de: { camera: [1.6, 1.3, -0.55], cible: [3.2, 0.6, -1.2] }, a: { camera: [1.7, 1.25, -1.3], cible: [3.2, 0.7, -1.0] },
   },
   {

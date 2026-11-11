@@ -3346,6 +3346,112 @@ function baguetteKiiikiii() {
   return groupe('objet_baguette', couche);
 }
 
+// ===========================================================================================
+// --- La table basse japonaise ronde (chabudai), devant le banc-canapé du coin salon ---
+// Le modèle classique : un plateau rond de 75 cm en chêne clair (le même que les bureaux bas), fait de cinq lames
+// collées au chant adouci, épais de 2,4 cm ; dessous, une ceinture carrée et quatre pieds carrés, rangés dans ses
+// coins : ils se replient sous le plateau grâce aux ferrures d'acier vissées à l'intérieur. 33 cm de haut.
+// Le fil du bois suit x. Origine : le centre de la table, au sol.
+// ===========================================================================================
+function tableBasse() {
+  const m = creerMateriaux();
+  const [R, H, EP, B] = [0.375, 0.33, 0.024, 0.003]; // rayon, hauteur, épaisseur du plateau, arrondi du chant
+  const parts = [];
+  const sombres = CHENE.veinesSombres.map((c) => m.uni(c));
+  const claires = CHENE.veinesClaires.map((c) => m.uni(c));
+
+  // — le plateau : chaque lame est la part du disque entre deux droites parallèles au fil, extrudée avec un biseau
+  // arrondi (qui l'élargit de B : le contour est rentré d'autant). Les lames se touchent : seul l'arrondi de leurs
+  // arêtes marque le joint, comme sur le bureau bas —
+  const LAMES = 5;
+  const ll = (2 * R) / LAMES;
+  const r = R - B;
+  for (let k = 0; k < LAMES; k++) {
+    const [z0, z1] = [-R + k * ll, -R + (k + 1) * ll];
+    // dans le plan de la forme, y = −z (la forme est ensuite couchée)
+    const ya = k === LAMES - 1 ? -r : -z1 + B;
+    const yb = k === 0 ? r : -z0 - B;
+    const [ta, tb] = [Math.asin(THREE.MathUtils.clamp(ya / r, -1, 1)), Math.asin(THREE.MathUtils.clamp(yb / r, -1, 1))];
+    const pts = [];
+    const n = 28;
+    for (let i = 0; i <= n; i++) {
+      const t = ta + ((tb - ta) * i) / n;
+      pts.push(new THREE.Vector2(r * Math.cos(t), r * Math.sin(t)));
+    }
+    for (let i = 0; i <= n; i++) {
+      const t = tb + ((ta - tb) * i) / n;
+      const p = new THREE.Vector2(-r * Math.cos(t), r * Math.sin(t));
+      // au bout du disque, les deux arcs se rejoignent en un même point : pas de doublon (le biseau y ferait une encoche)
+      if (p.distanceTo(pts.at(-1)) > 1e-6 && (i < n || p.distanceTo(pts[0]) > 1e-6)) pts.push(p);
+    }
+    const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts), { depth: EP - 2 * B, bevelEnabled: true, bevelThickness: B, bevelSize: B, bevelSegments: 3 });
+    geo.rotateX(-PI / 2);
+    geo.translate(0, H - EP + B, 0);
+    parts.push(ombres(new THREE.Mesh(geo, m.uni(CHENE.tons[(k + 2) % CHENE.tons.length]))));
+    // ses veines, dans la bande de la lame qui reste loin du bord du disque
+    let zv;
+    let V;
+    if (z0 < 0 && z1 > 0) [zv, V] = [0, ll / 2 - 0.008];
+    else {
+      const signe = Math.sign(z0 + z1);
+      const zIn = Math.min(Math.abs(z0), Math.abs(z1)) + 0.008;
+      const zOut = Math.min(Math.max(Math.abs(z0), Math.abs(z1)) - 0.008, R - 0.05);
+      [zv, V] = [(signe * (zIn + zOut)) / 2, (zOut - zIn) / 2];
+    }
+    const U = Math.sqrt(R * R - (Math.abs(zv) + V) ** 2) - 0.02;
+    const face = { centre: [0, H, zv], u: [1, 0, 0], v: [0, 0, -1], U, V };
+    parts.push(...veines({ ...face, nb: Math.max(2, Math.round(U * 9)), materiaux: sombres, graine: 61 + k }));
+    parts.push(...veines({ ...face, nb: 1, materiaux: claires, graine: 81 + k }));
+  }
+  // un nœud, sur la deuxième lame
+  {
+    const noeud = new THREE.CircleGeometry(0.012, 18);
+    noeud.scale(1.8, 1, 1);
+    noeud.rotateZ(0.3);
+    noeud.rotateX(-PI / 2);
+    const coeur = noeud.clone().scale(0.45, 1, 0.45);
+    noeud.translate(-0.16, H + 0.0006, -0.14);
+    coeur.translate(-0.16, H + 0.0009, -0.14);
+    parts.push(new THREE.Mesh(noeud, m.uni(CHENE.noeud[0])), new THREE.Mesh(coeur, m.uni(CHENE.noeud[1])));
+  }
+
+  // — la ceinture carrée sous le plateau (ses coins à 3 cm du bord), ses veines dans le sens des traverses —
+  const bois = m.uni(CHENE.pieds);
+  const veinesPieds = CHENE.veinesPieds.map((c) => m.uni(c));
+  const A = 0.245; // demi-côté extérieur de la ceinture
+  const [hc, ec] = [0.045, 0.018]; // hauteur, épaisseur des traverses
+  const yHaut = H - EP; // le dessous du plateau
+  let g = 100;
+  for (const s of [-1, 1]) {
+    parts.push(boite([2 * A, hc, ec], bois, [0, yHaut - hc, s * (A - ec / 2)], { r: 0.003 }));
+    parts.push(...veines({ centre: [0, yHaut - hc / 2, s * A], u: [1, 0, 0], v: [0, s, 0], U: A - 0.02, V: hc / 2 - 0.006, nb: 2, materiaux: veinesPieds, graine: g++ }));
+    parts.push(boite([ec, hc, 2 * A - 2 * ec], bois, [s * (A - ec / 2), yHaut - hc, 0], { r: 0.003 }));
+    parts.push(...veines({ centre: [s * A, yHaut - hc / 2, 0], u: [0, 0, 1], v: [0, -s, 0], U: A - 0.03, V: hc / 2 - 0.006, nb: 2, materiaux: veinesPieds, graine: g++ }));
+  }
+
+  // — les quatre pieds carrés, dans les coins de la ceinture, et leurs ferrures repliables en acier —
+  const P = 0.042;
+  const c = A - ec - P / 2; // les pieds sont juste à l'intérieur de la ceinture
+  const acier = m.uni('#9a9ca4');
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      parts.push(boite([P, yHaut, P], bois, [sx * c, 0, sz * c], { r: 0.004 }));
+      for (const [nx, nz, vx, vz] of [[sx, 0, 0, sx], [0, sz, -sz, 0]]) { // v choisi pour que u × v = la normale de la face
+        const centre = [sx * c + (nx * P) / 2, yHaut / 2, sz * c + (nz * P) / 2];
+        parts.push(...veines({ centre, u: [0, 1, 0], v: [vx, 0, vz], U: yHaut / 2 - 0.012, V: P / 2 - 0.004, nb: 2, materiaux: veinesPieds, graine: g++ }));
+      }
+      // la ferrure : une platine sur la face intérieure du pied, son bras jusqu'à la traverse, l'axe et sa vis
+      const fx = sx * (c - P / 2 - 0.0015);
+      const fz = sz * (c - P / 2 - 0.0015);
+      parts.push(boite([0.003, 0.07, 0.026], acier, [fx, yHaut - 0.075, sz * c], { r: 0 }));
+      parts.push(boite([0.026, 0.07, 0.003], acier, [sx * c, yHaut - 0.075, fz], { r: 0 }));
+      parts.push(cylindre(0.008, 0.005, acier, [fx - sx * 0.002, yHaut - 0.03, sz * c], { rot: [0, 0, PI / 2], centre: true, segments: 10 }));
+      parts.push(cylindre(0.008, 0.005, acier, [sx * c, yHaut - 0.03, fz - sz * 0.002], { rot: [PI / 2, 0, 0], centre: true, segments: 10 }));
+    }
+  }
+  return groupe('table-basse', parts);
+}
+
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
 // ===========================================================================================
 // --- La platine vinyle Rega Planar 1, blanc mat, posée sur le meuble à vinyles du coin salon ---
@@ -3660,4 +3766,5 @@ export const modelesReve = {
   'rack-vetements': fabrique(rackVetements),
   'baguette-kiiikiii': fabrique(baguetteKiiikiii),
   'platine-rega': fabrique(platineRega),
+  'table-basse': fabrique(tableBasse),
 };
