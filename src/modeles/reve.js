@@ -3622,8 +3622,9 @@ function decalque(l, p, dessiner, { nom, px = 12000, debout = false, rugosite = 
   return plan;
 }
 
-// la face gravée du vinyle : les sillons en anneaux de reflets, les silences entre les morceaux, l'entrée et la
-// sortie lisses (vue de dessus ; le centre du canvas est l'axe)
+// la face gravée du vinyle : la bande originale d'Evangelion (Milan, 2023), un vinyle bleu translucide marbré de
+// fumée noire ; par-dessus, les sillons en anneaux de reflets, les silences entre les morceaux, l'entrée et la sortie
+// lisses (vue de dessus ; le centre du canvas est l'axe)
 function sillonsVinyle() {
   const N = 1024;
   const R = 0.151;
@@ -3638,18 +3639,50 @@ function sillonsVinyle() {
     g.arc(N / 2, N / 2, px(r), 0, 2 * PI);
     g.stroke();
   };
-  g.fillStyle = '#1b1920';
-  g.fillRect(0, 0, N, N);
   const alea = hasard(77);
-  // les sillons : de fines bandes plus ou moins claires (le reflet change d'un tour à l'autre)
-  const teintes = ['#1d1b22', '#222027', '#26242c', '#1a1820'];
+  // le bleu translucide, plus clair là où la lumière traverse
+  const fond = g.createRadialGradient(N * 0.42, N * 0.4, N * 0.05, N / 2, N / 2, N / 2);
+  fond.addColorStop(0, '#3f8fd8');
+  fond.addColorStop(1, '#215b9e');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, N, N);
+  g.save();
+  g.filter = 'blur(16px)';
+  for (let k = 0; k < 22; k++) {
+    g.fillStyle = `rgba(110, 180, 240, ${0.15 + alea() * 0.2})`;
+    g.beginPath();
+    g.arc(alea() * N, alea() * N, 30 + alea() * 120, 0, 2 * PI);
+    g.fill();
+  }
+  // la fumée noire : de larges volutes floues, puis des filaments plus nets
+  // une volute courte et sinueuse, qui ne traverse pas tout le disque
+  const volute = (largeur, opacite, etendue) => {
+    g.strokeStyle = `rgba(6, 10, 20, ${opacite})`;
+    g.lineWidth = largeur;
+    g.lineCap = 'round';
+    g.beginPath();
+    const [x0, y0] = [alea() * N, alea() * N];
+    const p = () => (alea() - 0.5) * etendue * N;
+    g.moveTo(x0, y0);
+    g.bezierCurveTo(x0 + p(), y0 + p(), x0 + p(), y0 + p(), x0 + p(), y0 + p());
+    g.stroke();
+  };
+  g.filter = 'blur(20px)';
+  for (let k = 0; k < 46; k++) volute(24 + alea() * 50, 0.22 + alea() * 0.35, 0.5);
+  g.filter = 'blur(7px)';
+  for (let k = 0; k < 40; k++) volute(5 + alea() * 12, 0.2 + alea() * 0.3, 0.35);
+  g.filter = 'blur(2.5px)';
+  for (let k = 0; k < 18; k++) volute(1.5 + alea() * 3, 0.25 + alea() * 0.3, 0.25);
+  g.restore();
+  // les sillons : de fines bandes plus ou moins sombres ou brillantes (le reflet change d'un tour à l'autre)
+  const teintes = ['rgba(0,0,0,0.12)', 'rgba(255,255,255,0.06)', 'rgba(0,0,0,0.05)', 'rgba(255,255,255,0.1)'];
   for (let r = 0.0605; r < 0.1462; r += 0.00032) anneau(r, 0.00034, teintes[Math.floor(alea() * teintes.length)]);
-  // cinq morceaux : les silences entre eux sont lisses, un peu plus sombres et brillants
-  for (const r of [0.072, 0.088, 0.104, 0.121, 0.135]) anneau(r, 0.0011, '#141217');
+  // les silences entre les morceaux : lisses, un peu plus sombres
+  for (const r of [0.072, 0.088, 0.104, 0.121, 0.135]) anneau(r, 0.0011, 'rgba(0,0,0,0.3)');
   // l'entrée (bord) et la sortie (près de l'étiquette) : lisses
-  anneau(0.1484, 0.0042, '#17151b');
-  anneau(0.0555, 0.0098, '#17151b');
-  anneau(0.0512, 0.0012, '#2a2830'); // le petit bourrelet autour de l'étiquette
+  anneau(0.1484, 0.0042, 'rgba(0,0,0,0.18)');
+  anneau(0.0555, 0.0098, 'rgba(0,0,0,0.18)');
+  anneau(0.0512, 0.0012, 'rgba(255,255,255,0.18)'); // le petit bourrelet autour de l'étiquette
   const carte = new THREE.CanvasTexture(c);
   carte.colorSpace = THREE.SRGBColorSpace;
   carte.anisotropy = 8;
@@ -3669,7 +3702,7 @@ function platineRega() {
   const noirTube = mat('rega-tube', '#2d2b34', { roughness: 0.48 }); // le tube anodisé, un rien satiné
   const plateauNoir = mat('rega-plateau', '#1f1d24', { roughness: 0.14, metalness: 0.1 }); // la résine phénolique, brillante
   const feutre = mat('rega-feutre', '#2c2b31', { roughness: 1 });
-  const vinyle = mat('rega-vinyle', '#1c1a21', { roughness: 0.3 });
+  const vinyle = mat('rega-vinyle', '#255fa2', { roughness: 0.3 }); // la tranche du vinyle bleu d'Evangelion
   const gris = mat('rega-carbon', '#cfd0d3', { roughness: 0.55 }); // le corps de la cellule Carbon
   const vis = m.chrome;
 

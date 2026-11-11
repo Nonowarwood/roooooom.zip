@@ -128,7 +128,7 @@ export const agencementReve = {
       nom: 'platine Rega Planar 1',
       hauteur: 0.75,
       glb: '/models/platine-rega.glb', ajuster: false,
-      description: 'La platine vinyle Rega Planar 1, blanc mat, sur le meuble à vinyles : son plateau en résine phénolique noire, le bras RB110 et sa cellule Carbon, un vinyle de YEONJUN (« NO LABELS ») prêt à jouer. Clique pour la lancer : le couvercle s’ouvre, le plateau tourne à 33 tours, le bras se pose sur le disque et, après quelques craquements, on entend « Fly Me to the Moon » (la fin d’Evangelion, version Claire). Clique encore pour l’arrêter.',
+      description: 'La platine vinyle Rega Planar 1, blanc mat, sur le meuble à vinyles : son plateau en résine phénolique noire, le bras RB110 et sa cellule Carbon, la bande originale d’Evangelion prête à jouer (le double vinyle de Milan, bleu translucide marbré de fumée noire, étiquette noire). Clique pour la lancer : le couvercle s’ouvre, le plateau tourne à 33 tours, le bras se pose sur le disque et, après quelques craquements, on entend « Fly Me to the Moon » (la fin d’Evangelion, version Claire). Clique encore pour l’arrêter.',
       pos: [3.3, -2.21],
       rotation: -Math.PI / 2,
       parties: [{ taille: [0.447, 0.117, 0.36], pos: [0, 0, 0], couleur: '#f1efea' }],

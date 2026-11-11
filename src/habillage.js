@@ -39,14 +39,9 @@ export function creerHabillage({ reve }) {
   for (const nom of ['yeonjun', 'machine', 'sphere', 'cortis', 'chuu']) {
     matsEcrans[`vinyle-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/vinyle-${nom}.jpg`), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   }
-  // l'étiquette du vinyle posé sur la platine Rega : la pochette de YEONJUN « NO LABELS » montre le disque lui-même ;
-  // on y découpe son étiquette blanche (« A », « PART III », la liste des titres), centrée en (0,693 ; 0,5), rayon 0,178
-  {
-    const t = textures.image('/textures/vinyle-yeonjun.jpg');
-    t.repeat.set(0.356, 0.356);
-    t.offset.set(0.693 - 0.178, 0.5 - 0.178);
-    matsEcrans['etiquette-rega'] = new THREE.MeshStandardMaterial({ map: t, roughness: 0.65, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  }
+  // l'étiquette du vinyle posé sur la platine Rega : la bande originale d'Evangelion (Milan, 2023), étiquette noire
+  // redessinée d'après la photo du disque (public/textures/etiquette-evangelion.jpg, le disque occupe tout le carré)
+  matsEcrans['etiquette-rega'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/etiquette-evangelion.jpg'), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   // les deux jewel cases à plat sur la tablette du meuble hi-fi : la photo du boîtier, sous son plastique brillant
   for (const nom of ['h2h', 'lngshot']) {
     matsEcrans[`jewel-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/jewel-${nom}.jpg`), roughness: 0.22, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
