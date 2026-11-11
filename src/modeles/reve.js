@@ -1470,7 +1470,7 @@ function bureauBas() {
   clavier.position.set(0.1, ySurTapis, 0.109); // son devant au même endroit que celui de l'ancien clavier
   parts.push(clavier);
   const souris = sourisMXMaster(m);
-  souris.position.set(0.52, ySurTapis, 0.136); // sur le noir du tapis, à droite des feuilles blanches (la souris claire s'y détache), avancée vers l'écran
+  souris.position.set(0.355, ySurTapis, 0.136); // à 5 cm du clavier (son flanc droit est en x = 0,2565), à la hauteur de ses touches
   souris.rotation.y = 0.06;
   parts.push(souris);
   parts.push(photocards(m, ySurTapis, T)); // dans le coin en haut à droite du tapis, une sur le bureau
