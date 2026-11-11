@@ -182,7 +182,7 @@ export const agencementReve = {
       nom: 'bureau bas',
       hauteur: 0.012, // posé sur les tatamis
       glb: '/models/bureau-bas.glb', ajuster: false,
-      description: 'Le deuxième bureau, à la japonaise : un plateau en chêne clair à cinq lames, à 44 cm du sol sur quatre pieds fins, contre le mur ouest entre la TV et la porte, sous l’affiche de Ningning. Un écran 27 pouces y flotte sur un bras articulé pincé au bord arrière, avec la barque sur l’étang aux nymphéas en fond d’écran ; à sa gauche, le ThinkPad X201i ouvert sur son support incliné, branché à l’écran par un câble VGA ; devant, le clavier Moondrop Dash75 et la souris G PRO 2 sur le tapis à pivoines.',
+      description: 'Le deuxième bureau, à la japonaise : un plateau en chêne clair à cinq lames, à 44 cm du sol sur quatre pieds fins, contre le mur ouest entre la TV et la porte, sous l’affiche de Ningning. Un écran 27 pouces y flotte sur un bras articulé pincé au bord arrière, avec la barque sur l’étang aux nymphéas en fond d’écran ; à sa gauche, le ThinkPad X201i ouvert sur son support incliné, branché à l’écran par un câble VGA ; devant, le clavier Moondrop Dash75 et la souris MX Master 3S translucide sur le tapis à pivoines.',
       pos: [0.33, 0.77],
       rotation: Math.PI / 2,
       parties: [
@@ -534,7 +534,7 @@ export const visiteReve = [
     de: { camera: [0.85, 0.78, 1.3], cible: [0.35, 0.52, 1.12] }, a: { camera: [0.8, 0.72, 1.05], cible: [0.35, 0.52, 1.12] }, projecteur: true,
   },
   {
-    partie: 'Le coin bureau', titre: 'Clavier, souris et photocards', texte: 'Le Dash75, la G PRO 2 et les polaroids NMIXX sur le tapis à pivoines.',
+    partie: 'Le coin bureau', titre: 'Clavier, souris et photocards', texte: 'Le Dash75, la MX Master 3S et les polaroids NMIXX sur le tapis à pivoines.',
     de: { camera: [1.0, 0.9, 0.6], cible: [0.42, 0.46, 0.5] }, a: { camera: [0.95, 0.85, 0.35], cible: [0.42, 0.46, 0.45] }, projecteur: true,
   },
   {

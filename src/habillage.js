@@ -107,7 +107,7 @@ export function creerHabillage({ reve }) {
     if (o.name === 'ecran-mac') o.material = matEcranMac;
     if (matsEcrans[o.name]) o.material = matsEcrans[o.name];
     // les légendes des claviers (ThinkPad, Dash75) et les logos du ThinkPad (dessinés dans le modèle) : toujours devant leur support
-    if (o.name === 'legendes-thinkpad' || o.name === 'legendes-dash75' || o.material?.name === 'logo-thinkpad' || /^imprime-(rega|moondrop)/.test(o.name)) Object.assign(o.material, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    if (o.name === 'legendes-thinkpad' || o.name === 'legendes-dash75' || o.material?.name === 'logo-thinkpad' || /^imprime-(rega|moondrop|logi)/.test(o.name)) Object.assign(o.material, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
   }
   return { matsEcrans, moniteurNas, habiller };
 }

@@ -910,74 +910,219 @@ function clavierDash75(m) {
 }
 
 // ===========================================================================================
-// --- La souris Logitech G PRO 2 LIGHTSPEED, noire (125 × 63,5 × 40 mm, 80 g) ---
-// Symétrique et ambidextre : une coque en œuf, la bosse un peu en arrière, le dessous plat ; les deux grands
-// boutons séparés par la gorge de la molette, la molette caoutchoutée et crantée, deux boutons latéraux côté
-// pouce (gauche) et les caches lisses de l'autre côté (sans le logo G éclairé, retiré à ta demande). Sans fil
-// (LIGHTSPEED) : pas de câble. Origine : le centre du dessous ; l'avant (les boutons) vers −z, vers l'écran.
+// --- La souris Logitech MX Master 3S, coque translucide givrée (124,9 × 84,3 × 51 mm), d'après ta photo ---
+// Une souris pour droitier : vue de dessus, un contour en poire avec le grand repose-pouce à gauche ; le dessus monte
+// en bosse vers l'arrière droit et s'arrondit sur tous les bords. Les deux boutons gris (le logo « logi » sur celui de
+// gauche) séparés par la molette MagSpeed en acier, dans son puits ; derrière elle, le petit bouton carré ; sur le
+// flanc gauche, la molette de pouce métallique et les deux boutons de pouce ; un socle argenté tout autour du bas.
+// La coque laisse deviner l'électronique (une texture floue, projetée de dessus). Sans fil : pas de câble.
+// Origine : le centre du dessous ; l'avant (les boutons) vers −z, vers l'écran.
 // ===========================================================================================
-function sourisGPro2(m) {
-  const LS = 0.125;
-  const WS = 0.0635;
-  const HS = 0.04;
-  const E = 0.004; // le dessous, à peine bombé
-  const noir = m.uni('#2d2b37');
-  const trait = m.uni('#18171d');
-  // la surface : s de −1 (arrière) à 1 (avant), φ autour de l'axe (90° = le dessus, 0° = le flanc droit)
-  const largeur = (s) => (WS / 2) * (1 - 0.1 * (s + 0.15) ** 2);
-  const hauteur = (s) => HS * (1 - 0.38 * (s + 0.2) ** 2);
-  const surface = (s, cx, cy) => {
-    const r = Math.sqrt(Math.max(0, 1 - s * s));
-    const R = Math.sqrt(r);
-    const n = 2.6;
-    const xs = Math.sign(cx) * Math.abs(cx) ** (2 / n);
-    const ys = Math.sign(cy) * Math.abs(cy) ** (2 / n);
-    const y = ys >= 0 ? ys * R * (hauteur(s) - E) : ys * R * E;
-    return new THREE.Vector3(xs * R * largeur(s), y + E, -s * (LS / 2));
+function sourisMXMaster(m) {
+  const mm = 0.001;
+  const BASE = 5; // la hauteur du socle argenté (mm)
+  // le contour vu de dessus (mm ; x vers la droite, z vers l'arrière), lissé en courbe fermée
+  const cles = [[5, -63], [16, -62], [25, -58], [31, -49], [34.5, -35], [36, -18], [36, 0], [35, 18], [32, 34], [26, 48], [17, 58], [5, 62.5], [-7, 61], [-18, 55], [-28, 45], [-38, 34], [-45, 24], [-48, 12], [-48, 0], [-45, -10], [-38, -17], [-28, -21], [-23, -28], [-22, -40], [-21, -52], [-16, -60], [-6, -63]];
+  const courbe = new THREE.CatmullRomCurve3(cles.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
+  const N = 128;
+  const bord = courbe.getSpacedPoints(N).slice(0, N); // les points du contour, dans l'ordre
+  const C = new THREE.Vector3(-4, 0, 2); // le centre d'où partent les rayons (le contour est « étoilé » vu d'ici)
+  // la hauteur du dessus (mm) loin des bords : une bosse en arrière du milieu, un peu à droite, qui descend vers
+  // l'avant (les boutons) ; à gauche, elle s'abaisse jusqu'au repose-pouce (19 mm)
+  const lisse = (a, b, x) => {
+    const t = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1);
+    return t * t * (3 - 2 * t);
   };
-  const enPoint = (s, phi) => surface(s, Math.cos(phi), Math.sin(phi));
-  let geo = new THREE.SphereGeometry(1, 56, 36);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const [x, y, z] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
-    const r = Math.sqrt(x * x + y * y);
-    const p = r > 1e-6 ? surface(z, x / r, y / r) : surface(z, 0, 1);
-    pos.setXYZ(i, p.x, p.y, p.z);
-  }
-  geo.deleteAttribute('normal');
-  geo.deleteAttribute('uv');
-  geo = mergeVertices(geo, 1e-6);
-  // la coque est retournée (l'avant vers −z) : ses triangles regardaient vers l'intérieur et la souris semblait
-  // invisible ; on les remet dans le bon sens
-  const ind = geo.index.array;
-  for (let i = 0; i < ind.length; i += 3) [ind[i + 1], ind[i + 2]] = [ind[i + 2], ind[i + 1]];
-  geo.computeVertexNormals();
-  const el = [ombres(new THREE.Mesh(geo, noir))];
-  const sur = (s, phi, dh = 0.0003) => enPoint(s, phi).add(new THREE.Vector3(0, dh, 0));
-  // la gorge de la molette et les bords des deux boutons, puis la ligne qui ferme les boutons à l'arrière
-  const phiG = PI / 2 + 0.17;
-  const phiD = PI / 2 - 0.17;
-  for (const phi of [phiG, phiD]) el.push(tube(Array.from({ length: 9 }, (_, k) => sur(0.97 - k * 0.105, phi).toArray()), 0.0005, trait, 30));
-  el.push(tube(Array.from({ length: 11 }, (_, k) => sur(0.1, 0.45 + (k / 10) * (PI - 0.9)).toArray()), 0.0005, trait, 30));
-  // la molette : la fente, la roue caoutchoutée et ses crans
-  const sM = 0.58;
-  const haut = enPoint(sM, PI / 2);
-  el.push(boite([0.0095, 0.004, 0.026], trait, [0, haut.y - 0.0035, haut.z], { r: 0.0015 }));
-  const roue = new THREE.Group();
-  roue.position.set(0, haut.y - 0.0062, haut.z);
-  roue.add(cylindre(0.021, 0.0068, m.uni('#3a3846'), [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 28 }));
-  for (let k = 0; k < 24; k++) {
-    const a = (k / 24) * 2 * PI;
-    roue.add(boite([0.0066, 0.0009, 0.0012], m.uni('#24222b'), [0, 0.0103 * Math.cos(a) - 0.00045, 0.0103 * Math.sin(a)], { r: 0, rot: [a, 0, 0] }));
-  }
-  el.push(roue);
-  // les deux boutons latéraux côté pouce (à gauche), les caches lisses à droite
-  for (const [phi, rz, relief, couleur] of [[PI - 0.42, -0.42, 0.0013, '#3a3845'], [0.42, 0.42, 0.0004, '#302e3a']]) {
-    for (const [s0, s1] of [[0.32, 0.12], [0.08, -0.14]]) {
-      const c = enPoint((s0 + s1) / 2, phi);
-      const dir = Math.sign(Math.cos(phi));
-      el.push(boite([0.003, 0.0058, Math.abs(s0 - s1) * (LS / 2) - 0.002], m.uni(couleur), [c.x + dir * relief * 0.5, c.y - 0.0029, c.z], { r: 0.0012, rot: [0, 0, rz] }));
+  const H = (x, z) => {
+    const Hc = 51 - 0.0034 * (z - 8) ** 2;
+    if (x >= 4) return Hc * (1 - 0.3 * ((x - 4) / 32) ** 2);
+    const corps = Hc * (1 - 0.14 * Math.min(1, (4 - x) / 24) ** 2);
+    return 19 + (corps - 19) * lisse(-34, -20, x);
+  };
+  // les bords s'arrondissent sur 13 mm : un quart d'ellipse du socle jusqu'au dessus
+  const RF = 13;
+  const arrondi = (d) => Math.sqrt(1 - (1 - Math.min(d, RF) / RF) ** 2);
+  // la normale (vers l'extérieur) du contour en chaque point, pour la distance au bord le long d'un rayon
+  const normales = bord.map((p, k) => {
+    const t = bord[(k + 1) % N].clone().sub(bord[(k + N - 1) % N]);
+    const n = new THREE.Vector3(t.z, 0, -t.x).normalize();
+    return n.dot(p.clone().sub(C)) < 0 ? n.negate() : n;
+  });
+  // le dessus : des anneaux du centre au contour, serrés près du bord
+  const M = 40;
+  const pos = [];
+  const uv = [];
+  const [X0, X1, Z0, Z1] = [-48, 36, -63, 62.5];
+  for (let k = 0; k < N; k++) {
+    const B = bord[k];
+    const rayon = B.clone().sub(C);
+    const L = rayon.length();
+    const cosA = Math.abs(rayon.clone().normalize().dot(normales[k]));
+    for (let j = 0; j <= M; j++) {
+      const t = 1 - (1 - j / M) ** 2.2;
+      const p = C.clone().addScaledVector(rayon, t);
+      const d = (1 - t) * L * cosA;
+      const y = BASE + (H(p.x, p.z) - BASE) * arrondi(d);
+      pos.push(p.x * mm, y * mm, p.z * mm);
+      uv.push((p.x - X0) / (X1 - X0), 1 - (p.z - Z0) / (Z1 - Z0));
     }
+  }
+  const sommet = (k, j) => (k % N) * (M + 1) + j;
+  // les triangles (dans ce sens, les faces regardent vers le haut) ; les deux boutons gris sont peints dans la texture :
+  // leur bord reste net quelle que soit la finesse du maillage
+  const index = [];
+  for (let k = 0; k < N; k++) {
+    for (let j = 0; j < M; j++) {
+      const [a, b, c, d] = [sommet(k, j), sommet(k + 1, j), sommet(k, j + 1), sommet(k + 1, j + 1)];
+      index.push(a, b, c, b, d, c);
+    }
+  }
+  const zArriereBoutons = (x) => -17 - 2.5 * ((x - 5.5) / 30) ** 2; // la ligne qui ferme les boutons à l'arrière
+  const surface = (index) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setIndex(index);
+    g.computeVertexNormals();
+    return g;
+  };
+  // la coque givrée : ce qu'on devine dedans, flou (la carte, des composants, la mécanique de la molette de pouce)
+  const coque = (() => {
+    const [W, Ht] = [840, 1256]; // 10 px par millimètre
+    const c = document.createElement('canvas');
+    [c.width, c.height] = [W, Ht];
+    const g = c.getContext('2d');
+    const px = (x) => ((x - X0) / (X1 - X0)) * W;
+    const pz = (z) => ((z - Z0) / (Z1 - Z0)) * Ht;
+    g.fillStyle = '#b9bcc1';
+    g.fillRect(0, 0, W, Ht);
+    g.filter = 'blur(28px)';
+    g.strokeStyle = '#dfe2e6'; // le plastique plus épais, plus clair, le long des bords
+    g.lineWidth = 92;
+    g.beginPath();
+    bord.forEach((p, k) => (k ? g.lineTo(px(p.x), pz(p.z)) : g.moveTo(px(p.x), pz(p.z))));
+    g.closePath();
+    g.stroke();
+    const rect = (x0, z0, x1, z1, couleur, flou) => {
+      g.filter = `blur(${2 * flou}px)`;
+      g.fillStyle = couleur;
+      g.fillRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0));
+    };
+    rect(-22, -18, 18, 42, '#adb2b8', 8); // la carte électronique
+    rect(-4, 26, 12, 46, '#9ca1a8', 7); // la batterie
+    rect(-9, -9, 2, 4, '#8b9199', 5);
+    rect(6, 9, 15, 20, '#8f959d', 5);
+    rect(-17, 21, -8, 33, '#939aa2', 5);
+    rect(0, -34, 12, -16, '#959ba3', 6); // la mécanique de la molette
+    rect(-40, -15, -24, 13, '#dadde1', 6); // celle de la molette de pouce, argentée
+    g.filter = 'blur(5px)';
+    g.fillStyle = '#5d636b'; // des vis et des composants plus sombres
+    for (const [x, z] of [[-12, -4], [-3, 9], [8, 2], [-15, 14], [10, 28], [-6, 36], [3, -12], [-20, 30], [14, 12], [-1, 22]]) {
+      g.beginPath();
+      g.arc(px(x), pz(z), 12, 0, 2 * PI);
+      g.fill();
+    }
+    // les deux boutons, gris et opaques, devant leur ligne arrière (à droite du bord gauche du bouton gauche)
+    g.filter = 'none';
+    g.fillStyle = '#8e9095';
+    g.beginPath();
+    g.moveTo(px(-24), pz(-70));
+    for (let x = -24; x <= 40; x += 1) g.lineTo(px(x), pz(zArriereBoutons(x)));
+    g.lineTo(px(40), pz(-70));
+    g.closePath();
+    g.fill();
+    const carte = new THREE.CanvasTexture(c);
+    carte.colorSpace = THREE.SRGBColorSpace;
+    carte.userData.mimeType = 'image/jpeg';
+    return mat('coque-mx', '#ffffff', { map: carte, roughness: 0.42 });
+  })();
+  const gris = mat('boutons-mx', '#8e9095', { roughness: 0.62 }); // le petit bouton carré
+  const sombre = m.uni('#3c3f45');
+  const acier = mat('acier-mx', '#c9ccd1', { roughness: 0.3, metalness: 0.6 });
+  const el = [ombres(new THREE.Mesh(surface(index), coque))];
+
+  // le socle argenté : une bande du sol jusqu'au départ de la coque, un rien arrondie en bas, et le dessous sombre
+  {
+    const anneaux = [[-1.2, 0], [-0.3, 0.8], [0.25, 2], [0.3, BASE]]; // [décalage vers l'extérieur, hauteur] (mm)
+    const p = [];
+    for (const [o, y] of anneaux) for (let k = 0; k < N; k++) p.push(...bord[k].clone().addScaledVector(normales[k], o).setY(y).multiplyScalar(mm).toArray());
+    const idx = [];
+    for (let r = 0; r < anneaux.length - 1; r++) {
+      for (let k = 0; k < N; k++) {
+        const [a, b, c, d] = [r * N + k, r * N + ((k + 1) % N), (r + 1) * N + k, (r + 1) * N + ((k + 1) % N)];
+        idx.push(a, b, c, b, d, c);
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    el.push(ombres(new THREE.Mesh(g, mat('socle-mx', '#d6d8db', { roughness: 0.32, metalness: 0.35, side: THREE.DoubleSide }))));
+    const dessous = new THREE.ShapeGeometry(new THREE.Shape(bord.map((q, k) => new THREE.Vector2(q.x - normales[k].x * 1.2, -(q.z - normales[k].z * 1.2)).multiplyScalar(mm))));
+    dessous.rotateX(-PI / 2);
+    el.push(new THREE.Mesh(dessous, sombre));
+  }
+
+  // un point du dessus (loin des bords) et sa normale, pour poser les détails
+  const surLeDessus = (x, z, dh = 0) => new THREE.Vector3(x * mm, (H(x, z) + dh) * mm, z * mm);
+  const normale = (x, z) => new THREE.Vector3(-(H(x + 0.5, z) - H(x - 0.5, z)), 1, -(H(x, z + 0.5) - H(x, z - 0.5))).normalize();
+  const poser = (objet, x, z, dh = 0) => {
+    objet.position.copy(surLeDessus(x, z, dh));
+    objet.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normale(x, z));
+    return objet;
+  };
+  // la gorge entre les deux boutons, et leur bord arrière
+  const ligne = (pts) => tube(pts.map(([x, z]) => surLeDessus(x, z, 0.15).toArray()), 0.00035, sombre, 24);
+  el.push(ligne(Array.from({ length: 7 }, (_, i) => [5.5, -62 + i * 1.7])));
+  el.push(ligne(Array.from({ length: 13 }, (_, i) => [5.5, -31 + i * 1.1])));
+  el.push(ligne(Array.from({ length: 21 }, (_, i) => {
+    const x = -23 + i * 2.85;
+    return [x, zArriereBoutons(x)];
+  })));
+  // la molette MagSpeed : son puits sombre, la roue d'acier crantée et sa gorge
+  {
+    const [x, z] = [5.5, -41];
+    el.push(poser(boite([0.0112, 0.004, 0.025], sombre, [0, -0.0034, 0], { r: 0.0018 }), x, z));
+    const roue = new THREE.Group();
+    poser(roue, x, z, -3.4);
+    roue.add(cylindre(0.0225, 0.0078, acier, [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 36 }));
+    for (let k = 0; k < 40; k++) {
+      const a = (k / 40) * 2 * PI;
+      roue.add(boite([0.0074, 0.0006, 0.0009], m.uni('#a6abb1'), [0, 0.0112 * Math.cos(a) - 0.0003, 0.0112 * Math.sin(a)], { r: 0, rot: [a, 0, 0] }));
+    }
+    roue.add(cylindre(0.0228, 0.0008, m.uni('#9399a0'), [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 36 }));
+    el.push(roue);
+  }
+  // le petit bouton carré derrière la molette
+  el.push(poser(boite([0.0055, 0.0016, 0.0055], gris, [0, -0.001, 0], { r: 0.0007 }), 5.5, -21.5));
+  // le logo « logi » sur le bouton gauche
+  {
+    const logo = decalque(0.0085, 0.0045, (g2, w, h) => {
+      g2.fillStyle = '#56585e';
+      g2.font = `600 ${Math.round(h * 0.95)}px "Avenir Next", "Helvetica Neue", sans-serif`;
+      g2.textAlign = 'center';
+      g2.textBaseline = 'middle';
+      g2.fillText('logi', w / 2, h * 0.42);
+    }, { nom: 'imprime-logi', px: 40000, rugosite: 0.6 });
+    const support = poser(new THREE.Group(), -14, -23.5, 0.25);
+    support.add(logo);
+    el.push(support);
+  }
+  // la molette de pouce, métallique (son axe vers la gauche) : enfoncée dans la marche entre le corps et le
+  // repose-pouce, seul le haut de sa jante en sort ; derrière elle, les deux boutons de pouce, à plat sur le repose-pouce
+  {
+    const [x, z] = [-27, -10];
+    const roue = new THREE.Group();
+    roue.position.set(x * mm, 19 * mm, z * mm);
+    roue.add(cylindre(0.017, 0.0062, acier, [0, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 28 }));
+    for (let k = 0; k < 28; k++) {
+      const a = (k / 28) * 2 * PI;
+      roue.add(boite([0.0058, 0.0005, 0.0008], m.uni('#a6abb1'), [0, 0.0084 * Math.cos(a), 0.0084 * Math.sin(a)], { r: 0, rot: [a, 0, 0] }));
+    }
+    // la joue de la fente, côté pouce : du même plastique givré que la coque, elle cache le flanc de la roue
+    roue.add(cylindre(0.0174, 0.0006, coque, [-0.0034, 0, 0], { rot: [0, 0, PI / 2], centre: true, segments: 36 }));
+    el.push(roue);
+    for (const zb of [5, 12.5]) el.push(poser(boite([0.011, 0.0016, 0.006], mat('pouce-mx', '#d2d5d9', { roughness: 0.45 }), [0, -0.0012, 0], { r: 0.0007 }), -37, zb));
   }
   return groupe('objet_souris', el);
 }
@@ -1326,8 +1471,8 @@ function bureauBas() {
   const { groupe: clavier, sortieUSB, dirUSB } = clavierDash75(m);
   clavier.position.set(0.1, ySurTapis, 0.109); // son devant au même endroit que celui de l'ancien clavier
   parts.push(clavier);
-  const souris = sourisGPro2(m);
-  souris.position.set(0.384, ySurTapis, 0.137); // sur la grande feuille blanche du tapis : la souris noire s'y détache
+  const souris = sourisMXMaster(m);
+  souris.position.set(0.49, ySurTapis, 0.186); // sur le noir du tapis, à droite des feuilles blanches : la souris claire s'y détache
   souris.rotation.y = 0.06;
   parts.push(souris);
   parts.push(photocards(m, ySurTapis, T)); // dans le coin en haut à droite du tapis, une sur le bureau
