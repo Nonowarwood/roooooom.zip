@@ -2041,10 +2041,10 @@ function creerPlatine(groupe) {
     { cle: 'couvercle', cible: 1, vitesse: 0.9, debut: () => sons.ouvrant('mac', true) },
     { cle: 'levee', cible: 1, vitesse: 2.5, debut: () => (e.cibleVitesse = OMEGA) },
     { cle: 'bras', cible: 1, vitesse: 0.65 },
-    { cle: 'levee', cible: 0, vitesse: 1.1 },
+    { cle: 'levee', cible: 0, vitesse: 1.1, fin: () => sons.platine.jouer() }, // la pointe se pose : le vinyle joue
   ];
   const arreter = () => [
-    { cle: 'levee', cible: 1, vitesse: 2.5, debut: () => (e.cibleVitesse = 0) },
+    { cle: 'levee', cible: 1, vitesse: 2.5, debut: () => ((e.cibleVitesse = 0), sons.platine.arreter(0.4)) },
     { cle: 'bras', cible: 0, vitesse: 0.65 },
     { cle: 'levee', cible: 0, vitesse: 2, debut: () => (e.sillon = Math.min(e.sillon, 1)) },
     { cle: 'couvercle', cible: 0, vitesse: 0.9, debut: () => sons.ouvrant('mac', false), fin: () => (e.sillon = 0) },
@@ -2208,6 +2208,19 @@ for (const m of meublesPiece) {
             ]) {
               const o = groupe.getObjectByName(objet);
               if (o) ouvrantCliquable(nom, description, o, o);
+            }
+          }
+          if (m.nom === 'meuble hi-fi') {
+            // le lecteur CD Moondrop, sur le meuble : un clic le lance (son moteur, puis le CD), un autre l'arrête
+            const lecteur = groupe.getObjectByName('objet_lecteur');
+            if (lecteur) {
+              let lit = false;
+              const basculerCD = () => {
+                lit = !lit;
+                if (lit) sons.lecteurCD.jouer();
+                else sons.lecteurCD.arreter();
+              };
+              ouvrantCliquable('Lecteur CD Moondrop DiscDream 2 Ultra', 'Le lecteur CD portable Moondrop DiscDream 2 Ultra, en aluminium brossé, entre les deux enceintes : on devine le CD par les fentes du dessus. Clique pour lancer le CD ou l’arrêter.', lecteur, lecteur, basculerCD);
             }
           }
           if (m.nom === 'platine Rega Planar 1') {

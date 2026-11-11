@@ -255,6 +255,107 @@ export const sons = {
   },
 };
 
+// --- La musique : la platine (un vinyle qui craque, synthétisé) et le lecteur CD (son moteur qui se lance) ---
+// Chacun joue aussi un extrait s'il trouve son fichier (public/sons/platine.mp3, public/sons/lecteur-cd.mp3) : sans
+// fichier, la platine ne fait entendre que son vinyle, le lecteur CD que son moteur.
+const BASE = import.meta.env.BASE_URL;
+
+// deux tours de disque à 33 ⅓ (3,6 s) : un souffle très bas, des pops épars, quelques gros, et le tic d'une rayure
+// à chaque tour
+function bufferCraquements() {
+  const n = Math.round(ctx.sampleRate * 3.6);
+  const b = ctx.createBuffer(1, n, ctx.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * 0.01;
+  const pop = (i0, amp, long) => {
+    for (let k = 0; k < long && i0 + k < n; k++) d[i0 + k] += amp * (Math.random() * 2 - 1) * Math.exp(-k / (long / 4));
+  };
+  for (let k = 0; k < 150; k++) pop(Math.floor(Math.random() * n), 0.12 + Math.random() * 0.22, 15 + Math.random() * 50);
+  for (let k = 0; k < 6; k++) pop(Math.floor(Math.random() * n), 0.45 + Math.random() * 0.3, 70 + Math.random() * 110);
+  for (const t of [0.35, 2.15]) pop(Math.floor(t * ctx.sampleRate), 0.4, 140);
+  return b;
+}
+
+function creerLecture({ fichier, vinyle = false }) {
+  let extrait; // undefined : pas encore cherché ; null : pas de fichier
+  let enCours = null; // { gain, sources }
+  async function charger() {
+    if (extrait !== undefined) return extrait;
+    try {
+      const r = await fetch(BASE + fichier);
+      if (!r.ok || !(r.headers.get('content-type') ?? '').startsWith('audio')) throw new Error('pas de fichier');
+      extrait = await ctx.decodeAudioData(await r.arrayBuffer());
+    } catch {
+      extrait = null;
+    }
+    return extrait;
+  }
+  function arreter(fondu = 1.2) {
+    if (!enCours || !ctx) return;
+    const { gain, sources } = enCours;
+    enCours = null;
+    const t = ctx.currentTime;
+    gain.gain.cancelScheduledValues(t);
+    gain.gain.setValueAtTime(gain.gain.value, t);
+    gain.gain.linearRampToValueAtTime(0, t + fondu);
+    for (const s of sources) s.stop(t + fondu + 0.05);
+  }
+  async function jouer() {
+    if (!pret()) return;
+    arreter(0.2);
+    const t = ctx.currentTime;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(1, t + 0.8);
+    gain.connect(bus);
+    const cette = { gain, sources: [] };
+    enCours = cette;
+    if (vinyle) {
+      // le vinyle : ses craquements en boucle, un peu filtrés (ni grave ni aigu), et le petit choc de la pointe
+      ton({ t, duree: 0.12, freq: 90, freqFin: 50, gain: 0.25, attaque: 0.002 });
+      souffle({ t, duree: 0.08, freq: 2500, q: 1.5, gain: 0.08, attaque: 0.002 });
+      const src = ctx.createBufferSource();
+      src.buffer = bufferCraquements();
+      src.loop = true;
+      const passeHaut = ctx.createBiquadFilter();
+      passeHaut.type = 'highpass';
+      passeHaut.frequency.value = 350;
+      const passeBas = ctx.createBiquadFilter();
+      passeBas.type = 'lowpass';
+      passeBas.frequency.value = 7000;
+      const g = ctx.createGain();
+      g.gain.value = 0.55;
+      src.connect(passeHaut).connect(passeBas).connect(g).connect(gain);
+      src.start(t);
+      cette.sources.push(src);
+    } else {
+      // le lecteur CD : le moteur prend sa vitesse, la tête cherche la piste
+      ton({ t, duree: 1.4, type: 'triangle', freq: 70, freqFin: 260, gain: 0.05, attaque: 0.2 });
+      souffle({ t, duree: 1.4, freq: 900, freqFin: 2600, q: 2, gain: 0.025, attaque: 0.3 });
+      for (const dt of [1.1, 1.25, 1.33]) clic(t + dt, 5200, 0.04);
+    }
+    const musique = await charger();
+    if (!musique || enCours !== cette) return;
+    const src = ctx.createBufferSource();
+    src.buffer = musique;
+    src.loop = true;
+    const g = ctx.createGain();
+    g.gain.value = 0.8;
+    if (vinyle) {
+      // un peu de la chaleur du vinyle : les aigus adoucis
+      const passeBas = ctx.createBiquadFilter();
+      passeBas.type = 'lowpass';
+      passeBas.frequency.value = 9000;
+      src.connect(passeBas).connect(g).connect(gain);
+    } else src.connect(g).connect(gain);
+    src.start(ctx.currentTime + (vinyle ? 0.6 : 1.5));
+    cette.sources.push(src);
+  }
+  return { jouer, arreter };
+}
+sons.platine = creerLecture({ fichier: 'sons/platine.mp3', vinyle: true });
+sons.lecteurCD = creerLecture({ fichier: 'sons/lecteur-cd.mp3' });
+
 // --- Ambiance de fond ---
 function demarrerFond() {
   // souffle de pièce : un bruit très grave et très bas, à peine perceptible
