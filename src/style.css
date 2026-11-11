@@ -179,8 +179,9 @@ html, body {
 .chargement-texte { font-size: 12px; letter-spacing: 0.08em; opacity: 0.75; font-variant-numeric: tabular-nums; }
 
 /* --- Menu d'accueil, au-dessus de l'écran de chargement ---
-   À gauche, la pièce choisie (numéro, nom en grand, lieu, une phrase, « Visiter ») et la liste de toutes les
-   pièces ; à droite, sa scène 3D en grand. Au téléphone, la scène en haut et le texte dessous. */
+   À gauche, la pièce choisie (nom en grand, lieu, « Visiter ») et la liste de toutes les pièces ; à droite, sa
+   scène 3D en grand. Au téléphone, la scène en haut et le texte dessous. Animé : arrivée en cascade, titre qui se
+   dévoile, curseur qui glisse dans la liste, fond qui dérive, scène qui suit la souris (--px, --py, de −1 à 1). */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* la police des titres n'a pas de « ê » : un « e » coiffé d'un accent dessiné, du même trait arrondi */
 .circ { position: relative; display: inline-block; }
@@ -203,15 +204,40 @@ html, body {
   inset: 0;
   z-index: 40;
   overflow: hidden;
-  background: var(--degrade);
+  background: #2c1a42;
   user-select: none;
   touch-action: pan-y;
-  transition: opacity 0.6s ease, visibility 0.6s;
+  transition: opacity 0.6s ease 0.15s, visibility 0.6s 0.15s;
 }
 .accueil.fini { opacity: 0; visibility: hidden; pointer-events: none; }
+/* le fond : les taches de couleur dérivent lentement */
+.accueil::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  background: var(--degrade);
+  animation: deriver 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes deriver {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate(3%, -2%) rotate(4deg) scale(1.06); }
+  100% { transform: translate(-3%, 2%) rotate(-3deg) scale(1.03); }
+}
 
 /* la scène, à droite : une case par pièce, seule la pièce choisie est visible */
-.accueil-scene { position: absolute; top: 4vh; bottom: 4vh; right: 2vw; width: 60vw; }
+.accueil-scene {
+  position: absolute;
+  top: 4vh;
+  bottom: 4vh;
+  right: 2vw;
+  width: 60vw;
+  transform: translate(calc(var(--px, 0) * 14px), calc(var(--py, 0) * 10px));
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/* au départ (« Visiter ») : la scène s'avance vers nous pendant que le menu s'efface */
+.accueil.part .accueil-scene { transform: scale(1.14); transition-duration: 0.8s; }
+.accueil.part .accueil-texte { opacity: 0; transform: translateX(-24px); transition: opacity 0.4s, transform 0.5s; }
 .accueil-piece {
   position: absolute;
   top: 50%;
@@ -263,8 +289,13 @@ body.en-atelier > *:not(.atelier, .fond, .grain) { display: none !important; }
   gap: 2.2vh;
   z-index: 2;
 }
-.accueil-piece-texte { display: flex; flex-direction: column; gap: 2.2vh; }
-.accueil-numero { font: 600 clamp(11px, 1.6vh, 14px) / 1 Inter, system-ui, sans-serif; letter-spacing: 0.3em; opacity: 0.55; }
+.accueil-piece-texte {
+  display: flex;
+  flex-direction: column;
+  gap: 2.2vh;
+  transform: translate(calc(var(--px, 0) * -5px), calc(var(--py, 0) * -4px));
+  transition: transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 .accueil-titre {
   margin: 0;
   font-family: 'Milky Boba', Georgia, serif;
@@ -282,10 +313,9 @@ body.en-atelier > *:not(.atelier, .fond, .grain) { display: none !important; }
   font: 600 clamp(11px, 1.7vh, 15px) / 1 Inter, system-ui, sans-serif;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  opacity: 0.8;
+  opacity: 0.7;
 }
 .accueil-lieu svg { width: 1.1em; height: 1.1em; flex: none; }
-.accueil-desc { margin: 0; max-width: 30em; font-size: clamp(14px, 2vh, 18px); line-height: 1.5; opacity: 0.75; }
 .accueil-wip {
   align-self: flex-start;
   padding: 0.45em 0.9em;
@@ -311,36 +341,62 @@ body.en-atelier > *:not(.atelier, .fond, .grain) { display: none !important; }
   text-transform: uppercase;
   cursor: pointer;
   box-shadow: 0 8px 24px #0000003d;
-  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+  transition: transform 0.25s, box-shadow 0.25s, background 0.25s, border-color 0.25s;
 }
-.accueil-visiter:hover { transform: translateY(-1px); box-shadow: 0 12px 30px #0000004d; background: var(--rose); border-color: var(--rose); }
+.accueil-visiter span { display: inline-block; transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.accueil-visiter:hover { transform: translateY(-2px); box-shadow: 0 14px 34px #0000004d; background: var(--rose); border-color: var(--rose); }
+.accueil-visiter:hover span { transform: translateX(5px); }
 .accueil-visiter:disabled { cursor: default; }
 /* la liste de toutes les pièces */
-.accueil-liste { margin-top: 2vh; display: grid; gap: 0.4vh; padding-top: 2vh; border-top: 1px solid #ffffff22; }
+.accueil-liste { position: relative; margin-top: 4vh; display: grid; gap: 0.2vh; padding-left: 18px; }
+.accueil-liste-curseur {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 1.1em;
+  margin-top: -0.55em;
+  border-radius: 3px;
+  background: var(--rose);
+  box-shadow: 0 0 10px var(--rose);
+  font-size: clamp(14px, 1.8vh, 17px);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
 .accueil-liste button {
   all: unset;
   cursor: pointer;
   display: flex;
   align-items: baseline;
-  gap: 1.2em;
+  gap: 1em;
   padding: 0.7vh 0;
   font: 400 clamp(14px, 1.8vh, 17px) / 1.3 Inter, system-ui, sans-serif;
-  opacity: 0.5;
-  transition: opacity 0.3s;
+  opacity: 0.42;
+  transition: opacity 0.3s, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.accueil-liste button:hover,
+.accueil-liste button:hover { opacity: 0.8; transform: translateX(4px); }
 .accueil-liste button[aria-current="true"] { opacity: 1; }
 .accueil-liste button:focus-visible { outline: 2px solid var(--rose); outline-offset: 4px; border-radius: 4px; }
 .accueil-liste-numero { width: 2.2em; font-size: 0.8em; font-weight: 600; letter-spacing: 0.2em; }
-.accueil-liste-lieu { margin-left: auto; padding-left: 1em; font-size: 0.8em; opacity: 0.7; }
-/* changement de pièce : le texte arrive du côté d'où l'on vient */
-.accueil.glisse .accueil-piece-texte > * { animation: arriver 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
-.accueil.glisse .accueil-piece-texte > :nth-child(2) { animation-delay: 0.04s; }
-.accueil.glisse .accueil-piece-texte > :nth-child(3) { animation-delay: 0.08s; }
-.accueil.glisse .accueil-piece-texte > :nth-child(n + 4) { animation-delay: 0.12s; }
+.accueil-liste-lieu { font-size: 0.8em; opacity: 0.6; }
+.accueil-liste-lieu::before { content: "·"; margin-right: 0.6em; }
+/* changement de pièce : le titre se dévoile de bas en haut, le lieu arrive du côté d'où l'on vient */
+.accueil.glisse .accueil-titre { animation: devoiler 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.accueil.glisse .accueil-lieu,
+.accueil.glisse .accueil-wip { animation: arriver 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.12s backwards; }
 .accueil.glisse[data-sens='gauche'] { --depart: -24px; }
 .accueil.glisse[data-sens='droite'] { --depart: 24px; }
 @keyframes arriver { from { opacity: 0; transform: translateX(var(--depart, 0px)); } }
+@keyframes devoiler { from { clip-path: inset(0 0 100% 0); transform: translateY(0.35em); opacity: 0; } to { clip-path: inset(-0.3em -0.2em -0.3em -0.2em); } }
+/* l'arrivée sur le site : tout entre en cascade, la scène monte doucement */
+@keyframes monter { from { opacity: 0; transform: translateY(18px); } }
+@keyframes paraitre { from { opacity: 0; transform: translateY(24px) scale(0.96); } }
+.accueil.entree .accueil-titre { animation: devoiler 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s backwards; }
+.accueil.entree .accueil-lieu { animation: monter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s backwards; }
+.accueil.entree .accueil-wip { animation: monter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s backwards; }
+.accueil.entree .accueil-visiter { animation: monter 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.5s backwards; }
+.accueil.entree .accueil-liste button { animation: monter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) calc(0.65s + var(--rang, 0) * 0.08s) backwards; }
+.accueil.entree .accueil-liste-curseur { animation: monter 0.6s ease 0.9s backwards; }
+.accueil.entree .accueil-scene { animation: paraitre 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s backwards; }
 
 /* au téléphone : la scène en haut, le texte dessous (il défile si l'écran est court) */
 @media (max-width: 760px) {
@@ -358,7 +414,6 @@ body.en-atelier > *:not(.atelier, .fond, .grain) { display: none !important; }
   }
   .accueil-piece-texte { gap: 1.6dvh; }
   .accueil-titre { font-size: 12vw; }
-  .accueil-desc { font-size: 15px; }
   .accueil-visiter { padding: 14px 2.4em; }
   .accueil-liste { margin-top: 1dvh; }
 }

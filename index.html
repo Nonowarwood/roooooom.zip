@@ -50,24 +50,22 @@
     <button class="perso-agir" id="perso-agir" type="button" hidden>Agir</button>
     <button class="perso-saut" id="perso-saut" type="button" hidden>Saut</button>
 
-    <!-- menu d'accueil : le choix de la pièce, à chaque arrivée (src/accueil.js). À gauche, la pièce choisie (son
-         numéro, son nom, son lieu, une phrase, « Visiter ») et la liste de toutes les pièces ; à droite, sa scène 3D -->
+    <!-- menu d'accueil : le choix de la pièce, à chaque arrivée (src/accueil.js). À gauche, la pièce choisie (son nom,
+         son lieu, « Visiter ») et la liste de toutes les pièces ; à droite, sa scène 3D -->
     <div id="accueil" class="accueil">
       <!-- une case par pièce (créées par src/accueil.js) : son aperçu, puis la vraie scène 3D dans une iframe -->
       <div class="accueil-scene" id="accueil-scene"></div>
       <div class="accueil-texte">
         <div class="accueil-piece-texte" id="accueil-piece-texte">
-          <span class="accueil-numero" id="accueil-numero">01 / 03</span>
           <h1 class="accueil-titre" id="accueil-nom">Chambre</h1>
           <p class="accueil-lieu">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z" /><circle cx="12" cy="10" r="2.2" /></svg>
             <span id="accueil-lieu">Paris</span>
           </p>
-          <p class="accueil-desc" id="accueil-desc"></p>
           <span class="accueil-wip" id="accueil-wip" hidden>WIP · en cours</span>
         </div>
         <button type="button" class="accueil-visiter" id="visiter">Visiter <span aria-hidden="true">→</span></button>
-        <nav class="accueil-liste" id="accueil-liste" aria-label="Les pièces"></nav>
+        <nav class="accueil-liste" id="accueil-liste" aria-label="Les pièces"><span class="accueil-liste-curseur" aria-hidden="true"></span></nav>
       </div>
     </div>
 
