@@ -33,6 +33,7 @@ import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
 import { sons, creerBoutonSon } from './sons.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { veines as veinesBois } from './modeles/outils.js';
 
 const canvas = document.getElementById('scene');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -810,13 +811,20 @@ bloc(0.07, 0.02, 0.012, blancBattant, xc, yBas + FC + FB / 2, T - 0.068, true);
 bloc(0.05, 0.014, 0.02, blancBattant, xc, yBas + FC + FB / 2 + 0.012, T - 0.058, true);
 
 // --- Charpente contre le mur ouest : chevron + poteau + entrait, comme sur ta photo ---
-// Même style que la pièce : bois uni et mat, quelques fines veines. Un mobile d'avions en bois y pend.
+// Du vieux bois de charpente, de la couleur de ta photo : arêtes adoucies, fil du bois sur toutes les faces visibles
+// (veines plus sombres et plus claires, quelques fentes de séchage le long du fil, des nœuds), l'entrait assemblé dans
+// le poteau par tenon et mortaise (deux chevilles dépassent de la face du poteau), le boulon avec rondelle et écrou.
+// Un mobile d'avions en bois y pend.
 const charpente = new THREE.Group();
 charpente.name = 'charpente';
+const couleurPoutre = new THREE.Color(poutre.couleur);
 const boisPoutre = new THREE.MeshStandardMaterial({ color: poutre.couleur, roughness: 0.85 });
-const veinePoutre = new THREE.MeshStandardMaterial({ color: new THREE.Color(poutre.couleur).multiplyScalar(0.72), roughness: 0.9 });
+const tonsVeinesPoutre = [0.72, 0.8, 1.16].map((k) => new THREE.MeshStandardMaterial({ color: couleurPoutre.clone().multiplyScalar(k), roughness: 0.9 }));
+const fentePoutre = new THREE.MeshStandardMaterial({ color: couleurPoutre.clone().multiplyScalar(0.38), roughness: 1 });
+const boutPoutre = new THREE.MeshStandardMaterial({ color: couleurPoutre.clone().multiplyScalar(0.62), roughness: 0.95 }); // le bois de bout (chevilles, nœuds)
 const metalPoutre = new THREE.MeshStandardMaterial({ color: '#cfc8c0', roughness: 0.5, metalness: 0.2 });
 const DP = poutre.profondeur;
+const ARRONDI = 0.006; // les arêtes adoucies de la charpente
 
 function morceau(geo, mat, x, y, z) {
   const m = new THREE.Mesh(geo, mat);
@@ -825,66 +833,97 @@ function morceau(geo, mat, x, y, z) {
   m.receiveShadow = true;
   return m;
 }
-// quelques veines : de fines lignes plus foncées sur la grande face, dans le sens du bois
-function veines(parent, longueur, nb, ecart, place) {
-  for (let i = 0; i < nb; i++) {
-    const v = morceau(new THREE.BoxGeometry(0.002, longueur * (0.55 + 0.4 * ((i * 37) % 10) / 10), 0.004), veinePoutre, 0, 0, 0);
-    v.castShadow = false;
-    place(v, (i - (nb - 1) / 2) * ecart, ((i * 13) % 7) / 7 - 0.5);
-    parent.add(v);
+// le fil du bois sur une face (centre, u le long du fil, v en travers, u × v = la normale sortante) : des veines
+// sombres et claires, et parfois une fente de séchage, plus large et très sombre, qui suit le fil
+let graineVeines = 300;
+function filDuBois(face, { nb = 4, fentes = 0 } = {}) {
+  charpente.add(...veinesBois({ ...face, nb, materiaux: tonsVeinesPoutre, graine: graineVeines++, largeur: 0.0028, pas: 0.03 }));
+  if (fentes) charpente.add(...veinesBois({ ...face, V: face.V * 0.7, nb: fentes, materiaux: [fentePoutre], graine: graineVeines++, largeur: 0.0045, pas: 0.03 }));
+}
+// un nœud : une ellipse de bois de bout, son cœur plus sombre, posé sur une face (normale n, grand axe le long du fil)
+function noeudPoutre([x, y, z], n, fil, taille) {
+  for (const [k, mat, d] of [[1, boutPoutre, 0.0006], [0.45, fentePoutre, 0.0009]]) {
+    const g = new THREE.CircleGeometry(taille * k, 18);
+    g.scale(1.9, 1, 1);
+    const m = new THREE.Mesh(g, mat);
+    const N = new THREE.Vector3(...n);
+    m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...fil), N.clone().cross(new THREE.Vector3(...fil)), N));
+    m.position.set(x, y, z).addScaledVector(N, d);
+    m.receiveShadow = true;
+    charpente.add(m);
   }
 }
 
 // chevron : sous la pente, plaqué au mur. Prisme dont le bout du haut est coupé à l'horizontale, à la
 // hauteur du plafond : il vient toucher le plafond au lieu de s'arrêter en biais en dessous.
-// Profil dessiné dans le plan du mur (z, y), puis extrudé sur la profondeur de la pièce (x).
+// Profil dessiné dans le plan du mur (z, y), puis extrudé sur la profondeur de la pièce (x), arêtes arrondies (le
+// biseau élargit le profil de ARRONDI : son dessous est remonté d'autant, sa face avant reste en x = DP + 0,002).
 const surfaceP = (sigma) => [D - sigma * cosP, K + sigma * sinP]; // point de la pente à la distance sigma du bas
 const versPiece = (pt, e) => [pt[0] - e * sinP, pt[1] - e * cosP]; // le même point, e plus bas dans la pièce (perpendiculairement)
 const yHautChevron = H + 0.006;
 const sigmaHaut = (yHautChevron - K) / sinP; // où la surface atteint la hauteur du plafond
 const sigmaDessous = (yHautChevron - K + poutre.epaisseur * cosP) / sinP; // idem pour le dessous
+const epChevron = poutre.epaisseur - ARRONDI;
 const profilChevron = [
   surfaceP(-0.02),
   surfaceP(sigmaHaut),
-  versPiece(surfaceP(sigmaDessous), poutre.epaisseur),
-  versPiece(surfaceP(-0.02), poutre.epaisseur),
+  versPiece(surfaceP(sigmaDessous), epChevron),
+  versPiece(surfaceP(-0.02), epChevron),
 ];
 const formeChevron = new THREE.Shape(profilChevron.map(([z, y]) => new THREE.Vector2(z, y)));
-const geoChevron = new THREE.ExtrudeGeometry(formeChevron, { depth: DP, bevelEnabled: false });
+const geoChevron = new THREE.ExtrudeGeometry(formeChevron, { depth: DP - 2 * ARRONDI, bevelEnabled: true, bevelThickness: ARRONDI, bevelSize: ARRONDI, bevelSegments: 2 });
 geoChevron.rotateY(-Math.PI / 2); // l'extrusion part vers -x : on la ramène dans la pièce
-geoChevron.translate(DP + 0.002, 0, 0);
-const chevron = morceau(geoChevron, boisPoutre, 0, 0, 0);
-// quelques veines le long de la pente, sur la face visible
-for (let i = 0; i < 3; i++) {
-  const longueurV = LP * (0.55 + 0.4 * (((i * 37) % 10) / 10));
-  const centreV = versPiece(surfaceP(LP * 0.55 + (((i * 13) % 7) / 7 - 0.5) * 0.4), poutre.epaisseur / 2 - (i - 1) * (poutre.epaisseur / 4));
-  const v = morceau(new THREE.BoxGeometry(0.002, longueurV, 0.004), veinePoutre, DP + 0.0035, centreV[1], centreV[0]);
-  v.rotation.x = Math.atan2(sinP, cosP) - Math.PI / 2;
-  v.castShadow = false;
-  charpente.add(v);
+geoChevron.translate(DP + 0.002 - ARRONDI, 0, 0);
+charpente.add(morceau(geoChevron, boisPoutre, 0, 0, 0));
+{
+  // le fil suit la pente : sur la face avant (vers la pièce) et sur le dessous
+  const u = [0, sinP, -cosP];
+  const sMilieu = sigmaHaut / 2;
+  const U = sigmaHaut / 2 - 0.06;
+  const [zA, yA] = versPiece(surfaceP(sMilieu), poutre.epaisseur / 2);
+  filDuBois({ centre: [DP + 0.002, yA, zA], u, v: [0, cosP, sinP], U, V: poutre.epaisseur / 2 - 0.016 }, { nb: 7, fentes: 2 });
+  const [zD, yD] = versPiece(surfaceP(sMilieu + 0.1), poutre.epaisseur);
+  filDuBois({ centre: [DP / 2 + 0.002, yD, zD], u, v: [1, 0, 0], U: U - 0.1, V: DP / 2 - 0.012 }, { nb: 3, fentes: 1 });
+  const [zN, yN] = versPiece(surfaceP(sigmaHaut * 0.3), poutre.epaisseur * 0.4);
+  noeudPoutre([DP + 0.002, yN, zN], [1, 0, 0], u, 0.014);
 }
-charpente.add(chevron);
 
 // poteau : du sol jusqu'sous le chevron
 const hauteurPoteau = 4.418 - poutre.poteau.z + 0.04; // dessous du chevron à cette position, + un peu pour s'y caler
-const poteau = morceau(new THREE.BoxGeometry(DP, hauteurPoteau, poutre.poteau.largeur), boisPoutre, DP / 2 + 0.002, hauteurPoteau / 2, poutre.poteau.z);
-veines(poteau, hauteurPoteau, 3, poutre.poteau.largeur / 4, (v, dz, dy) => v.position.set(DP / 2 + 0.001, dy * hauteurPoteau * 0.6, dz));
+const LPo = poutre.poteau.largeur;
+const zPo = poutre.poteau.z;
+charpente.add(morceau(new RoundedBoxGeometry(DP, hauteurPoteau, LPo, 2, ARRONDI), boisPoutre, DP / 2 + 0.002, hauteurPoteau / 2, zPo));
+filDuBois({ centre: [DP + 0.002, hauteurPoteau / 2, zPo], u: [0, 1, 0], v: [0, 0, 1], U: hauteurPoteau / 2 - 0.05, V: LPo / 2 - 0.012 }, { nb: 6, fentes: 2 });
+for (const s of [-1, 1]) filDuBois({ centre: [DP / 2 + 0.002, hauteurPoteau / 2, zPo + (s * LPo) / 2], u: [0, 1, 0], v: [-s, 0, 0], U: hauteurPoteau / 2 - 0.05, V: DP / 2 - 0.012 }, { nb: 3, fentes: s > 0 ? 1 : 0 });
+noeudPoutre([DP + 0.002, 0.62, zPo - 0.02], [1, 0, 0], [0, 1, 0], 0.012);
 // le petit bouchon rond au pied du poteau
-const bouchon = morceau(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 14), new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 0.9 }), DP + 0.006, 0.09, poutre.poteau.z);
+const bouchon = morceau(new THREE.CylinderGeometry(0.02, 0.02, 0.01, 18), boutPoutre, DP + 0.006, 0.09, zPo);
 bouchon.rotation.z = Math.PI / 2;
-charpente.add(poteau, bouchon);
+charpente.add(bouchon);
 
-// entrait : horizontal, du poteau jusqu'au coin du mur bas, avec son boulon
-const zDebut = poutre.poteau.z + poutre.poteau.largeur / 2 - 0.01;
+// entrait : horizontal, du poteau jusqu'au coin du mur bas ; son tenon entre dans le poteau, tenu par deux chevilles
+const zDebut = zPo + LPo / 2 - 0.01;
 const longueurEntrait = poutre.entrait.zFin - zDebut;
-const entrait = morceau(new THREE.BoxGeometry(DP, poutre.entrait.hauteur, longueurEntrait), boisPoutre, DP / 2 + 0.002, poutre.entrait.y, (zDebut + poutre.entrait.zFin) / 2);
-veines(entrait, longueurEntrait, 3, poutre.entrait.hauteur / 4, (v, dy, dz) => {
-  v.rotation.x = Math.PI / 2; // la veine suit la longueur de l'entrait (axe z)
-  v.position.set(DP / 2 + 0.001, dy, dz * longueurEntrait * 0.3);
-});
-const boulon = morceau(new THREE.CylinderGeometry(0.019, 0.019, 0.012, 14), metalPoutre, DP + 0.008, poutre.entrait.y, poutre.entrait.zFin - 0.07);
-boulon.rotation.z = Math.PI / 2;
-charpente.add(entrait, boulon);
+const zMilieuE = (zDebut + poutre.entrait.zFin) / 2;
+const { y: yE, hauteur: hE } = poutre.entrait;
+charpente.add(morceau(new RoundedBoxGeometry(DP, hE, longueurEntrait, 2, ARRONDI), boisPoutre, DP / 2 + 0.002, yE, zMilieuE));
+filDuBois({ centre: [DP + 0.002, yE, zMilieuE], u: [0, 0, 1], v: [0, -1, 0], U: longueurEntrait / 2 - 0.04, V: hE / 2 - 0.012 }, { nb: 6, fentes: 1 });
+filDuBois({ centre: [DP / 2 + 0.002, yE - hE / 2, zMilieuE], u: [0, 0, 1], v: [-1, 0, 0], U: longueurEntrait / 2 - 0.04, V: DP / 2 - 0.012 }, { nb: 3 });
+filDuBois({ centre: [DP / 2 + 0.002, yE + hE / 2, zMilieuE], u: [0, 0, 1], v: [1, 0, 0], U: longueurEntrait / 2 - 0.04, V: DP / 2 - 0.012 }, { nb: 3, fentes: 1 });
+noeudPoutre([DP + 0.002, yE + 0.025, zMilieuE + 0.12], [1, 0, 0], [0, 0, 1], 0.011);
+for (const dy of [-hE / 4, hE / 4]) {
+  const cheville = morceau(new THREE.CylinderGeometry(0.011, 0.011, 0.012, 16), boutPoutre, DP + 0.001, yE + dy, zPo + 0.012);
+  cheville.rotation.z = Math.PI / 2;
+  charpente.add(cheville);
+}
+// le boulon, près du mur bas : rondelle, écrou à six pans, bout de la tige
+const xB = DP + 0.002;
+const zB = poutre.entrait.zFin - 0.07;
+for (const [r, h, seg, dx] of [[0.026, 0.003, 24, 0.0015], [0.018, 0.012, 6, 0.009], [0.009, 0.007, 14, 0.018]]) {
+  const partie = morceau(new THREE.CylinderGeometry(r, r, h, seg), metalPoutre, xB + dx, yE, zB);
+  partie.rotation.z = Math.PI / 2;
+  charpente.add(partie);
+}
 
 // --- Mobile d'avions en bois, accroché au chevron juste au-dessus du poteau ---
 // Deux baguettes parallèles ; au bout de fils : deux petits biplans, deux nuages et un cœur en bois. Ils
@@ -1172,9 +1211,10 @@ if (reve) {
   morceau(0.06, f.hauteur - 0.05, 0.035, bois, lx, (yb + yh) / 2 - 0.01, zf + 0.004); // les deux battants se rejoignent
   for (const s of [-1, 1]) morceau(0.012, 0.09, 0.02, new THREE.MeshStandardMaterial({ color: '#e8e8ea', roughness: 0.4 }), lx + s * 0.04, (yb + yh) / 2, zf + 0.03);
   // son store occultant, le même que celui du Velux : caisson en haut, toile plissée qui descend, barre en bas.
-  // Il se ferme et s'ouvre avec lui (voir animerStore).
+  // Il se ferme et s'ouvre avec lui (voir animerStore). Il descend 2,5 cm devant le bout des poignées (zf + 0,04),
+  // et devant l'appui (zf + 0,047) : fermé, rien ne le traverse.
   const hToile = f.hauteur - 0.02;
-  const zs = zf + 0.04;
+  const zs = zf + 0.065;
   morceau(f.largeur + 0.02, 0.05, 0.05, alu, lx, yh + 0.035, zs); // caisson, au-dessus de la fenêtre
   const geoToile = new THREE.PlaneGeometry(f.largeur, hToile);
   geoToile.translate(0, -hToile / 2, 0); // le haut de la toile est l'origine : elle s'étire vers le bas
