@@ -534,7 +534,7 @@ export const visiteReve = [
     de: { camera: [0.85, 0.78, 1.3], cible: [0.35, 0.52, 1.12] }, a: { camera: [0.8, 0.72, 1.05], cible: [0.35, 0.52, 1.12] }, projecteur: true,
   },
   {
-    partie: 'Le coin bureau', titre: 'Clavier, souris et photocards', texte: 'Le Dash75, la MX Master 3S et les polaroids NMIXX sur le tapis à pivoines.',
+    partie: 'Le coin bureau', titre: 'Clavier et souris', texte: 'Le Dash75 et la MX Master 3S sur le tapis à pivoines.',
     de: { camera: [1.0, 0.9, 0.6], cible: [0.42, 0.46, 0.5] }, a: { camera: [0.95, 0.85, 0.35], cible: [0.42, 0.46, 0.45] }, projecteur: true,
   },
   {

@@ -26,8 +26,8 @@ export function creerHabillage({ reve }) {
       return [nom, materiau];
     }),
   );
-  // les photocards NMIXX du bureau bas : leur image, à peine brillante
-  for (const nom of ['pola1', 'pola2', 'pola3', 'carte']) {
+  // la photocard NMIXX du bureau bas : son image, à peine brillante
+  for (const nom of ['carte']) { // (les polaroids pola1 à pola3 ont été retirés du bureau)
     matsEcrans[`photocard-${nom}`] = new THREE.MeshStandardMaterial({ map: textures.image(`/textures/pc-${nom}.jpg`), roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
     // la carte elle-même : devant l'image du tapis (−2), derrière sa photo (−6)
     matsEcrans[`carte-${nom}`] = new THREE.MeshStandardMaterial({ color: '#f8f7f3', roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });

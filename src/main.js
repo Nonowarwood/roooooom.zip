@@ -2210,7 +2210,7 @@ for (const m of meublesPiece) {
             for (const [objet, nom, description] of [
               ['objet_clavier', 'Clavier Moondrop Dash75', 'Le clavier Moondrop Dash75, gris et blanc, inspiré du Commodore 64 : boîtier en aluminium, barre nervurée et plaque « MOONDROP » champagne à l’arrière, touches PBT aux légendes en pixels 8 bits, Échap et Entrée saumon. Sur son flanc gauche, les prises casque de son DAC intégré. Branché en USB-C au ThinkPad.'],
               ['objet_souris', 'Souris Logitech MX Master 3S', 'La souris Logitech MX Master 3S, coque translucide givrée où l’on devine l’électronique : les boutons gris, la molette MagSpeed en acier, la molette de pouce et ses deux boutons sur le flanc, le grand repose-pouce. Sans fil.'],
-              ['objet_photocards', 'Photocards NMIXX', 'Des photocards du Season’s Greetings 2027 de NMIXX, « Mixx on the Road », éparpillées dans le coin du bureau : trois polaroids et une photocard aux coins arrondis.'],
+              ['objet_photocards', 'Photocard NMIXX', 'Une photocard aux coins arrondis du Season’s Greetings 2027 de NMIXX, « Mixx on the Road », posée dans le coin du bureau.'],
               ['objet_tapis', 'Tapis de souris', 'Le grand tapis de souris noir à pivoines blanches, bordure cousue, sous le clavier et la souris.'],
             ]) {
               const o = groupe.getObjectByName(objet);

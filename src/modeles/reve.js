@@ -1207,7 +1207,7 @@ function tolomeo() {
 }
 
 // ===========================================================================================
-// --- Les photocards éparpillées dans le coin du bureau bas, tirées du Season's Greetings 2027 de NMIXX ---
+// --- La photocard posée dans le coin du bureau bas, tirée du Season's Greetings 2027 de NMIXX ---
 // Trois photocards polaroid (54 × 86 mm : cadre blanc, photo 46 × 62 mm, marge plus épaisse en bas) et la
 // photocard classique (55 × 85 mm aux coins arrondis, l'image sur toute la carte), posée sur le bois. Chaque image est un
 // maillage nommé (« photocard-… ») : le programme y colle son image (public/textures/pc-*.jpg). Le haut des images
@@ -1260,10 +1260,8 @@ function photocards(m, yTapis, yBureau) {
   // sur le tapis : 1,5 mm au-dessus de son image ; sur le bois : 1 mm au-dessus de ses veines
   yTapis += 0.0015;
   yBureau += 0.001;
-  carte({ type: 'polaroid', nom: 'pola2', x: 0.505, z: -0.03, y: yTapis, rot: 0.55 });
-  carte({ type: 'polaroid', nom: 'pola1', x: 0.47, z: -0.005, y: yTapis + 0.0012, rot: 0.22 });
-  carte({ type: 'polaroid', nom: 'pola3', x: 0.44, z: -0.13, y: yBureau, rot: 0.12 }); // sur le bois, au-delà du tapis
-  carte({ type: 'photocard', nom: 'carte', x: 0.53, z: -0.13, y: yBureau, rot: -0.25 }); // sur le bois, à côté
+  // (les trois polaroids, pola1 à pola3, ont été retirés à la demande de Noah : la fonction sait toujours les faire)
+  carte({ type: 'photocard', nom: 'carte', x: 0.53, z: -0.13, y: yBureau, rot: -0.25 }); // sur le bois, au-delà du tapis
   return g;
 }
 
@@ -1472,7 +1470,7 @@ function bureauBas() {
   clavier.position.set(0.1, ySurTapis, 0.109); // son devant au même endroit que celui de l'ancien clavier
   parts.push(clavier);
   const souris = sourisMXMaster(m);
-  souris.position.set(0.49, ySurTapis, 0.186); // sur le noir du tapis, à droite des feuilles blanches : la souris claire s'y détache
+  souris.position.set(0.52, ySurTapis, 0.136); // sur le noir du tapis, à droite des feuilles blanches (la souris claire s'y détache), avancée vers l'écran
   souris.rotation.y = 0.06;
   parts.push(souris);
   parts.push(photocards(m, ySurTapis, T)); // dans le coin en haut à droite du tapis, une sur le bureau
