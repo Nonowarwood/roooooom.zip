@@ -29,7 +29,6 @@ import { creerVisite } from './visite.js';
 import { initialiserInteractions } from './interactions.js';
 import { creerPerso } from './perso.js';
 import { creerHabillage } from './habillage.js';
-import { creerVueFenetres } from './vueFenetres.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
 import { sons, creerBoutonSon } from './sons.js';
@@ -1035,10 +1034,13 @@ function animerMobile(dt) {
 racine.add(charpente);
 racine.updateMatrixWorld(true);
 
-// la vue par les fenêtres : les toits de Paris et le ciel de l'heure (src/vueFenetres.js) ; la vitre du Velux est vue
-// par sa face arrière
-const vueFenetres = creerVueFenetres();
-const veluxMat = vueFenetres.materiau({ dos: true });
+const veluxMat = new THREE.MeshStandardMaterial({
+  color: '#bfe3ff',
+  emissive: '#bfe3ff',
+  emissiveIntensity: 0.8,
+  roughness: 0.2,
+  side: THREE.BackSide,
+});
 // ouverture visible de la vitre : à l'intérieur du battant
 const wV = wB - 2 * FB;
 const hV = hB - 2 * FB;
@@ -1046,6 +1048,7 @@ const yHautV = yc + hV / 2;
 const vitre = new THREE.Mesh(new THREE.PlaneGeometry(wV, hV), veluxMat);
 vitre.position.set(xc, yc, T);
 veluxObjet.add(vitre);
+veluxMat.userData.sansSurbrillance = true; // son éclat suit le jour et le store, pas la sélection
 
 // --- Store occultant noir : un caisson gris en haut, deux rails gris sur les côtés, une toile noire
 // plissée qui descend, et une barre en bas ---
@@ -1098,7 +1101,8 @@ function basculerStore() {
 // la vitre est cachée par le store (celle de la lucarne aussi, dans la chambre de rêve : les stores des deux
 // fenêtres se ferment ensemble)
 function ajusterVitre() {
-  vueFenetres.store(etatStore.f); // la vue s'éteint derrière le store
+  veluxMat.emissiveIntensity = (veluxMat.userData.base ?? 0.8) * (1 - 0.95 * etatStore.f);
+  matFenetre.emissiveIntensity = veluxMat.emissiveIntensity;
 }
 let storeLucarne = null; // chambre de rêve : { toile, barre, haut, hauteur } de la fenêtre de la lucarne
 function animerStore(dt) {
@@ -1153,7 +1157,7 @@ accrocher(reve ? ['ouest', 'est', 'sud', 'nordFond'] : ['nord', 'est', 'ouest', 
 // La charpente est la même que la nôtre, en miroir (son toit est le miroir du nôtre), sans le mobile.
 // La lucarne s'avance dans la pente nord : deux joues blanches, un petit plafond plat, et dans sa façade (le
 // mur bas qui monte jusqu'à ce plafond) une fenêtre en bois à deux battants. La vitre s'éclaire avec le jour.
-const matFenetre = vueFenetres.materiau(); // la même vue que par le Velux
+const matFenetre = new THREE.MeshStandardMaterial({ color: '#bfe3ff', emissive: '#bfe3ff', emissiveIntensity: 0.8, roughness: 0.2 });
 if (reve) {
   const miroir = charpente.clone(true);
   miroir.getObjectByName('mobile avions')?.removeFromParent();
@@ -2884,9 +2888,14 @@ function appliquerHeure(heure) {
   baseLumiere.hemi = 0.8 * (0.5 + 0.5 * f);
   hemi.color.copy(HEMI_CIEL_NUIT).lerp(HEMI_CIEL_JOUR, f);
 
-  vueFenetres.maj(f, d); // par les fenêtres : le ciel et les toits de Paris à cette heure
+  veluxMat.userData.base = 0.15 + 0.85 * f;
   ajusterVitre();
   appliquerLumiereJour(); // les intensités de l'heure, réduites si le store est fermé en plein jour
+  veluxMat.emissive.set(f > 0.3 ? '#bfe3ff' : '#0b1230');
+  veluxMat.color.copy(veluxMat.emissive);
+  // la fenêtre de la lucarne (chambre de rêve) s'éclaire comme le Velux (son intensité : voir ajusterVitre)
+  matFenetre.emissive.copy(veluxMat.emissive);
+  matFenetre.color.copy(veluxMat.emissive);
 
   nuit = 1 - f;
   document.documentElement.style.setProperty('--nuit', nuit.toFixed(3));
