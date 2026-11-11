@@ -1,14 +1,13 @@
 // Petite ambiance sonore, entièrement synthétisée avec Web Audio : aucun fichier à charger.
 // - des bruitages courts pour chaque action déjà animée (interrupteurs, TV, store, pages, portes,
 //   murs qui s'abaissent, mobile, caméra, petit bonhomme) ;
-// - en fond, un léger souffle de pièce, à peine perceptible.
+// - pas de bruit de fond : le souffle de pièce a été retiré (Noah ne l'aimait pas).
 // Les navigateurs n'autorisent le son qu'après un premier geste : tout reste muet jusque-là.
 // Le bouton haut-parleur (en haut à gauche, avec les murs) coupe ou remet le son ; le choix est retenu.
 
 let ctx = null;
 let sortie = null; // volume général (coupé = 0)
 let bus = null; // bruitages
-let fond = null; // ambiance
 let bruitBlanc = null;
 let actif = true;
 try {
@@ -31,14 +30,11 @@ function demarrer() {
   sortie.connect(comp).connect(ctx.destination);
   bus = ctx.createGain();
   bus.connect(sortie);
-  fond = ctx.createGain();
-  fond.connect(sortie);
 
   const n = ctx.sampleRate * 2;
   bruitBlanc = ctx.createBuffer(1, n, ctx.sampleRate);
   const d = bruitBlanc.getChannelData(0);
   for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
-  demarrerFond();
 }
 // le premier geste, quel qu'il soit, ouvre le son
 for (const ev of ['pointerdown', 'keydown', 'touchstart']) addEventListener(ev, () => {
@@ -355,21 +351,6 @@ function creerLecture({ fichier, vinyle = false }) {
 }
 sons.platine = creerLecture({ fichier: 'sons/platine.mp3', vinyle: true });
 sons.lecteurCD = creerLecture({ fichier: 'sons/lecteur-cd.mp3' });
-
-// --- Ambiance de fond ---
-function demarrerFond() {
-  // souffle de pièce : un bruit très grave et très bas, à peine perceptible
-  const src = ctx.createBufferSource();
-  src.buffer = bruitBlanc;
-  src.loop = true;
-  const f = ctx.createBiquadFilter();
-  f.type = 'lowpass';
-  f.frequency.value = 220;
-  const g = ctx.createGain();
-  g.gain.value = 0.05;
-  src.connect(f).connect(g).connect(fond);
-  src.start();
-}
 
 // --- Bouton haut-parleur ---
 const ICONE_SON = '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" fill="currentColor" fill-opacity=".22"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>';
