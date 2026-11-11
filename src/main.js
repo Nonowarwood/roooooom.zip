@@ -2205,7 +2205,7 @@ for (const m of meublesPiece) {
             }
             // les périphériques : chacun a sa fiche
             for (const [objet, nom, description] of [
-              ['objet_clavier', 'Clavier MelGeek VIVA63 HE', 'Le clavier MelGeek VIVA63 HE, coloris « Proto » : boîtier transparent, touches noires au profil MCR, Échap et Entrée jaunes, molette, écran OLED tactile et lumière RGB sur trois côtés. Branché en USB-C au ThinkPad.'],
+              ['objet_clavier', 'Clavier Moondrop Dash75', 'Le clavier Moondrop Dash75, gris et blanc, inspiré du Commodore 64 : boîtier en aluminium, barre nervurée et plaque « MOONDROP » champagne à l’arrière, touches PBT aux légendes en pixels 8 bits, Échap et Entrée saumon. Sur son flanc gauche, les prises casque de son DAC intégré. Branché en USB-C au ThinkPad.'],
               ['objet_souris', 'Souris Logitech G PRO 2 LIGHTSPEED', 'La souris Logitech G PRO 2 LIGHTSPEED noire, sans fil : symétrique, molette crantée, boutons latéraux côté pouce.'],
               ['objet_photocards', 'Photocards NMIXX', 'Des photocards du Season’s Greetings 2027 de NMIXX, « Mixx on the Road », éparpillées dans le coin du bureau : trois polaroids et une photocard aux coins arrondis.'],
               ['objet_tapis', 'Tapis de souris', 'Le grand tapis de souris noir à pivoines blanches, bordure cousue, sous le clavier et la souris.'],

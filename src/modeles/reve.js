@@ -721,117 +721,192 @@ function tapisDeSouris(m, L, P, { image: nomImage = 'tapis-souris', objet = 'obj
 }
 
 // ===========================================================================================
-// --- Le clavier MelGeek VIVA63 HE, coloris « Proto » (330 × 115 mm, 18,7 mm devant, pente de 7°) ---
-// D'après la fiche et les photos MelGeek : boîtier transparent givré, touches noires au profil MCR, Échap et Entrée
-// jaunes. Un 60 % avec flèches : 14, 14, 13 et 13 touches, puis Ctrl, Win, Alt, espace, Alt, Fn, ←, ↓, →. À
-// droite, l'îlot noir : la molette crantée, deux petites touches, « VIVA63 », l'écran OLED tactile (« VIVA » en
-// italique) et le bloc lumineux du coin. Dedans, vus à travers le boîtier : la plaque grise du fond, deux barrettes
-// jaunes, la plaque des switchs et la bande RGB sur trois côtés. La prise USB-C est sur le flanc gauche, avec son
-// câble branché. Origine : le centre du dessous ; on tape côté +z. Renvoie aussi le bout de la fiche USB-C.
+// --- Le clavier Moondrop Dash75, gris et blanc (313 × 162,5 mm ; 20 mm devant, pente de 7°, 45 mm à l'arrière) ---
+// D'après la fiche et les photos Moondrop (un 75 % inspiré du Commodore 64). Boîtier en aluminium peint blanc cassé
+// sur une base en PVC ; le capot sert de plaque : il est creusé d'un puits par groupe de touches (Échap, F1–F4, F5–F8,
+// F9–F12, Impr. écran, puis le bloc principal, entaillé d'une languette entre Fn et ←). À l'arrière, la barre plate
+// nervurée et, à gauche, la plaque « MOONDROP » champagne et ses deux vis. 81 touches PBT au profil Cherry, légendes
+// en pixels 8 bits (une décalcomanie par rangée, « legendes-dash75 ») : lettres blanc cassé, modificateurs et F5–F8
+// gris, Échap et Entrée saumon. Sur le flanc gauche, les deux prises casque du DAC (3,5 et 4,4 mm) ; sur les deux
+// flancs, la molette de la béquille ; au dos à droite, le hub : l'USB-C (son câble branché) et deux USB.
+// Origine : le centre du dessous ; on tape côté +z. Renvoie aussi le bout de la fiche USB-C et sa direction.
 // ===========================================================================================
-function clavierViva(m) {
-  const L = 0.33;
-  const P = 0.115;
-  const HAV = 0.0187; // hauteur à l'avant
+function clavierDash75(m) {
+  const [L, P, HAV, HAR] = [0.313, 0.1625, 0.0201, 0.045];
   const A = (7 * PI) / 180;
-  const HAR = HAV + P * Math.tan(A);
-  const dessusA = (z) => HAV + (P / 2 - z) * Math.tan(A); // le dessus du boîtier à la profondeur z
-  const transparent = new THREE.MeshStandardMaterial({ color: '#edf2f8', transparent: true, opacity: 0.4, roughness: 0.3, metalness: 0, depthWrite: false });
-  transparent.name = 'boitier-transparent';
-  const lueur = mat('lueur-rgb', '#d8e6ff', { emissive: '#cfe0ff', emissiveIntensity: 0.9 });
-  const oled = mat('oled', '#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.9 });
-  const noirTouche = m.uni('#2a2832');
-  const jaune = m.uni('#f2c14e');
+  const dessus = (z) => HAV + (P / 2 - z) * Math.tan(A); // le dessus du capot à la profondeur z
+  const CREUX = 0.0045; // la profondeur des puits : la plaque est sous le dessus du capot
+  const U = 0.01905;
+  const zBarre = -P / 2 + 0.03; // le pied de la face avant de la barre arrière
+  const alu = mat('alu-dash75', '#ecebe5', { roughness: 0.55 });
+  const base = mat('base-dash75', '#e1e0d9', { roughness: 0.7 });
+  const nervure = m.uni('#c9c8c1');
+  const trou = m.uni('#141318');
   const el = [];
 
-  // le boîtier, en coin
-  const b = 0.002;
-  el.push(prisme([[P / 2 - b, b], [P / 2 - b, HAV - b], [-P / 2 + b, HAR - b], [-P / 2 + b, b]], L, transparent, b));
-  // dedans : la plaque grise du fond, deux barrettes jaunes devant, la bande RGB (avant, gauche, droite)
-  el.push(boite([L - 0.012, 0.003, P - 0.012], m.uni('#b4b8c2'), [0, 0.0025, 0], { r: 0.001 }));
-  for (const x of [-0.125, -0.082]) el.push(boite([0.04, 0.0025, 0.004], jaune, [x, 0.0025, P / 2 - 0.008], { r: 0.0008 }));
-  el.push(boite([L - 0.016, 0.003, 0.002], lueur, [0, 0.0075, P / 2 - 0.005], { r: 0 }));
-  for (const s of [-1, 1]) el.push(boite([0.002, 0.003, P - 0.016], lueur, [s * (L / 2 - 0.005), 0.0085, 0], { r: 0 }));
+  // — le corps en aluminium, vu de profil (z, y) : le fond des puits en pente, la barre arrière plate à 45 mm ; dessous,
+  // la base en PVC un peu en retrait (le joint entre les deux), et quatre patins —
+  const b = 0.0015;
+  const yJoint = 0.0075;
+  el.push(prisme([[P / 2 - b, yJoint + b], [P / 2 - b, HAV - CREUX], [zBarre, dessus(zBarre) - CREUX], [zBarre - 0.0045, HAR - b], [-P / 2 + b, HAR - b], [-P / 2 + b, yJoint + b]], L, alu, b));
+  el.push(boite([L - 0.001, yJoint - 0.0019, P - 0.001], base, [0, 0.0015, 0], { r: 0.001 }));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) el.push(cylindre(0.012, 0.0016, m.uni('#3a3840'), [sx * (L / 2 - 0.02), 0, sz * (P / 2 - 0.016)], { segments: 14 }));
 
-  // le plan des touches, incliné comme le dessus : la plaque des switchs, puis les touches
-  const U = 0.01905;
+  // — la barre arrière : ses nervures, la plaque « MOONDROP » vissée à gauche —
+  for (let k = 0; k < 7; k++) el.push(boite([L - 0.006, 0.0004, 0.0011], nervure, [0, HAR, -P / 2 + 0.008 + k * 0.0026], { r: 0 }));
+  {
+    const [lp, pp, c] = [0.064, 0.0146, 0.0042]; // la plaque, et ses coins coupés
+    const f = new THREE.Shape([[-lp / 2 + c, -pp / 2], [lp / 2 - c, -pp / 2], [lp / 2, -pp / 2 + c], [lp / 2, pp / 2 - c], [lp / 2 - c, pp / 2], [-lp / 2 + c, pp / 2], [-lp / 2, pp / 2 - c], [-lp / 2, -pp / 2 + c]].map(([x, y]) => new THREE.Vector2(x, y)));
+    const g = new THREE.ExtrudeGeometry(f, { depth: 0.0008, bevelEnabled: true, bevelThickness: 0.0003, bevelSize: 0.0003, bevelSegments: 1 });
+    g.rotateX(-PI / 2);
+    const [xP, zP] = [-L / 2 + 0.06, (-P / 2 + zBarre) / 2 - 0.001];
+    g.translate(xP, HAR + 0.0007, zP);
+    el.push(ombres(new THREE.Mesh(g, mat('plaque-dash75', '#d9c39d', { roughness: 0.35, metalness: 0.5 }))));
+    const yP = HAR + 0.0018;
+    for (const s of [-1, 1]) {
+      el.push(cylindre(0.0046, 0.0004, m.uni('#9c8a6c'), [xP + s * (lp / 2 - 0.0055), yP, zP], { segments: 16 }));
+      el.push(cylindre(0.0024, 0.0005, m.uni('#6c604e'), [xP + s * (lp / 2 - 0.0055), yP, zP], { segments: 12 }));
+    }
+    // le nom, en lettres géométriques fines, un peu espacées
+    const nom = decalque(0.046, 0.008, (g2, w, h) => {
+      g2.fillStyle = '#6a5f4f';
+      g2.font = `500 ${Math.round(h * 0.82)}px "Avenir Next", "Futura", sans-serif`;
+      g2.textAlign = 'center';
+      g2.textBaseline = 'middle';
+      g2.letterSpacing = `${Math.round(h * 0.12)}px`;
+      g2.fillText('MOONDROP', w / 2, h * 0.54);
+    }, { nom: 'imprime-moondrop-dash75', px: 20000, rugosite: 0.4 });
+    nom.position.set(xP, yP + 0.0001, zP);
+    el.push(nom);
+  }
+
+  // — les flancs : les prises casque du DAC à gauche (3,5 mm cerclée de noir, 4,4 mm cerclée d'or), la molette de la
+  // béquille de chaque côté ; au dos, à droite, le hub : deux USB et l'USB-C —
+  for (const [z, d, cercle, dt] of [[-P / 2 + 0.013, 0.0072, '#2c2b31', 0.0036], [-P / 2 + 0.025, 0.0084, '#c9a55e', 0.0045]]) {
+    el.push(cylindre(d, 0.0008, m.uni(cercle), [-L / 2 - 0.0002, 0.027, z], { rot: [0, 0, PI / 2], centre: true, segments: 20 }));
+    el.push(cylindre(dt, 0.001, trou, [-L / 2 - 0.0004, 0.027, z], { rot: [0, 0, PI / 2], centre: true, segments: 16 }));
+  }
+  for (const s of [-1, 1]) el.push(cylindre(0.0085, 0.004, m.uni('#c6c5be'), [s * (L / 2 + 0.002), 0.0055, -P / 2 + 0.034], { rot: [0, 0, PI / 2], centre: true, segments: 6 }));
+  for (const x of [L / 2 - 0.022, L / 2 - 0.04]) {
+    el.push(boite([0.0125, 0.0048, 0.001], trou, [x, 0.0196, -P / 2 - 0.0002], { r: 0 }));
+    el.push(boite([0.0105, 0.0016, 0.0012], m.uni('#e9e8e2'), [x, 0.0222, -P / 2 - 0.0003], { r: 0 }));
+  }
+  const [xU, yU] = [L / 2 - 0.059, 0.022];
+  el.push(boite([0.0092, 0.0034, 0.001], trou, [xU, yU - 0.0017, -P / 2 - 0.0002], { r: 0 }));
+  el.push(boite([0.011, 0.0065, 0.016], m.uni('#2a2832'), [xU, yU - 0.00325, -P / 2 - 0.008], { r: 0.002 })); // la fiche
+  el.push(cylindre(0.0042, 0.012, m.uni('#2a2832'), [xU, yU, -P / 2 - 0.021], { rot: [PI / 2, 0, 0], centre: true, dBas: 0.0056, segments: 10 }));
+
+  // — le plan des touches, incliné comme le capot (y = 0 : le dessus du capot ; les puits descendent à −CREUX) —
   const plan = new THREE.Group();
-  plan.position.set(0, dessusA(0) + 0.0008, 0);
+  plan.position.set(0, dessus(0), 0);
   plan.rotation.x = A;
-  plan.add(boite([L - 0.014, 0.006, P - 0.014], m.uni('#2e2c36'), [0, -0.0078, 0], { r: 0.001 }));
-  const x0 = -L / 2 + 0.0085;
-  const zr = (r) => -P / 2 + 0.0098 + (r + 0.5) * U;
+  const x0 = -L / 2 + 0.0035; // le bord gauche des touches ; elles font 16 unités de large
+  const x1 = x0 + 16 * U;
+  const zK = -P / 2 + 0.0375; // le haut de la rangée des F ; les autres rangées suivent un quart d'unité plus bas
+  const zRang = (r) => zK + (r === 0 ? 0 : 0.25 * U + r * U); // le haut de la rangée r (0 : F, 1 : chiffres … 5 : espace)
+  const zF = zRang(5) + U; // le bas des touches
+  const jeu = 0.0006; // entre le bord d'un puits et ses touches
+  const rebord = (xa, xb, za, zb) => plan.add(boite([xb - xa, CREUX, zb - za], alu, [(xa + xb) / 2, -CREUX, (za + zb) / 2], { r: 0.0006 }));
+  const zBarreP = zBarre / Math.cos(A);
+  rebord(-L / 2, x0 - jeu, zBarreP, P / 2); // les bords du capot autour des puits
+  rebord(x1 + jeu, L / 2, zBarreP, P / 2);
+  rebord(x0 - jeu, x1 + jeu, zF + jeu, P / 2);
+  rebord(x0 - jeu, x1 + jeu, zBarreP, zK - jeu);
+  rebord(x0 - jeu, x1 + jeu, zK + U + jeu, zRang(1) - jeu); // entre les F et les chiffres
+  for (const u of [1, 5.5, 10, 14.5]) rebord(x0 + u * U + jeu, x0 + (u + 0.5) * U - jeu, zK - jeu, zK + U + jeu); // entre les groupes de F
+  rebord(x0 + 12.5 * U + jeu, x0 + 13 * U - jeu, zRang(5) - jeu, zF + jeu); // la languette entre Fn et ←
+
+  // les touches : profil Cherry (une base, un dessus plus petit, arêtes arrondies), plus hautes en haut du clavier
+  const blanc = m.uni('#efede6');
+  const gris = m.uni('#d5d1c6');
+  const saumon = m.uni('#e3988c');
+  const [B, G, S] = [blanc, gris, saumon];
+  const hauteurs = [0.0093, 0.0093, 0.0085, 0.008, 0.0083, 0.0083];
   const capuchons = new Map();
   const capuchon = (w, h) => {
     const cle = `${w}-${h}`;
     if (!capuchons.has(cle)) {
-      const lg = w * U - 0.0012;
-      const pr = U - 0.0012;
-      const g = new THREE.BoxGeometry(lg, h, pr);
+      const [lg, pr] = [w * U - 0.0008, U - 0.0008];
+      const g = new RoundedBoxGeometry(lg, h, pr, 1, 0.0011); // un seul pan par arrondi : 81 touches pèsent vite lourd
       g.translate(0, h / 2, 0);
       const pos = g.attributes.position;
-      for (let i = 0; i < pos.count; i++) if (pos.getY(i) > h / 2) pos.setXYZ(i, (pos.getX(i) * (lg - 0.0046)) / lg, pos.getY(i), (pos.getZ(i) * (pr - 0.0042)) / pr);
+      const [rx, rz] = [(lg - 0.0058) / lg, (pr - 0.0046) / pr];
+      for (let i = 0; i < pos.count; i++) {
+        const t = pos.getY(i) / h;
+        pos.setX(i, pos.getX(i) * (1 - t * (1 - rx)));
+        pos.setZ(i, pos.getZ(i) * (1 - t * (1 - rz)));
+      }
       g.computeVertexNormals();
       capuchons.set(cle, g);
     }
     return capuchons.get(cle);
   };
-  const hauteurs = [0.0105, 0.0095, 0.009, 0.0095, 0.0105]; // le profil MCR : rangées sculptées
-  [
-    [1, ...Array(12).fill(1), 2], // Échap (jaune), 1 … =, retour arrière
-    [1.5, ...Array(12).fill(1), 1.5], // Tab … \
-    [1.75, ...Array(11).fill(1), 2.25], // Verr. maj. … Entrée (jaune)
-    [2.25, ...Array(10).fill(1), 1.75, 1], // Maj., Z … /, Maj., ↑
-    [1.25, 1.25, 1.25, 6.25, 1, 1, 1, 1, 1], // Ctrl, Win, Alt, espace, Alt, Fn, ←, ↓, →
-  ].forEach((largeurs, r) => {
-    let u = 0;
-    largeurs.forEach((w, k) => {
-      const estJaune = (r === 0 && k === 0) || (r === 2 && k === largeurs.length - 1);
-      const t = ombres(new THREE.Mesh(capuchon(w, hauteurs[r]), estJaune ? jaune : noirTouche));
-      t.position.set(x0 + (u + w / 2) * U, 0, zr(r));
-      plan.add(t);
-      u += w;
-    });
-  });
-  // l'îlot de droite
-  const xI = (x0 + 15 * U + L / 2 - 0.005) / 2;
-  const lI = L / 2 - 0.005 - (x0 + 15 * U) - 0.002;
-  plan.add(boite([lI, 0.0012, 5 * U], m.uni('#1d1b23'), [xI, -0.0006, zr(2)], { r: 0.0005 }));
-  const zK = zr(0) + 0.002; // la molette crantée, son dessus et son repère
-  plan.add(cylindre(0.021, 0.013, m.uni('#2a2832'), [xI, 0.0006, zK], { segments: 32 }));
-  for (let k = 0; k < 24; k++) {
-    const a = (k / 24) * 2 * PI;
-    plan.add(boite([0.0012, 0.011, 0.0012], m.uni('#3b3945'), [xI + 0.0105 * Math.cos(a), 0.0016, zK + 0.0105 * Math.sin(a)], { r: 0 }));
-  }
-  plan.add(cylindre(0.017, 0.0008, m.uni('#4a4856'), [xI, 0.0136, zK], { segments: 28 }));
-  plan.add(boite([0.0012, 0.0004, 0.005], m.uni('#dedce6'), [xI, 0.0144, zK - 0.004], { r: 0 }));
-  for (const s of [-1, 1]) plan.add(boite([0.0115, 0.006, 0.0075], noirTouche, [xI + s * 0.0068, 0, zr(1) + 0.002], { r: 0.001 })); // les deux petites touches
-  plan.add(boite([0.012, 0.0003, 0.0018], m.uni('#9b99a8'), [xI, 0.0001, zr(2) - 0.004], { r: 0 })); // « VIVA63 »
-  // l'écran OLED, avec « VIVA » en italique, écrit de bas en haut (le haut des lettres vers la gauche)
-  const zS = zr(3) + 0.003;
-  plan.add(boite([0.022, 0.0009, 0.03], m.uni('#0f0e13'), [xI, 0, zS], { r: 0.0003 }));
-  const lettres = [
-    [1, [[0, 1, 0.5, 0], [0.5, 0, 1, 1]]], // V
-    [0.36, [[0.5, 0, 0.5, 1]]], // I
-    [1, [[0, 1, 0.5, 0], [0.5, 0, 1, 1]]], // V
-    [1, [[0, 0, 0.5, 1], [0.5, 1, 1, 0], [0.25, 0.45, 0.75, 0.45]]], // A
+  // [position en unités (null : à la suite), largeur, couleur, légende (une chaîne, ou [haut, bas])]
+  const lettres = (s) => [...s].map((c) => [null, 1, B, c]);
+  const RANGEES = [
+    [[0, 1, S, 'Esc'], [1.5, 1, B, 'F1'], [null, 1, B, 'F2'], [null, 1, B, 'F3'], [null, 1, B, 'F4'], [6, 1, G, 'F5'], [null, 1, G, 'F6'], [null, 1, G, 'F7'], [null, 1, G, 'F8'], [10.5, 1, B, 'F9'], [null, 1, B, 'F10'], [null, 1, B, 'F11'], [null, 1, B, 'F12'], [15, 1, B, 'PS']],
+    [[0, 1, B, ['~', '`']], ...[...'1234567890'].map((c, i) => [null, 1, B, ['!@#$%^&*()'[i], c]]), [null, 1, B, ['_', '-']], [null, 1, B, ['+', '=']], [null, 2, G, '←'], [null, 1, B, 'Ins']],
+    [[0, 1.5, G, 'Tab'], ...lettres('QWERTYUIOP'), [null, 1, B, ['{', '[']], [null, 1, B, ['}', ']']], [null, 1.5, B, ['|', '\\']], [null, 1, B, 'Del']],
+    [[0, 1.75, G, 'Caps'], ...lettres('ASDFGHJKL'), [null, 1, B, [':', ';']], [null, 1, B, ['"', "'"]], [null, 2.25, S, '↵'], [null, 1, B, 'PgUp']],
+    [[0, 2.25, G, '⇧'], ...lettres('ZXCVBNM'), [null, 1, B, ['<', ',']], [null, 1, B, ['>', '.']], [null, 1, B, ['?', '/']], [null, 1.75, G, '⇧'], [null, 1, G, '↑'], [null, 1, B, 'PgDn']],
+    [[0, 1.25, G, 'Ctrl'], [null, 1.25, G, 'Win'], [null, 1.25, G, 'Alt'], [null, 6.25, B, ''], [null, 1.25, G, 'Alt'], [null, 1.25, G, 'Fn'], [13, 1, G, '←'], [null, 1, G, '↓'], [null, 1, G, '→']],
   ];
-  let a0 = 0;
-  const yT = 0.0011;
-  const versEcran = (a, hb) => [xI + 0.0058 - hb * 0.0116, yT, zS + 0.0112 - (a + hb * 0.0012)]; // a : le long du texte, hb : de 0 (pied) à 1 (haut)
-  for (const [w, traits] of lettres) {
-    for (const [a1, b1, a2, b2] of traits) plan.add(barrePlate(versEcran(a0 + a1 * w * 0.0055, b1), versEcran(a0 + a2 * w * 0.0055, b2), [0.0011, 0.0003], oled, 0.0001));
-    a0 += w * 0.0055 + 0.0012;
-  }
+  // les légendes : dessinées en petit sur une grille de pixels (0,32 mm), puis seuillées : des pixels nets, 8 bits
+  const PXM = 3125;
+  const [CW, CH] = [Math.round(16 * U * PXM), Math.round((zF - zK) * PXM)];
+  const c = document.createElement('canvas');
+  c.width = CW;
+  c.height = CH;
+  const g2 = c.getContext('2d');
+  g2.fillStyle = '#4c4944';
+  g2.textAlign = 'center';
+  g2.textBaseline = 'middle';
+  const base0 = -CREUX + 0.004; // le pied des touches, un peu sous le dessus du capot
+  RANGEES.forEach((rangee, r) => {
+    let u = 0;
+    const h = hauteurs[r];
+    const zc = zRang(r) + U / 2;
+    for (const [pos, w, couleur, legende] of rangee) {
+      if (pos !== null) u = pos;
+      const touche = ombres(new THREE.Mesh(capuchon(w, h), couleur));
+      touche.position.set(x0 + (u + w / 2) * U, base0, zc);
+      plan.add(touche);
+      const cx = (u + w / 2) * U * PXM;
+      const cy = (zc - zK - 0.0012) * PXM;
+      if (Array.isArray(legende)) {
+        g2.font = 'bold 8px Menlo, monospace';
+        g2.fillText(legende[0], cx, cy - 4.5);
+        g2.fillText(legende[1], cx, cy + 4.5);
+      } else if (legende) {
+        g2.font = `bold ${legende.length > 3 ? 7 : legende.length > 1 ? 8 : 10}px Menlo, monospace`;
+        g2.fillText(legende, cx, cy);
+      }
+      u += w;
+    }
+  });
+  const img = g2.getImageData(0, 0, CW, CH);
+  for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] > 110 ? 255 : 0;
+  g2.putImageData(img, 0, 0);
+  const carte = new THREE.CanvasTexture(c);
+  carte.colorSpace = THREE.SRGBColorSpace;
+  carte.magFilter = THREE.NearestFilter;
+  carte.anisotropy = 8;
+  const matLegendes = new THREE.MeshStandardMaterial({ map: carte, transparent: true, depthWrite: false, roughness: 0.6 });
+  matLegendes.name = 'legendes-dash75';
+  RANGEES.forEach((_, r) => {
+    // une bande de la décalcomanie par rangée, posée 0,4 mm au-dessus du dessus de ses touches
+    const g = new THREE.PlaneGeometry(16 * U, U);
+    const [vHaut, vBas] = [1 - ((zRang(r) - zK) * PXM) / CH, 1 - ((zRang(r) + U - zK) * PXM) / CH];
+    const uv = g.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setY(i, vBas + uv.getY(i) * (vHaut - vBas));
+    g.rotateX(-PI / 2);
+    const bande = new THREE.Mesh(g, matLegendes);
+    bande.name = 'legendes-dash75';
+    bande.position.set(x0 + 8 * U, base0 + hauteurs[r] + 0.0004, zRang(r) + U / 2);
+    plan.add(bande);
+  });
   el.push(plan);
-  // le bloc lumineux du coin avant droit, sous l'écran
-  el.push(boite([0.026, 0.008, 0.01], lueur, [xI, 0.004, P / 2 - 0.009], { r: 0.001 }));
-  // la prise USB-C du flanc gauche et la fiche du câble
-  const zU = -0.02;
-  const yU = 0.0085;
-  el.push(boite([0.016, 0.0065, 0.011], m.uni('#2a2832'), [-L / 2 - 0.008, yU - 0.00325, zU], { r: 0.002 }));
-  el.push(cylindre(0.0042, 0.012, m.uni('#2a2832'), [-L / 2 - 0.021, yU, zU], { rot: [0, 0, PI / 2], centre: true, dBas: 0.0056, segments: 10 }));
-  return { groupe: groupe('objet_clavier', el), sortieUSB: new THREE.Vector3(-L / 2 - 0.027, yU, zU), dirUSB: new THREE.Vector3(-1, 0, 0) };
+  return { groupe: groupe('objet_clavier', el), sortieUSB: new THREE.Vector3(xU, yU, -P / 2 - 0.027), dirUSB: new THREE.Vector3(0, 0, -1) };
 }
 
 // ===========================================================================================
@@ -1248,15 +1323,15 @@ function bureauBas() {
   tapis.position.set(xT, T, zT);
   parts.push(tapis);
   const ySurTapis = T + 0.0048; // le dessus imprimé du tapis
-  const { groupe: clavier, sortieUSB, dirUSB } = clavierViva(m);
-  clavier.position.set(0.1, ySurTapis, 0.135);
+  const { groupe: clavier, sortieUSB, dirUSB } = clavierDash75(m);
+  clavier.position.set(0.1, ySurTapis, 0.109); // son devant au même endroit que celui de l'ancien clavier
   parts.push(clavier);
   const souris = sourisGPro2(m);
   souris.position.set(0.384, ySurTapis, 0.137); // sur la grande feuille blanche du tapis : la souris noire s'y détache
   souris.rotation.y = 0.06;
   parts.push(souris);
   parts.push(photocards(m, ySurTapis, T)); // dans le coin en haut à droite du tapis, une sur le bureau
-  // le câble du clavier : de sa prise USB-C (flanc gauche) au port USB du flanc droit du ThinkPad
+  // le câble du clavier : de sa prise USB-C (au dos, à droite) au port USB du flanc droit du ThinkPad, derrière le clavier
   const finClavier = sortieUSB.clone().add(clavier.position);
   const finTP = usbTP.clone().applyMatrix4(tp.matrixWorld);
   const versTP = dirUsbTP.clone().transformDirection(tp.matrixWorld);
@@ -1264,9 +1339,9 @@ function bureauBas() {
   const trajetUSB = [
     finTP,
     finTP.clone().addScaledVector(versTP, 0.015).add(new THREE.Vector3(0, -0.006, 0)),
-    surBureau(finTP.x + 0.03, finTP.z + 0.02),
-    surBureau((finTP.x + finClavier.x) / 2, Math.max(finTP.z, finClavier.z) + 0.04),
-    surBureau(finClavier.x - 0.03, finClavier.z + 0.01),
+    surBureau(finTP.x + 0.035, finTP.z - 0.015),
+    surBureau((finTP.x + finClavier.x) / 2, Math.min(finTP.z, finClavier.z) - 0.045),
+    surBureau(finClavier.x + 0.012, finClavier.z - 0.035),
     finClavier.clone().addScaledVector(dirUSB, 0.012),
     finClavier,
   ];
