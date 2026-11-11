@@ -1,19 +1,23 @@
-// Menu d'accueil : à chaque arrivée sur le site, on choisit la pièce à visiter dans un carrousel (la pièce au
-// centre, son nom en arc au-dessus, un sous-titre en arc dessous, « Visiter », et l'autre pièce floutée sur le
-// côté). Le choix est rangé dans globalThis.PIECE, que lit src/mode.js, puis la scène est chargée : l'écran de
-// chargement prend le relais sous le menu, qui s'efface.
+// Menu d'accueil : à chaque arrivée sur le site, on choisit la pièce à visiter. À gauche, la pièce choisie : son
+// numéro, son nom en grand, son lieu, une phrase, « Visiter », puis la liste de toutes les pièces (un clic en choisit
+// une ; ← → au clavier, un glissé au doigt). À droite, en grand, sa scène 3D. Le choix est rangé dans
+// globalThis.PIECE, que lit src/mode.js, puis la scène est chargée : l'écran de chargement prend le relais sous le
+// menu, qui s'efface.
 //
-// Chaque pièce du carrousel est la vraie scène 3D, qui tourne lentement : cette même page ouverte dans une
-// iframe avec ?miniature=<pièce> (voir plus bas). En attendant qu'elle soit chargée, on montre son image
-// détourée (public/apercus/), qui laisse ensuite la place à la 3D en fondu.
+// La pièce choisie est la vraie scène 3D, qui tourne lentement : cette même page ouverte dans une iframe avec
+// ?miniature=<pièce> (voir plus bas). En attendant qu'elle soit chargée, on montre son image détourée
+// (public/apercus/), qui laisse ensuite la place à la 3D en fondu.
 // (Ce fichier n'importe rien : three.js n'est chargé qu'avec la scène.)
 const chemin = (url) => import.meta.env.BASE_URL + url.slice(1); // comme dans textures.js
 
 const pieces = [
-  { piece: 'chambre', titre: 'Chambre', sousTitre: 'Paris', image: '/apercus/chambre.png' },
-  { piece: 'reve', titre: 'Chambre de rêve', sousTitre: 'Paris', image: '/apercus/reve.png' }, // au même endroit que l'autre : sous-titre = le lieu
-  { piece: 'mantes', titre: 'Chambre', sousTitre: 'Mantes-la-Jolie', image: '/apercus/mantes.png', wip: true },
+  { piece: 'chambre', titre: 'Chambre', lieu: 'Paris', image: '/apercus/chambre.png', description: 'Ma chambre sous les toits : le lit, le bureau, la vitrine, la charpente et le Velux.' },
+  { piece: 'reve', titre: 'Chambre de rêve', lieu: 'Paris', image: '/apercus/reve.png', description: 'Le mur abattu : un studio avec son coin nuit sur tatamis, le bureau bas, le coin salon et la platine.' },
+  { piece: 'mantes', titre: 'Chambre', lieu: 'Mantes-la-Jolie', image: '/apercus/mantes.png', description: 'La chambre de Mantes-la-Jolie, encore en chantier.', wip: true },
 ];
+// la police des titres (Milky Boba) n'a pas de « ê » : un « e » de la police, coiffé d'un accent dessiné (.circ)
+export const titreHtml = (t) => t.replace(/ê/g, '<span class="circ">e</span>');
+const deux = (n) => String(n).padStart(2, '0');
 
 // Chaque pièce a sa scène : Paris et la chambre de rêve partagent src/main.js, Mantes a la sienne.
 const scenePiece = (piece) => (piece === 'mantes' ? import('./mantes.js') : import('./main.js'));
@@ -69,13 +73,19 @@ function ouvrirMenu() {
     if (p.image) img.src = chemin(p.image);
     img.alt = '';
     div.append(img);
-    // une pièce voisine, floutée sur le côté : un clic dessus y mène
-    div.addEventListener('click', () => {
-      const i = cases.indexOf(div);
-      if (i !== index) aller(i - index);
-    });
     scene.append(div);
     return div;
+  });
+  // la liste de toutes les pièces : numéro, nom, lieu ; un clic y mène
+  const lignes = pieces.map((p, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `<span class="accueil-liste-numero">${deux(i + 1)}</span><span class="accueil-liste-nom"></span><span class="accueil-liste-lieu"></span>`;
+    b.querySelector('.accueil-liste-nom').textContent = p.titre;
+    b.querySelector('.accueil-liste-lieu').textContent = p.lieu;
+    b.addEventListener('click', () => aller(i - index));
+    el('accueil-liste').append(b);
+    return b;
   });
   // la scène 3D d'une case : créée quand la pièce arrive au centre, vidée (et sa mémoire rendue) quand elle le quitte
   const animer = (i) => {
@@ -104,22 +114,18 @@ function ouvrirMenu() {
 
   function afficher(sens = 0) {
     const p = pieces[index];
-    el('accueil-nom').textContent = p.titre;
-    el('titre-arc').textContent = p.titre;
-    // un titre long s'écrit plus petit : au-delà de la fin de l'arc, les lettres ne seraient pas dessinées
-    el('titre-arc').style.fontSize = p.titre.length > 10 ? '46px' : '';
-    el('sous-titre-arc').textContent = p.sousTitre;
+    el('accueil-numero').textContent = `${deux(index + 1)} / ${deux(pieces.length)}`;
+    el('accueil-nom').innerHTML = titreHtml(p.titre);
+    el('accueil-lieu').textContent = p.lieu;
+    el('accueil-desc').textContent = p.description;
     el('accueil-wip').hidden = !p.wip;
     cases.forEach((c, i) => (i === index ? animer(i) : endormir(c)));
     cases.forEach((c, i) => {
       c.classList.toggle('courante', i === index);
-      c.classList.toggle('gauche', i === index - 1);
-      c.classList.toggle('droite', i === index + 1);
-      c.classList.toggle('cachee', Math.abs(i - index) > 1);
+      c.classList.toggle('avant', i < index); // celles d'avant s'effacent vers la gauche, celles d'après vers la droite
     });
-    el('precedent').disabled = index === 0;
-    el('suivant').disabled = index === pieces.length - 1;
-    // le texte change en douceur, du côté d'où l'on vient
+    lignes.forEach((b, i) => b.setAttribute('aria-current', String(i === index)));
+    // le texte et la scène changent en douceur, du côté d'où l'on vient
     if (sens) {
       accueil.dataset.sens = sens > 0 ? 'droite' : 'gauche';
       accueil.classList.remove('glisse');
@@ -129,13 +135,11 @@ function ouvrirMenu() {
   }
   function aller(sens) {
     const i = index + sens;
-    if (i < 0 || i >= pieces.length) return;
+    if (!sens || i < 0 || i >= pieces.length) return;
     index = i;
     afficher(sens);
   }
 
-  el('precedent').addEventListener('click', () => aller(-1));
-  el('suivant').addEventListener('click', () => aller(1));
   addEventListener('keydown', (e) => {
     if (accueil.classList.contains('fini')) return;
     if (e.key === 'ArrowLeft') aller(-1);
@@ -155,7 +159,7 @@ function ouvrirMenu() {
     el('visiter').disabled = true; // un seul choix
     const p = pieces[index];
     globalThis.PIECE = p.piece;
-    document.querySelector('.chargement-titre').textContent = p.titre;
+    document.querySelector('.chargement-titre').innerHTML = titreHtml(p.titre);
     accueil.classList.add('fini');
     scenePiece(p.piece);
     // une fois le menu effacé, la miniature s'arrête : la carte graphique est pour la vraie scène
