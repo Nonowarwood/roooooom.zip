@@ -11,7 +11,7 @@ const chemin = (url) => import.meta.env.BASE_URL + url.slice(1); // comme dans t
 
 const pieces = [
   { piece: 'chambre', titre: 'Chambre', sousTitre: 'Paris', image: '/apercus/chambre.png' },
-  { piece: 'reve', titre: 'Chambre', sousTitre: 'Le mur abattu', image: '/apercus/reve.png', wip: true },
+  { piece: 'reve', titre: 'Chambre de rêve', sousTitre: 'Paris', image: '/apercus/reve.png' }, // au même endroit que l'autre : sous-titre = le lieu
   { piece: 'mantes', titre: 'Chambre', sousTitre: 'Mantes-la-Jolie', image: '/apercus/mantes.png', wip: true },
 ];
 
@@ -90,6 +90,8 @@ function ouvrirMenu() {
     const p = pieces[index];
     el('accueil-nom').textContent = p.titre;
     el('titre-arc').textContent = p.titre;
+    // un titre long s'écrit plus petit : au-delà de la fin de l'arc, les lettres ne seraient pas dessinées
+    el('titre-arc').style.fontSize = p.titre.length > 10 ? '46px' : '';
     el('sous-titre-arc').textContent = p.sousTitre;
     el('accueil-wip').hidden = !p.wip;
     cases.forEach((c, i) => {
