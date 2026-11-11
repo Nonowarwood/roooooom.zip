@@ -18,9 +18,31 @@ const pieces = [
 // Chaque pièce a sa scène : Paris et la chambre de rêve partagent src/main.js, Mantes a la sienne.
 const scenePiece = (piece) => (piece === 'mantes' ? import('./mantes.js') : import('./main.js'));
 
-const pieceMiniature = new URLSearchParams(location.search).get('miniature');
-if (pieceMiniature) ouvrirMiniature(pieceMiniature);
-else ouvrirMenu();
+const parametres = new URLSearchParams(location.search);
+const pieceMiniature = parametres.get('miniature');
+if (parametres.has('atelier')) ouvrirAtelier();
+else if (pieceMiniature) ouvrirMiniature(pieceMiniature);
+else {
+  ouvrirMenu();
+  guetterMotSecret();
+}
+
+// --- L'atelier (src/atelier.js) : un écran caché pour inspecter les modèles de près, à la place du menu ---
+function ouvrirAtelier() {
+  document.body.classList.add('en-atelier');
+  import('./atelier.js');
+}
+// Easter egg : taper « atelier » au clavier, n'importe quand (dans le menu comme dans une pièce), y mène.
+function guetterMotSecret() {
+  const MOT = 'atelier';
+  let tape = '';
+  addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || e.key.length !== 1) return;
+    if (e.target instanceof HTMLElement && e.target.closest('textarea, [contenteditable], input:not([type="range"])')) return;
+    tape = (tape + e.key.toLowerCase()).slice(-MOT.length);
+    if (tape === MOT) location.search = '?atelier';
+  });
+}
 
 // --- Dans l'iframe d'une miniature : la scène seule, sans interface, sur fond transparent ---
 function ouvrirMiniature(piece) {

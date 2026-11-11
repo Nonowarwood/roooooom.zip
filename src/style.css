@@ -235,6 +235,8 @@ html, body {
 body.miniature,
 html:has(body.miniature) { background: transparent; }
 body.miniature > *:not(#scene) { display: none !important; }
+/* l'atelier (src/atelier.js) remplace tout le reste de la page */
+body.en-atelier > *:not(.atelier, .fond, .grain) { display: none !important; }
 .accueil-arc { position: absolute; left: 50%; width: min(460px, 82vw); transform: translateX(-50%); overflow: visible; }
 .accueil-arc text { font-family: 'Milky Boba', Georgia, serif; fill: #fff; filter: drop-shadow(0 2px 10px #0000004d); }
 .accueil-arc.haut { top: calc(48% - min(250px, 37vw) - min(70px, 12vw)); }

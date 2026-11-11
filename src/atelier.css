@@ -1,0 +1,152 @@
+/* L'atelier (src/atelier.js) : mêmes boutons et panneaux que le reste du site. */
+.atelier {
+  position: fixed;
+  inset: 0;
+  font-family: Inter, system-ui, sans-serif;
+  color: #fff;
+}
+.atelier [hidden] { display: none !important; }
+.atelier-vue {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+.atelier-panneau {
+  background: var(--panneau);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  backdrop-filter: var(--flou);
+  -webkit-backdrop-filter: var(--flou);
+}
+.atelier-bouton {
+  color: #fff;
+  background: var(--panneau);
+  border: 1px solid var(--bord);
+  border-radius: 18px;
+  padding: 7px 14px;
+  font: 500 13px Inter, system-ui, sans-serif;
+  cursor: pointer;
+  backdrop-filter: var(--flou);
+  -webkit-backdrop-filter: var(--flou);
+}
+.atelier-bouton:hover { border-color: var(--bord-survol); }
+.atelier-bouton.actif,
+.atelier-bouton[aria-pressed="true"] { background: var(--prune); border-color: var(--bord-actif); }
+.atelier-bouton.rond { width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1; flex: none; }
+
+/* en haut à gauche : retour, titre, vue d'ensemble, état du chargement */
+.atelier-tete {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.atelier-tete > * { pointer-events: auto; }
+.atelier-tete h1 { margin: 0 4px; font-size: 17px; font-weight: 600; }
+.atelier-etat { font-size: 12px; opacity: 0.75; }
+.atelier-aide {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  margin: 0;
+  line-height: 34px;
+  font-size: 12px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* à gauche : tous les modèles, par pièce */
+.atelier-liste {
+  position: absolute;
+  top: 60px;
+  left: 12px;
+  bottom: 12px;
+  width: 232px;
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  scrollbar-width: thin;
+}
+.atelier-liste h2 {
+  margin: 8px 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+.atelier-puces { display: flex; flex-wrap: wrap; gap: 5px; }
+.atelier-puce {
+  color: #fff;
+  background: #ffffff12;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 4px 9px;
+  font: 500 12px Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+.atelier-puce:hover { border-color: var(--bord-survol); }
+.atelier-puce.actif { background: var(--prune); border-color: var(--bord-actif); }
+
+/* en bas à droite : la fiche du modèle choisi */
+.atelier-fiche {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 340px;
+  padding: 12px 14px 14px;
+}
+.atelier-fiche-tete { display: flex; align-items: center; gap: 10px; }
+.atelier-fiche-titre { flex: 1; min-width: 0; text-align: center; }
+.atelier-fiche h2 { margin: 0; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.atelier-source { margin: 2px 0 0; font-size: 11px; opacity: 0.6; overflow-wrap: anywhere; }
+.atelier-cotes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0 8px; }
+.atelier-cotes div { background: #ffffff10; border-radius: 10px; padding: 6px 8px; text-align: center; }
+.atelier-cotes dt { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; }
+.atelier-cotes dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.atelier-stats { margin: 0 0 10px; font-size: 12px; opacity: 0.75; text-align: center; font-variant-numeric: tabular-nums; }
+.atelier-groupe { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.atelier-groupe + .atelier-groupe { margin-top: 6px; }
+.atelier-groupe .atelier-bouton { padding: 6px 11px; font-size: 12px; backdrop-filter: none; }
+
+/* les noms au sol, devant chaque modèle, et celui de chaque rangée */
+.atelier-etiquettes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.atelier-etiquette,
+.atelier-rangee {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  will-change: transform;
+}
+.atelier-etiquette {
+  pointer-events: auto;
+  color: #fff;
+  background: #1d1230b0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 2px 7px;
+  font: 500 11px Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+.atelier-etiquette:hover,
+.atelier-etiquette.survol { border-color: var(--rose); }
+.atelier-rangee {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rose);
+  text-shadow: 0 1px 6px #0008;
+  padding-right: 6px;
+}
+
+@media (max-width: 760px) {
+  .atelier-aide { display: none; }
+  .atelier-liste { top: auto; right: 12px; width: auto; max-height: 26vh; }
+  .atelier-fiche { top: 60px; bottom: auto; left: 12px; width: auto; }
+}

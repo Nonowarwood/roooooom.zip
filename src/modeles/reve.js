@@ -3296,7 +3296,7 @@ function baguetteKiiikiii() {
   const capot = new THREE.MeshStandardMaterial({ map: givreManche(false), roughness: 0.5 });
   capot.name = 'capot-kiiikiii';
 
-  const RE = 73 * PX; // 5,96 cm : 139 px de pointe à pointe
+  const RE = 73 * PX + 0.005 * (1 / Math.sin(0.6) - 1); // 139 px de pointe à pointe, mesurés au bout arrondi des pointes
   const RI = 0.6 * RE; // les creux, bien remplis
   const EP = 0.024; // épaisseur de l'acrylique
   const B = 0.003; // son biseau
