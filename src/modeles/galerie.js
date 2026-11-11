@@ -6,7 +6,8 @@ import { modelesReve } from './reve.js';
 
 // Page de travail : montre tous les modèles côte à côte (pour les regarder de
 // près) et les exporte en .glb. Le bouton télécharge les fichiers, à ranger dans
-// public/models/. Les fichiers déjà livrés avec le projet ont été produits ainsi.
+// public/models/. Les fichiers déjà livrés avec le projet ont été produits ainsi,
+// puis compressés : après un export, lancer `npm run compresser` (scripts/compresser.mjs).
 
 const canvas = document.getElementById('vue');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
