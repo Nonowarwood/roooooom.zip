@@ -2220,7 +2220,7 @@ for (const m of meublesPiece) {
                 if (lit) sons.lecteurCD.jouer();
                 else sons.lecteurCD.arreter();
               };
-              ouvrantCliquable('Lecteur CD Moondrop DiscDream 2 Ultra', 'Le lecteur CD portable Moondrop DiscDream 2 Ultra, en aluminium brossé, entre les deux enceintes : on devine le CD par les fentes du dessus. Clique pour lancer le CD ou l’arrêter.', lecteur, lecteur, basculerCD);
+              ouvrantCliquable('Lecteur CD Moondrop DiscDream 2 Ultra', 'Le lecteur CD portable Moondrop DiscDream 2 Ultra, en aluminium brossé, entre les deux enceintes : on devine le CD par les fentes du dessus. Clique pour le lancer : YEONJUN, « Fxxking Star ». Clique encore pour l’arrêter.', lecteur, lecteur, basculerCD);
             }
           }
           if (m.nom === 'platine Rega Planar 1') {

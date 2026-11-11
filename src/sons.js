@@ -252,7 +252,9 @@ export const sons = {
 };
 
 // --- La musique : la platine (un vinyle qui craque, synthétisé) et le lecteur CD (son moteur qui se lance) ---
-// Chacun joue aussi un extrait s'il trouve son fichier (public/sons/platine.mp3, public/sons/lecteur-cd.mp3) : sans
+// Chacun joue aussi un extrait s'il trouve son fichier, choisi par Noah : public/sons/platine.mp3 (« Fly Me to the
+// Moon », la fin d'Evangelion, version Claire) et public/sons/lecteur-cd.mp3 (YEONJUN, « Fxxking Star », une minute
+// du 2e refrain au refrain final) ; 128 kb/s, volume harmonisé, fondus aux deux bouts (ils jouent en boucle). Sans
 // fichier, la platine ne fait entendre que son vinyle, le lecteur CD que son moteur.
 const BASE = import.meta.env.BASE_URL;
 
