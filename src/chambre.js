@@ -817,12 +817,12 @@ export const objetsVitrine = [
     devant: 'TourBook KiiiKiii (Guide Book Ver.)',
   },
   {
-    // la baguette étoile (un modèle .glb, voir baguetteKiiikiii dans src/modeles/reve.js) : couchée devant les
+    // le light stick (un modèle .glb, voir baguetteKiiikiii dans src/modeles/reve.js) : couché devant les
     // objets de l'album, l'étoile à gauche, le manche vers la droite et un peu vers la porte vitrée ; `z` = la
     // profondeur de son axe, `rotation` = son orientation (π/2 : le manche vers +x)
     nom: 'light stick KiiiKiii',
     description:
-      "La baguette étoile de KiiiKiii, celle que les cinq membres tiennent sur les photocards de précommande : une étoile blanc nacré toute gonflée, aux pointes arrondies, sur un manche blanc (sa bague nacrée, sa poignée striée et son bouton), sa dragonne en satin rouge repliée à côté. Clique pour l'allumer ou l'éteindre.",
+      "Le light stick officiel de KiiiKiii : une étoile dodue en acrylique clair, avec dedans deux étoiles givrées en gradins, sur un col blanc et un manche carré givré (on devine l'électronique en haut, le capot des piles en bas). Clique pour l'allumer ou l'éteindre.",
     glb: '/models/baguette-kiiikiii.glb',
     pos: [VX - 0.13, 1.328],
     z: 0.262,

@@ -1793,8 +1793,8 @@ if (reve) {
 }
 for (const o of objetsVitrine) {
   if (o.glb) {
-    // un objet livré en .glb (la baguette étoile de KiiiKiii), posé tel quel sur l'étagère ; son étoile (matériau
-    // « etoile-kiiikiii ») s'allume ou s'éteint au clic, d'une lueur rose pâle
+    // un objet livré en .glb (le light stick de KiiiKiii), posé tel quel sur l'étagère ; son étoile (matériaux
+    // « etoile-kiiikiii… » : le givré, l'acrylique, son chant) s'allume ou s'éteint au clic, d'une lueur rose pâle
     const g = new THREE.Group();
     g.name = o.nom;
     g.position.set(o.pos[0], o.pos[1], o.z);
@@ -1805,9 +1805,9 @@ for (const o of objetsVitrine) {
     chargeur.load(textures.chemin(o.glb), (gltf) => {
       gltf.scene.traverse((m) => {
         if (!m.isMesh) return;
-        m.castShadow = true;
+        m.castShadow = !m.material?.transparent; // l'acrylique clair ne fait pas d'ombre pleine
         m.receiveShadow = true;
-        if (m.material?.name === 'etoile-kiiikiii') etoiles.push(m.material);
+        if (m.material?.name?.startsWith('etoile-kiiikiii')) etoiles.push(m.material);
       });
       g.add(gltf.scene);
     });

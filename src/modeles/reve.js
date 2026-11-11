@@ -3176,27 +3176,20 @@ function rackVetements() {
 }
 
 // ===========================================================================================
-// --- La baguette étoile de KiiiKiii (« KiiiKiii OFFICIAL LIGHT STICK »), d'après le visuel des photocards de
-// précommande où les cinq membres la tiennent ---
-// Une étoile à cinq branches, blanc nacré un peu bleuté, toute gonflée (épaisse de 3,2 cm au cœur, ses bords
-// s'arrondissent jusqu'à la couture du moule) et aux pointes arrondies ; un col qui la tient, un manche blanc
-// brillant, une bague nacrée, la poignée et son bouton, le bout arrondi avec son anneau et la dragonne en satin
-// rouge. 12 cm de pointe à pointe, 30 cm de long. Le visuel est flou : les détails du manche sont ceux d'un light
-// stick (à corriger d'après une photo nette).
-// Posée à plat, l'étoile vers le haut, le manche vers +z (il touche à peine la surface : il est plus fin que
-// l'étoile), la dragonne repliée à côté de la poignée. L'étoile (matériau « etoile-kiiikiii ») s'allume au clic.
-// Origine : sous le centre de l'étoile, sur la surface où elle est posée.
+// --- Le light stick officiel de KiiiKiii, d'après la photo produit (vue de face, fond blanc) ---
+// Pas de cotes officielles trouvées : 25 cm de long pris comme hypothèse, tout le reste mesuré sur la photo
+// (1 px ≈ 0,82 mm). Une étoile dodue (creux à 60 % du rayon, pointes arrondies) de 11,3 cm, en acrylique clair de
+// 2,4 cm d'épaisseur au chant gris ; dedans, une fine plaque givrée en gradins cernés de liserés gris (l'étoile
+// moyenne à 66 % et ses trois marches, la petite à 38 % et sa marche) ; la tige blanche qui descend dans l'étoile ; le col blanc et sa fente, ses deux pastilles
+// grises ; le manche carré : en haut, le plastique givré bleuté où l'on devine l'électronique (et le bouton), un joint,
+// en bas le capot des piles givré blanc, à fines stries. La breloque de la photo (en bas à droite) n'est pas faite.
+// Posé à plat, l'étoile vers le haut, le manche vers +z. Toute l'étoile (matériaux « etoile-kiiikiii… ») s'allume au clic.
+// Origine : sous le centre de l'étoile, sur la surface où il est posé.
 // ===========================================================================================
-function baguetteKiiikiii() {
-  const m = creerMateriaux();
-  const nacre = mat('etoile-kiiikiii', '#eef2f9', { roughness: 0.28, metalness: 0.08, emissive: '#ffe3f0', emissiveIntensity: 0 });
-  const blanc = mat('manche-kiiikiii', '#f6f6f8', { roughness: 0.26 });
-  const perle = mat('bague-kiiikiii', '#dfe4ec', { roughness: 0.22, metalness: 0.35 });
-  const satin = mat('dragonne-kiiikiii', '#c8243b', { roughness: 0.42, side: THREE.DoubleSide });
-  const [RE, RI, HC] = [0.06, 0.026, 0.0155]; // rayon des pointes, des creux, demi-épaisseur au cœur
-  const debout = new THREE.Group(); // la baguette debout : l'étoile dans le plan (x, y), le manche vers −y
 
-  // — le contour de l'étoile : dix sommets, chacun arrondi par un arc tangent à ses deux côtés —
+// le contour d'une étoile à cinq branches (pointe vers +y) : dix sommets, chacun arrondi par un arc tangent à ses
+// deux côtés (rp : rayon des pointes, rc : des creux)
+function contourEtoile(RE, RI, rp, rc, n = 10) {
   const sommets = Array.from({ length: 10 }, (_, k) => {
     const a = PI / 2 + (k * PI) / 5;
     const r = k % 2 ? RI : RE;
@@ -3209,99 +3202,148 @@ function baguetteKiiikiii() {
     const u1 = A.clone().sub(V).normalize();
     const u2 = B.clone().sub(V).normalize();
     const alpha = Math.acos(u1.dot(u2)) / 2;
-    const rf = k % 2 ? 0.004 : 0.0065; // l'arrondi des creux, des pointes
+    const rf = k % 2 ? rc : rp;
     const d = rf / Math.tan(alpha);
     const C = V.clone().add(u1.clone().add(u2).normalize().multiplyScalar(rf / Math.sin(alpha)));
     const T1 = V.clone().add(u1.clone().multiplyScalar(d));
     const T2 = V.clone().add(u2.clone().multiplyScalar(d));
-    let a1 = Math.atan2(T1.y - C.y, T1.x - C.x);
-    let a2 = Math.atan2(T2.y - C.y, T2.x - C.x);
-    // le petit arc (sens direct pour les pointes, rétrograde pour les creux)
-    let da = a2 - a1;
+    const a1 = Math.atan2(T1.y - C.y, T1.x - C.x);
+    let da = Math.atan2(T2.y - C.y, T2.x - C.x) - a1;
     while (da > PI) da -= 2 * PI;
     while (da < -PI) da += 2 * PI;
-    const n = 10;
-    for (let i = 0; i <= n; i++) {
-      const a = a1 + (da * i) / n;
-      contour.push(new THREE.Vector2(C.x + rf * Math.cos(a), C.y + rf * Math.sin(a)));
-    }
+    for (let i = 0; i <= n; i++) contour.push(new THREE.Vector2(C.x + rf * Math.cos(a1 + (da * i) / n), C.y + rf * Math.sin(a1 + (da * i) / n)));
   });
-  // — l'étoile gonflée : du cœur au contour, une épaisseur en ellipse (bord arrondi), dessus et dessous d'un seul
-  // tenant (les sommets du bord sont partagés : pas d'arête vive)
-  {
-    const NT = 18;
-    const N = contour.length;
-    const pos = [];
-    const idx = [];
-    const epais = (t) => HC * Math.pow(Math.max(0, 1 - Math.pow(t, 2.3)), 0.5);
-    for (let k = 0; k <= N; k++) {
-      const O = contour[k % N];
-      for (let j = 0; j <= 2 * NT; j++) {
-        const t = j <= NT ? j / NT : (2 * NT - j) / NT;
-        const z = j <= NT ? epais(t) : -epais(t);
-        pos.push(O.x * t, O.y * t, z);
-      }
-    }
-    const L = 2 * NT + 1;
-    for (let k = 0; k < N; k++) for (let j = 0; j < 2 * NT; j++) {
-      const a = k * L + j;
-      const b = (k + 1) * L + j;
-      idx.push(a, a + 1, b, b, a + 1, b + 1);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    debout.add(ombres(new THREE.Mesh(g, nacre)));
-    // la couture du moule, tout autour
-    const couture = contour.map((p) => new THREE.Vector3(p.x, p.y, 0));
-    debout.add(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(couture, true), N, 0.0011, 5, true), perle)));
-  }
-  // — le manche : le col sous l'étoile, la tige, la bague, la poignée et son bouton, le bout et son anneau —
-  const axe = (d, h, mat, y, { dBas, segments = 24 } = {}) => debout.add(cylindre(d, h, mat, [0, y - h, 0], { dBas, segments }));
-  axe(0.024, 0.024, blanc, -0.018, { dBas: 0.0175 }); // le col, qui s'enfonce dans l'étoile
-  axe(0.017, 0.08, blanc, -0.042);
-  axe(0.0215, 0.0045, perle, -0.12);
-  axe(0.0205, 0.108, blanc, -0.1245, { dBas: 0.0215 });
-  for (const y of [-0.19, -0.2, -0.21, -0.22]) debout.add(tore(0.0216, 0.0006, perle, [0, y, 0], [PI / 2, 0, 0]));
-  debout.add(boite([0.007, 0.013, 0.003], m.uni('#f2d7e2'), [0, -0.158, 0.0098], { r: 0.0013 })); // le bouton
-  debout.add(sphere(0.0215, blanc, [0, -0.2325, 0], { echelle: [1, 0.55, 1] })); // le bout arrondi
-  debout.add(tore(0.009, 0.0012, perle, [0, -0.2405, 0], [0, 0, 0])); // l'anneau de la dragonne
+  return contour;
+}
 
-  // — posée à plat : l'étoile vers le haut, le manche vers +z, à peine incliné pour que le bout touche —
-  const couchee = new THREE.Group();
-  debout.rotation.x = -PI / 2;
-  debout.position.y = HC;
-  couchee.add(debout);
-  couchee.rotation.x = 0.024;
-  // — la dragonne en satin rouge, à plat sur la surface (hors du groupe incliné) : une boucle qui part de l'anneau et
-  // revient le long de la poignée (la baguette tient ainsi dans la vitrine) —
-  const dragonne = [];
-  {
-    const ancre = new THREE.Vector3(0, HC - 0.243 * Math.sin(0.024), 0.243); // l'anneau, au bout du manche incliné
-    const chemin = new THREE.CatmullRomCurve3(
-      [[0, 0.0012, 0.245], [0.012, 0.0012, 0.262], [0.03, 0.0012, 0.268], [0.045, 0.0012, 0.25], [0.051, 0.0012, 0.21], [0.046, 0.0012, 0.17], [0.031, 0.0012, 0.153], [0.019, 0.0012, 0.168], [0.016, 0.0012, 0.208], [0.012, 0.0012, 0.238], [0.004, 0.0012, 0.25]].map(([x, y, z]) => new THREE.Vector3(x, y, z)),
-      false,
-    );
-    const pts = chemin.getSpacedPoints(80);
-    const pos = [];
-    const idx = [];
-    pts.forEach((p, i) => {
-      const t = chemin.getTangentAt(i / 80);
-      const n = new THREE.Vector3(-t.z, 0, t.x).normalize().multiplyScalar(0.0045);
-      pos.push(p.x + n.x, p.y, p.z + n.z, p.x - n.x, p.y, p.z - n.z);
-      if (i) idx.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
-    });
+// une ExtrudeGeometry coupée en deux : ses faces (groupe 0) et ses flancs avec le biseau (groupe 1)
+function facesEtFlancs(geo) {
+  return geo.groups.map(({ start, count }) => {
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    dragonne.push(ombres(new THREE.Mesh(g, satin)));
-    // le nœud qui la tient à l'anneau, et le bout de satin qui descend de l'anneau jusqu'à lui
-    dragonne.push(sphere(0.008, satin, [ancre.x, 0.003, ancre.z + 0.002], { echelle: [1, 0.6, 1.3] }));
-    dragonne.push(tube([[0, ancre.y, ancre.z], [0, ancre.y - 0.004, ancre.z + 0.003], [0, 0.003, ancre.z + 0.004]], 0.0022, satin, 10));
+    for (const [nom, attr] of Object.entries(geo.attributes))
+      g.setAttribute(nom, new THREE.BufferAttribute(attr.array.slice(start * attr.itemSize, (start + count) * attr.itemSize), attr.itemSize));
+    return g;
+  });
+}
+
+// la texture d'une face du manche : un givré, et ce qu'on devine derrière (dessiné flou)
+function givreManche(haut) {
+  const [L, H] = haut ? [128, 332] : [128, 284];
+  const c = document.createElement('canvas');
+  c.width = L;
+  c.height = H;
+  const g = c.getContext('2d');
+  const fond = g.createLinearGradient(0, 0, L, 0);
+  const [bord, milieu] = haut ? ['#f2f5f9', '#dde5ef'] : ['#f5f6f8', '#eceff3'];
+  fond.addColorStop(0, bord);
+  fond.addColorStop(0.5, milieu);
+  fond.addColorStop(1, bord);
+  g.fillStyle = fond;
+  g.fillRect(0, 0, L, H);
+  if (haut) {
+    // la carte électronique et ses composants, flous, plus sombres au milieu ; une flèche nette sous le bouton
+    g.filter = 'blur(7px)';
+    g.fillStyle = '#cdd8e5';
+    g.fillRect(L * 0.3, H * 0.12, L * 0.4, H * 0.8);
+    for (const [x, y, r, coul] of [[0.5, 0.42, 15, '#a9b8ca'], [0.44, 0.5, 13, '#b3c1d2'], [0.56, 0.66, 17, '#b7c5d6'], [0.48, 0.8, 12, '#c3cfdc']]) {
+      g.fillStyle = coul;
+      g.beginPath();
+      g.ellipse(L * x, H * y, r * 1.3, r, 0, 0, 2 * PI);
+      g.fill();
+    }
+    g.filter = 'blur(1.5px)';
+    g.strokeStyle = '#8f9aaa';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(L * 0.42, H * 0.3);
+    g.lineTo(L * 0.5, H * 0.26);
+    g.lineTo(L * 0.58, H * 0.3);
+    g.stroke();
+    // le haut, collé au col, reste blanc
+    g.filter = 'blur(4px)';
+    g.fillStyle = '#f4f6f9';
+    g.fillRect(0, -10, L, H * 0.08 + 10);
+  } else {
+    // le capot des piles : fines stries verticales, une barre plus sombre au milieu (le contact), le fond plus clair
+    g.filter = 'blur(1px)';
+    for (let x = 18; x < L - 14; x += 9) {
+      g.fillStyle = x % 2 ? '#dde2e9' : '#e4e8ed';
+      g.fillRect(x, H * 0.08, 2.5, H * 0.84);
+    }
+    g.filter = 'blur(3px)';
+    g.fillStyle = '#c9d1db';
+    g.fillRect(L * 0.46, 0, L * 0.08, H * 0.2);
   }
-  return groupe('objet_baguette', couchee, ...dragonne);
+  const carte = new THREE.CanvasTexture(c);
+  carte.colorSpace = THREE.SRGBColorSpace;
+  carte.anisotropy = 8;
+  return carte;
+}
+
+function baguetteKiiikiii() {
+  const PX = 0.25 / 306; // un pixel de la photo, en mètres
+  // l'étoile : blanc givré qui s'allume (lueur rose pâle) ; l'acrylique clair et son chant s'allument plus doucement
+  const givre = mat('etoile-kiiikiii', '#f2f5f9', { roughness: 0.55, emissive: '#ffe3f0', emissiveIntensity: 0 });
+  const acrylique = mat('etoile-kiiikiii-acrylique', '#f4f7fb', { transparent: true, opacity: 0.22, roughness: 0.06, depthWrite: false, emissive: '#6b5560', emissiveIntensity: 0 });
+  const chant = mat('etoile-kiiikiii-chant', '#d5dae1', { transparent: true, opacity: 0.62, roughness: 0.12, depthWrite: false, emissive: '#7a6670', emissiveIntensity: 0 });
+  const trait = mat('etoile-kiiikiii-trait', '#c6cdd7', { roughness: 0.4, emissive: '#e9c3d4', emissiveIntensity: 0 });
+  const blanc = mat('col-kiiikiii', '#f6f7f9', { roughness: 0.32 });
+  const gris = mat('pastille-kiiikiii', '#c9ced6', { roughness: 0.4 });
+  const fente = mat('fente-kiiikiii', '#5d6470', { roughness: 0.5 });
+  const joint = mat('joint-kiiikiii', '#c3c9d1', { roughness: 0.5 });
+  const manche = new THREE.MeshStandardMaterial({ map: givreManche(true), roughness: 0.48 });
+  manche.name = 'manche-kiiikiii';
+  const capot = new THREE.MeshStandardMaterial({ map: givreManche(false), roughness: 0.5 });
+  capot.name = 'capot-kiiikiii';
+
+  const RE = 73 * PX; // 5,96 cm : 139 px de pointe à pointe
+  const RI = 0.6 * RE; // les creux, bien remplis
+  const EP = 0.024; // épaisseur de l'acrylique
+  const B = 0.003; // son biseau
+  const debout = new THREE.Group(); // le light stick debout : l'étoile dans le plan (x, y), face vers +z, manche vers −y
+
+  // — la grande étoile en acrylique clair : extrudée sur un contour rentré du biseau (qui le rend en s'ajoutant) —
+  {
+    const forme = new THREE.Shape(contourEtoile(RE - B / Math.sin(0.6), RI - 1.06 * B, 0.002, 0.004 + B));
+    const geo = new THREE.ExtrudeGeometry(forme, { depth: EP - 2 * B, bevelEnabled: true, bevelThickness: B, bevelSize: B, bevelSegments: 3 });
+    geo.translate(0, 0, -(EP / 2 - B));
+    const [faces, flancs] = facesEtFlancs(geo);
+    debout.add(new THREE.Mesh(faces, acrylique), new THREE.Mesh(flancs, chant));
+  }
+  // — dedans, les étoiles givrées en gradins, une fine plaque de diffuseur : chaque marche est une étoile plus petite
+  // et à peine plus épaisse, cernée d'un liseré gris (les traits fins de la photo) —
+  const etoile = (s, demi, materiau) => {
+    const geo = new THREE.ExtrudeGeometry(new THREE.Shape(contourEtoile(RE * s, RI * s, 0.0055 * s, 0.006 * s, 6)), { depth: 2 * demi, bevelEnabled: false });
+    geo.translate(0, 0.002, -demi);
+    debout.add(ombres(new THREE.Mesh(geo, materiau)));
+  };
+  for (const [s, demi] of [[0.66, 0.0045], [0.63, 0.0051], [0.6, 0.0057], [0.38, 0.0066], [0.35, 0.0073]]) {
+    etoile(s, demi, givre);
+    etoile(s + 0.014, demi - 0.0003, trait);
+  }
+
+  // — la tige qui monte dans l'étoile, le col (rangées 242 à 253 de la photo), sa fente et ses pastilles —
+  const y = (rangee) => (187 - rangee) * PX; // une rangée de la photo -> la hauteur (centre de l'étoile en 187)
+  debout.add(cylindre(0.012, y(222) - y(243), blanc, [0, y(243), 0], { segments: 20 }));
+  const LC = 42 * PX;
+  debout.add(boite([LC, y(242) - y(253), EP], blanc, [0, y(253), 0], { r: 0.004 }));
+  debout.add(boite([0.0068, 0.0016, 0.002], fente, [0, y(250) - 0.0008, EP / 2 - 0.0006], { r: 0 }));
+  for (const sx of [-1, 1]) debout.add(cylindre(0.0034, 0.001, gris, [sx * (LC / 2 - 0.0052), y(248.5), EP / 2], { rot: [PI / 2, 0, 0], centre: true, segments: 14 }));
+
+  // — le manche carré : la partie givrée bleutée (et son bouton), le joint, le capot des piles —
+  const [LM, PM] = [0.028, 0.024];
+  const ySeam = y(342);
+  debout.add(boite([LM, y(253) - ySeam - 0.0004, PM], manche, [0, ySeam + 0.0004, 0], { r: 0.004 }));
+  debout.add(cylindre(0.0034, 0.001, fente, [0, y(266), PM / 2], { rot: [PI / 2, 0, 0], centre: true, segments: 14 })); // le bouton
+  debout.add(boite([LM - 0.002, 0.002, PM - 0.002], joint, [0, ySeam - 0.001, 0], { r: 0 }));
+  debout.add(boite([LM, ySeam - 0.0004 - y(420), PM], capot, [0, y(420), 0], { r: 0.004 }));
+
+  // — posé à plat : l'étoile, le col et le manche ont la même épaisseur (2,4 cm) —
+  const couche = new THREE.Group();
+  debout.rotation.x = -PI / 2;
+  debout.position.y = EP / 2;
+  couche.add(debout);
+  return groupe('objet_baguette', couche);
 }
 
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
