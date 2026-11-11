@@ -424,18 +424,25 @@ export const agencementReve = {
       ],
     },
     {
-      // au-dessus des enceintes du meuble hi-fi (centré sur lui, z = −1,47), côte à côte avec l'affiche de
-      // The First Frost : lui côté vitrine, elle côté porte ; le drapeau est au-dessus des deux
+      // au-dessus du meuble hi-fi, sous le drapeau : une rangée de trois affiches centrées à 1,20 m, sur le mur libre
+      // entre le chambranle de la porte (z ≈ −1,08) et la vitrine (z −1,925), 1,5 cm entre elles. Côté porte The
+      // First Frost, au milieu Exclusive Fairy Tales, côté vitrine le poster au chat.
       mur: 'ouest',
       nom: 'poster « study in china »',
       description: 'Le petit poster au chat zen « 留学在中国 / study in china », au papier déchiré sur le côté, avec son autocollant Kodak Gold, scotché au-dessus des enceintes.',
-      posters: [{ fichier: '/photos/reve/study-in-china.jpg', s: -1.635, y: 1.2, taille: [0.3, 0.424] }],
+      posters: [{ fichier: '/photos/reve/study-in-china.jpg', s: -1.765, y: 1.2, taille: [0.3, 0.424] }],
+    },
+    {
+      mur: 'ouest',
+      nom: 'affiche « Exclusive Fairy Tales »',
+      description: 'L’affiche de la série chinoise « 独家童话 / Exclusive Fairy Tales » : deux lycéens en survêtement d’uniforme blanc et bleu marine, lui accoudé sur son épaule, elle levant les yeux vers lui, sous un arbre plein de soleil ; le titre écrit à la main en blanc. Scotchée entre l’affiche de The First Frost et le poster au chat.',
+      posters: [{ fichier: '/photos/reve/exclusive-fairy-tales.jpg', s: -1.4875, y: 1.2, taille: [0.225, 0.3] }],
     },
     {
       mur: 'ouest',
       nom: 'affiche « The First Frost »',
-      description: 'L’affiche de la série chinoise « 难哄 / The First Frost » (Youku) : Zhang Miaoyi dans le rôle de Zhong Siqiao, accoudée à son pupitre, avec le compte à rebours « 开播倒计时 3 天 » (plus que 3 jours avant la diffusion). Scotchée à côté du poster au chat.',
-      posters: [{ fichier: '/photos/reve/the-first-frost.jpg', s: -1.295, y: 1.2, taille: [0.27, 0.48] }],
+      description: 'L’affiche de la série chinoise « 难哄 / The First Frost » (Youku) : Zhang Miaoyi dans le rôle de Zhong Siqiao, accoudée à son pupitre, avec le compte à rebours « 开播倒计时 3 天 » (plus que 3 jours avant la diffusion). Scotchée côté porte.',
+      posters: [{ fichier: '/photos/reve/the-first-frost.jpg', s: -1.225, y: 1.2, taille: [0.27, 0.48] }],
     },
     {
       // au mur est, au-dessus du meuble à vinyles (son dessus est à 75 cm), entre la pente et la grille des neuf
