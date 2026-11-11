@@ -2488,9 +2488,11 @@ const rideau = (() => {
     sheen: 0.6,
     sheenRoughness: 0.75,
     sheenColor: new THREE.Color('#fffaf0'),
-    // un voilage laisse passer un peu de la lumière de l'autre pièce : une faible lueur de sa propre couleur
+    // un voilage laisse passer un peu de la lumière de l'autre pièce : une faible lueur de sa propre couleur, à la
+    // mesure de la lumière qu'il y a (le jour, les lampes) ; tout éteint la nuit, il n'y a rien à laisser passer
+    // (voir lueur, appelée par majLumieres)
     emissive: new THREE.Color(R.couleur),
-    emissiveIntensity: 0.14,
+    emissiveIntensity: 0,
     side: THREE.DoubleSide,
   });
   // l'ombre au fond des creux : le creux d'un pli dépend du côté d'où on regarde (un sommet vu du lit est un
@@ -2777,10 +2779,13 @@ const rideau = (() => {
   g.userData.info = info;
   toile.userData.info = info;
   cliquables.push(info);
-  return { viser, animer };
+  // k : la lumière qui l'entoure, de 0 (la nuit, tout éteint) à 1 (plein jour, ou une lampe allumée)
+  const lueur = (k) => (mat.emissiveIntensity = 0.14 * k);
+  return { viser, animer, lueur };
 })();
 
 function majLumieres(dt) {
+  let lampes = 0; // la plus allumée des lampes de la pièce (pour la lueur du rideau)
   for (const c of Object.values(commandes)) {
     const cible = c.manuel === null ? (c.tv || c.rideau ? 0 : nuit) : c.manuel ? 1 : 0;
     c.niveau += (cible - c.niveau) * Math.min(1, dt * (c.vitesse ?? 6));
@@ -2797,6 +2802,7 @@ function majLumieres(dt) {
       l.matHalo.opacity = 0.85 * halo * (l.surMur ? matSpot.opacity : 1);
       if (l.corps) l.corps.emissiveIntensity = 0.75 * c.niveau; // assez pour qu'il rayonne, sans le blanchir : il garde sa teinte orangée
     }
+    if (c.lampes.length) lampes = Math.max(lampes, c.niveau);
     if (c.tv) {
       matEcran.emissiveIntensity = 1.1 * c.niveau;
       lumTV.intensity = 4 * c.niveau;
@@ -2804,6 +2810,8 @@ function majLumieres(dt) {
       haloTV.visible = halo > 0.001;
     }
   }
+  // le rideau laisse passer la lumière du jour (moins, store fermé) ou celle d'une lampe
+  rideau?.lueur(Math.max(baseLumiere.f * (1 - 0.65 * etatStore.f), lampes));
 }
 
 // --- Cycle jour / nuit ---
