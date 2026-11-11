@@ -411,6 +411,7 @@ export function moniteurNas() {
   canvas.height = h;
   const c = canvas.getContext('2d');
   const texture = new THREE.CanvasTexture(canvas);
+  texture.userData.vivante = true; // redessiné deux fois par seconde
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
   // les trois teintes du tube : le blanc et le noir des points, le gris uni du bureau (la trame d'origine, un point
@@ -1404,13 +1405,32 @@ export function pureflowTranche(haut, bas, graine = 1) {
 export function lightStickTextures() {
   const W = 1024;
   const H = 2048;
+  // deux canvas de travail (la couleur, la transparence), puis une seule texture : la couleur, et les ajours dans son
+  // canal alpha. Assemblée octet par octet (un canvas effacerait la couleur des pixels transparents et les bords des
+  // ajours foncent), retournée de haut en bas comme le serait un canvas.
   const fabrique = () => {
     const c = document.createElement('canvas');
     c.width = W;
     c.height = H;
-    const tex = new THREE.CanvasTexture(c);
-    tex.anisotropy = 8;
-    return { c, g: c.getContext('2d'), tex };
+    return { c, g: c.getContext('2d', { willReadFrequently: true }) };
+  };
+  const texture = new THREE.DataTexture(new Uint8Array(W * H * 4), W, H);
+  Object.assign(texture, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter, magFilter: THREE.LinearFilter, anisotropy: 8 });
+  texture.userData.vivante = true; // repeinte quand le symbole arrive : sa copie reste jusque-là
+  const assembler = () => {
+    const c = cou.g.getImageData(0, 0, W, H).data;
+    const a = alp.g.getImageData(0, 0, W, H).data;
+    const d = texture.image.data;
+    for (let y = 0; y < H; y++) {
+      const [src, dst] = [(H - 1 - y) * W * 4, y * W * 4];
+      for (let x = 0; x < W * 4; x += 4) {
+        d[dst + x] = c[src + x];
+        d[dst + x + 1] = c[src + x + 1];
+        d[dst + x + 2] = c[src + x + 2];
+        d[dst + x + 3] = a[src + x];
+      }
+    }
+    texture.needsUpdate = true;
   };
   const cou = fabrique();
   const alp = fabrique();
@@ -1490,7 +1510,6 @@ export function lightStickTextures() {
     g.strokeStyle = '#f4f8ff';
     g.lineWidth = 16;
     fearnot(g, 'contour');
-    cou.tex.needsUpdate = true;
     // — alpha —
     const a = alp.g;
     a.fillStyle = '#fff';
@@ -1498,15 +1517,18 @@ export function lightStickTextures() {
     a.fillStyle = '#000';
     poserSymbole(a, '#000');
     fearnot(a, 'remplir');
-    alp.tex.needsUpdate = true;
+    assembler();
   };
 
   peindre(); // une première fois sans le symbole (FEARNOT seul), puis avec dès qu'il est chargé
   symbole.onload = () => {
     chargé = true;
     peindre();
+    // peinte pour de bon : les canvas de travail se vident, la texture redevient statique (sa copie pourra être libérée)
+    for (const c of [cou.c, alp.c]) c.width = c.height = 0;
+    texture.userData.vivante = false;
   };
   symbole.src = chemin('/textures/logo-lesserafim.png');
 
-  return { couleur: cou.tex, alpha: alp.tex };
+  return { couleur: texture };
 }

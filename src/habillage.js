@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as textures from './textures.js';
+import { dedoublonner } from './memoire.js';
 
 // L'habillage des modèles .glb : les écrans allumés, les images imprimées, les décalques. Ils ne sont pas dans les
 // fichiers .glb : le programme repère leurs maillages par leur nom (src/modeles/*.js) et leur donne ici leur
@@ -96,8 +97,12 @@ export function creerHabillage({ reve }) {
   // tapis : pas de polygonOffset, qui le ferait passer devant le bas des objets posés dessus, vus de biais)
   matsEcrans['sous-main-plan'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/sous-main-plan.jpg'), roughness: 0.8 });
 
+  // les décalques identiques de deux modèles (les légendes du ThinkPad du bureau bas et de celui du rack) : une seule
+  // texture
+  const doublon = dedoublonner();
   // habille un maillage d'un modèle qui vient d'être chargé
   function habiller(o) {
+    doublon(o);
     // le Mac du bureau : une capture du site dans une fenêtre de navigateur
     if (o.name === 'ecran-mac') o.material = matEcranMac;
     if (matsEcrans[o.name]) o.material = matsEcrans[o.name];

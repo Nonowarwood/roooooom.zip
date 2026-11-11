@@ -59,19 +59,16 @@ function ouvrirMenu() {
   const scene = el('accueil-scene');
   let index = 0;
 
-  // une case par pièce : son image, puis sa scène 3D par-dessus quand elle est prête
+  // une case par pièce : son image, et pour la pièce au centre seulement, sa scène 3D par-dessus quand elle est prête.
+  // Les pièces voisines, floutées sur les côtés, gardent leur image : trois scènes 3D à la fois pesaient près de
+  // 1,9 Go de mémoire, une seule un peu plus d'1 Go.
   const cases = pieces.map((p) => {
     const div = document.createElement('div');
     div.className = 'accueil-piece';
     const img = document.createElement('img');
     if (p.image) img.src = chemin(p.image);
     img.alt = '';
-    const iframe = document.createElement('iframe');
-    iframe.src = `${location.pathname}?miniature=${p.piece}`;
-    iframe.title = `Miniature 3D : ${p.titre}`;
-    iframe.tabIndex = -1;
-    iframe.setAttribute('aria-hidden', 'true');
-    div.append(img, iframe);
+    div.append(img);
     // une pièce voisine, floutée sur le côté : un clic dessus y mène
     div.addEventListener('click', () => {
       const i = cases.indexOf(div);
@@ -80,10 +77,29 @@ function ouvrirMenu() {
     scene.append(div);
     return div;
   });
+  // la scène 3D d'une case : créée quand la pièce arrive au centre, vidée (et sa mémoire rendue) quand elle le quitte
+  const animer = (i) => {
+    if (cases[i].querySelector('iframe')) return;
+    const p = pieces[i];
+    const iframe = document.createElement('iframe');
+    iframe.src = `${location.pathname}?miniature=${p.piece}`;
+    iframe.title = `Miniature 3D : ${p.titre}`;
+    iframe.tabIndex = -1;
+    iframe.setAttribute('aria-hidden', 'true');
+    cases[i].append(iframe);
+  };
+  const endormir = (div) => {
+    const iframe = div.querySelector('iframe');
+    if (!iframe) return;
+    div.classList.remove('vivante');
+    iframe.src = 'about:blank'; // la page de la miniature se ferme tout de suite : sa scène et sa carte graphique sont rendues
+    setTimeout(() => iframe.remove(), 400); // après le fondu vers l'image
+  };
   addEventListener('message', (e) => {
     if (e.origin !== location.origin) return;
     const i = pieces.findIndex((p) => p.piece === e.data?.miniature);
-    if (i >= 0) cases[i].classList.add('vivante');
+    // (seulement si elle est toujours au centre : on a pu passer à une autre pièce pendant qu'elle chargeait)
+    if (i === index && cases[i].querySelector('iframe')) cases[i].classList.add('vivante');
   });
 
   function afficher(sens = 0) {
@@ -94,6 +110,7 @@ function ouvrirMenu() {
     el('titre-arc').style.fontSize = p.titre.length > 10 ? '46px' : '';
     el('sous-titre-arc').textContent = p.sousTitre;
     el('accueil-wip').hidden = !p.wip;
+    cases.forEach((c, i) => (i === index ? animer(i) : endormir(c)));
     cases.forEach((c, i) => {
       c.classList.toggle('courante', i === index);
       c.classList.toggle('gauche', i === index - 1);
@@ -141,8 +158,11 @@ function ouvrirMenu() {
     document.querySelector('.chargement-titre').textContent = p.titre;
     accueil.classList.add('fini');
     scenePiece(p.piece);
-    // une fois le menu effacé, les miniatures s'arrêtent : la carte graphique est pour la vraie scène
-    setTimeout(() => scene.replaceChildren(), 700);
+    // une fois le menu effacé, la miniature s'arrête : la carte graphique est pour la vraie scène
+    setTimeout(() => {
+      cases.forEach(endormir);
+      setTimeout(() => scene.replaceChildren(), 450);
+    }, 700);
   });
 
   afficher();

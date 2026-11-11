@@ -29,6 +29,7 @@ import { creerVisite } from './visite.js';
 import { initialiserInteractions } from './interactions.js';
 import { creerPerso } from './perso.js';
 import { creerHabillage } from './habillage.js';
+import { libererCopies } from './memoire.js';
 import { heuresSoleil, formatHeure } from './soleil.js';
 import * as textures from './textures.js';
 import { sons, creerBoutonSon } from './sons.js';
@@ -1301,6 +1302,7 @@ ecranCanvas.width = 160;
 ecranCanvas.height = 90;
 const ecranTex = new THREE.CanvasTexture(ecranCanvas);
 ecranTex.colorSpace = THREE.SRGBColorSpace;
+ecranTex.userData.vivante = true; // redessinée à chaque image quand la TV est allumée
 // les corps de lampe qui s'allument (le globe de la lampe champignon) : nom du matériau dans le modèle -> matériau réglé par l'interrupteur
 const corpsLumineux = {};
 const { moniteurNas, habiller } = creerHabillage({ reve });
@@ -1750,7 +1752,7 @@ for (const o of objetsVitrine) {
     contenuVitrine.add(g);
     const etoiles = [];
     let allumee = false;
-    chargeur.load(textures.chemin(o.glb), (gltf) => {
+    promessesDecors.push(new Promise((fini) => chargeur.load(textures.chemin(o.glb), (gltf) => {
       gltf.scene.traverse((m) => {
         if (!m.isMesh) return;
         m.castShadow = !m.material?.transparent; // l'acrylique clair ne fait pas d'ombre pleine
@@ -1758,7 +1760,8 @@ for (const o of objetsVitrine) {
         if (m.material?.name?.startsWith('etoile-kiiikiii')) etoiles.push(m.material);
       });
       g.add(gltf.scene);
-    });
+      fini();
+    }, undefined, fini)));
     const info = {
       nom: o.nom,
       description: o.description,
@@ -1788,10 +1791,10 @@ for (const o of objetsVitrine) {
       pts.push(new THREE.Vector2(rayonA(t) * (i === 0 ? 0.92 : 1), t * L));
     }
     pts.push(new THREE.Vector2(0, L));
-    const { couleur, alpha } = textures.lightStickTextures();
+    const { couleur } = textures.lightStickTextures(); // les ajours sont dans le canal alpha de la couleur
     const corps = new THREE.Mesh(
       new THREE.LatheGeometry(pts, 96, -Math.PI, Math.PI * 2),
-      new THREE.MeshStandardMaterial({ map: couleur, alphaMap: alpha, alphaTest: 0.5, side: THREE.DoubleSide, color: '#ffffff', metalness: 0.4, roughness: 0.38 }),
+      new THREE.MeshStandardMaterial({ map: couleur, alphaTest: 0.5, side: THREE.DoubleSide, color: '#ffffff', metalness: 0.4, roughness: 0.38 }),
     );
     corps.castShadow = true;
     corps.receiveShadow = true;
@@ -3052,6 +3055,10 @@ renderer.setAnimationLoop(() => {
 
 Promise.allSettled([...promesses, ...promessesDecors]).then(() => {
   afficherAvancement(1);
+  // tout est chargé : les processus du décodeur Draco s'arrêtent, et quand la pièce a été dessinée quelques fois, les
+  // copies des images déjà envoyées à la carte graphique sont libérées (src/memoire.js)
+  draco.dispose();
+  setTimeout(() => libererCopies(renderer, scene), 4000);
   // on laisse la barre finir de se remplir avant le fondu vers la chambre, qui arrive en vol
   // une miniature prévient le menu d'accueil qu'elle est prête : il la fait apparaître en fondu
   if (miniature) return parent.postMessage({ miniature: globalThis.PIECE }, location.origin);
