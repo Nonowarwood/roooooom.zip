@@ -3452,6 +3452,55 @@ function tableBasse() {
   return groupe('table-basse', parts);
 }
 
+// ===========================================================================================
+// --- Un petit plateau repas en inox brossé, vide, posé sur la table basse ---
+// 36 × 26 cm, 2,2 cm de haut : un fond plat aux angles arrondis, une paroi qui s'évase en s'arrondissant, le bord
+// roulé. Une seule tôle, vue des deux côtés. Origine : le centre du dessous, sur la table (le fond est à 1 mm
+// au-dessus, pour ne pas se confondre avec le plateau de la table).
+// ===========================================================================================
+function plateauRepas() {
+  const inox = mat('inox-plateau', '#dfe2e6', { roughness: 0.32, metalness: 0.45, side: THREE.DoubleSide });
+  const [W, D, R0] = [0.34, 0.24, 0.028]; // le fond avant l'évasement, et le rayon de ses angles
+  const Y0 = 0.001;
+  const N = 12; // points par angle
+  // le contour du fond agrandi de o, à la hauteur y : la même suite de points pour chaque anneau
+  const anneau = (o, y) => {
+    const [cx, cz, r] = [W / 2 - R0, D / 2 - R0, R0 + o];
+    const pts = [];
+    for (const [sx, sz, a0] of [[1, 1, 0], [-1, 1, PI / 2], [-1, -1, PI], [1, -1, (3 * PI) / 2]]) {
+      for (let i = 0; i <= N; i++) {
+        const a = a0 + (i / N) * (PI / 2);
+        pts.push(new THREE.Vector3(sx * cx + r * Math.cos(a), Y0 + y, sz * cz + r * Math.sin(a)));
+      }
+    }
+    return pts;
+  };
+  // la coupe de la paroi, du bord du fond jusqu'au bord roulé : [agrandissement, hauteur]
+  const coupe = [[-0.012, 0], [-0.006, 0.0008], [-0.0025, 0.003], [-0.0005, 0.007], [0.0015, 0.013], [0.004, 0.019], [0.0055, 0.0215]];
+  const anneaux = coupe.map(([o, y]) => anneau(o, y));
+  const M = anneaux[0].length;
+  const pos = anneaux.flat().flatMap((p) => [p.x, p.y, p.z]);
+  const idx = [];
+  for (let j = 0; j < anneaux.length - 1; j++) {
+    for (let i = 0; i < M; i++) {
+      const [a, b] = [j * M + i, j * M + ((i + 1) % M)];
+      idx.push(a, b, a + M, b, b + M, a + M);
+    }
+  }
+  const paroi = new THREE.BufferGeometry();
+  paroi.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  paroi.setIndex(idx);
+  paroi.computeVertexNormals();
+  // le fond plat (dans le plan de la forme, y = −z : la forme est couchée ensuite)
+  const fond = new THREE.ShapeGeometry(new THREE.Shape(anneaux[0].map((p) => new THREE.Vector2(p.x, -p.z))));
+  fond.rotateX(-PI / 2);
+  fond.translate(0, Y0, 0);
+  // le bord roulé, tout autour
+  const [oB, yB] = coupe.at(-1);
+  const bord = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(anneau(oB + 0.0012, yB + 0.0008), true), 4 * N * 4, 0.002, 8, true);
+  return groupe('plateau-repas', [paroi, fond, bord].map((g) => ombres(new THREE.Mesh(g, inox))));
+}
+
 // nom du fichier -> fonction qui construit le modèle (fusionné : un maillage par matériau)
 // ===========================================================================================
 // --- La platine vinyle Rega Planar 1, blanc mat, posée sur le meuble à vinyles du coin salon ---
@@ -3767,4 +3816,5 @@ export const modelesReve = {
   'baguette-kiiikiii': fabrique(baguetteKiiikiii),
   'platine-rega': fabrique(platineRega),
   'table-basse': fabrique(tableBasse),
+  'plateau-repas': fabrique(plateauRepas),
 };

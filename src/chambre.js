@@ -155,6 +155,16 @@ export const agencementReve = {
       parties: [{ forme: 'cylindre', taille: [0.75, 0.33], pos: [0, 0, 0], couleur: '#e3c08f' }],
     },
     {
+      // sur la table basse (dessus à 33 cm), presque au centre, en long comme le canapé, un peu de travers
+      nom: 'plateau repas',
+      hauteur: 0.33,
+      glb: '/models/plateau-repas.glb', ajuster: false,
+      description: 'Un petit plateau repas en inox brossé, vide, sur la table basse : 36 × 26 cm, son fond plat, sa paroi évasée et son bord roulé.',
+      pos: [2.25, -0.9],
+      rotation: Math.PI / 2 + 0.12,
+      parties: [{ taille: [0.36, 0.022, 0.26], pos: [0, 0, 0], couleur: '#dfe2e6' }],
+    },
+    {
       nom: 'monstera',
       glb: '/models/plante.glb', ajuster: false,
       // dans le coin à droite du bureau de la lucarne (vu de la chaise), entre lui, le mur est et le meuble à vinyles ;
