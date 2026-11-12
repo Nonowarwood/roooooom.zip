@@ -2755,36 +2755,101 @@ function consoleLit() {
 // ===========================================================================================
 // --- Le sac à dos Arc'teryx Mantis 26, noir (47,5 × 27,5 cm, d'après les fiches des revendeurs), adossé ---
 // Le corps : un pavé souple aux angles très arrondis, qui s'affine vers le haut et se bombe en bas de la face avant
-// (une coupe en super-ellipse, le haut en dôme). Devant : la grande poche bordée de deux zips qui descendent le long
-// des côtés et s'incurvent vers le bas, leurs tirettes en haut, la couture du rabat du haut, et l'archæoptéryx brodé
-// en fil doré (un décalque tracé d'après ta photo : public/textures/logo-arcteryx.png, maillage « logo-arcteryx »).
-// Dessus, la poignée. Sur les côtés, les poches en maille. Au dos : le panneau rembourré en maille, les deux
-// bretelles en S avec leur sangle de poitrine et leurs sangles de réglage qui pendent, le petit logo brodé en haut.
+// (une coupe en super-ellipse, le haut en dôme), avec quelques plis doux de tissu. Un passepoil fait le tour de la face
+// avant et du dos, comme les coutures du vrai. Devant : la grande poche bordée de deux zips enduits qui descendent le
+// long des côtés et s'incurvent vers le bas (un ruban brillant, la chaîne au milieu, un arrêt cousu en bas), leurs
+// curseurs en haut sous un petit garage, avec leur cordon et leur tirette en caoutchouc ; la couture du rabat du haut,
+// et l'archæoptéryx brodé en fil doré (un décalque tracé d'après ta photo : public/textures/logo-arcteryx.png,
+// maillage « logo-arcteryx »). Dessus, la poignée en sangle. Sur les côtés, les poches en maille élastique, qui
+// épousent le flanc et se gonflent au milieu, leur ourlet froncé. Au dos : deux coussins en maille de part et d'autre
+// de l'armature, le renfort lombaire, les bretelles galbées en S (plus larges et plus épaisses au milieu) cousues sous
+// un empiècement où est brodé le petit logo, leurs sangles de réglage avec boucle et bout qui pend, la sangle de
+// poitrine et son clip.
 // Posé : il penche de 9° en arrière, son dos appuyé sur le cadre du lit, au pied. Origine : au sol, sous l'arête
 // arrière du bas (le pivot) ; la face avant vers +z.
 // ===========================================================================================
+
+// Une bande qui suit des points (sangle, bretelle, ruban de zip…) : une section en rectangle arrondi, de largeur et
+// d'épaisseur données (des nombres, ou des fonctions de t, de 0 à 1 le long de la bande), la largeur selon `axe` (un
+// vecteur fixe, ou une fonction (t, point, tangente) qui en renvoie un neuf), les deux bouts fermés.
+function bande(points, materiau, { largeur, epaisseur, axe, segments = 40, cotes = 12 }) {
+  const courbe = new THREE.CatmullRomCurve3(points.map((p) => (p.isVector3 ? p : new THREE.Vector3(...p))));
+  const val = (f, t) => (typeof f === 'function' ? f(t) : f);
+  // la section : une super-ellipse, un rectangle aux coins bien ronds
+  const section = Array.from({ length: cotes }, (_, k) => {
+    const [c, s] = [Math.cos((k / cotes) * 2 * PI), Math.sin((k / cotes) * 2 * PI)];
+    return [Math.sign(c) * Math.abs(c) ** 0.45, Math.sign(s) * Math.abs(s) ** 0.45];
+  });
+  const anneaux = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    const p = courbe.getPointAt(t);
+    const tg = courbe.getTangentAt(t);
+    const u = typeof axe === 'function' ? axe(t, p, tg) : axe.clone();
+    u.addScaledVector(tg, -u.dot(tg)).normalize();
+    const e = new THREE.Vector3().crossVectors(tg, u);
+    const [w, h] = [val(largeur, t) / 2, val(epaisseur, t) / 2];
+    anneaux.push({ p, pts: section.map(([a, b]) => p.clone().addScaledVector(u, a * w).addScaledVector(e, b * h)) });
+  }
+  const sommets = [];
+  const index = [];
+  for (const { pts } of anneaux) for (const q of pts) sommets.push(q.x, q.y, q.z);
+  for (let i = 0; i < segments; i++) {
+    for (let k = 0; k < cotes; k++) {
+      const [a, b] = [i * cotes + k, i * cotes + ((k + 1) % cotes)];
+      index.push(a, b, a + cotes, b, b + cotes, a + cotes);
+    }
+  }
+  // les deux bouts : un éventail, avec ses propres sommets (une arête nette)
+  for (const [i, sens] of [[0, -1], [segments, 1]]) {
+    const base = sommets.length / 3;
+    const { p, pts } = anneaux[i];
+    sommets.push(p.x, p.y, p.z);
+    for (const q of pts) sommets.push(q.x, q.y, q.z);
+    for (let k = 0; k < cotes; k++) {
+      const [k0, k1] = [base + 1 + k, base + 1 + ((k + 1) % cotes)];
+      if (sens > 0) index.push(base, k0, k1);
+      else index.push(base, k1, k0);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(sommets, 3));
+  geo.setIndex(index);
+  geo.computeVertexNormals();
+  return ombres(new THREE.Mesh(geo, materiau));
+}
+
 function sacMantis() {
   const m = creerMateriaux();
   const nylon = mat('nylon-noir', '#3b3a45', { roughness: 0.78 }); // le noir du sac, adouci comme les autres noirs du site
   const nylonSombre = m.uni('#22212a');
   const maille = mat('maille-sac', '#45444f', { roughness: 0.95 });
+  const maillePoche = mat('maille-poche', '#4a4954', { roughness: 0.97, side: THREE.DoubleSide }); // on voit dedans par le haut
   const sangle = m.uni('#2a2932');
+  const zipEnduit = mat('zip-enduit', '#202027', { roughness: 0.36 }); // les zips enduits, un peu brillants
+  const plastique = mat('plastique-sac', '#18171c', { roughness: 0.5 });
   const H = 0.475;
   const W = (v) => 0.1375 - 0.016 * v; // la demi-largeur
-  const Df = (v) => 0.062 + 0.042 * Math.sin(PI * Math.min(1, v * 1.12)); // la face avant, bombée en bas
+  const Df = (v) => 0.064 + 0.044 * Math.sin(PI * Math.min(1, v * 1.12)); // la face avant, bombée en bas
   const Db = () => 0.062; // le dos, plat
-  const n = 3.2; // la super-ellipse de la coupe
+  const n = 3.4; // la super-ellipse de la coupe
   const reduc = (v) => (v > 0.8 ? Math.sqrt(1 - 0.55 * ((v - 0.8) / 0.2) ** 2) : v < 0.05 ? Math.sqrt(1 - 0.2 * ((0.05 - v) / 0.05) ** 2) : 1);
   const HC = H - 0.05; // le haut des côtés ; le dôme monte au-dessus
+  // des plis doux dans le tissu, devant et sur les côtés (le dos reste plat, et le fond aussi) : quelques ondulations
+  // lentes, de un ou deux millimètres
+  const plis = (a, b, v) => {
+    const f = Math.min(1, v * 5) * THREE.MathUtils.clamp((b + 0.6) / 0.6, 0, 1);
+    return 1 + f * (0.012 * Math.sin(6.3 * v + 2.4 * a + 0.4) * Math.sin(3.1 * v - 1.7 * b + 1.1) + 0.006 * Math.sin(12.5 * v + 3.9 * a - 2.3 * b + 0.7));
+  };
   // un point du sac : a, b dans [−1, 1] autour de la coupe (b > 0 : devant), v de 0 (bas) à 1 (haut des côtés)
   const point = (a, b, v, rCap = 1, y = null) => {
     const mm = Math.max(Math.abs(a), Math.abs(b));
     const k = mm > 0 ? mm / (Math.abs(a) ** n + Math.abs(b) ** n) ** (1 / n) : 0;
-    const s = reduc(v) * rCap;
+    const s = reduc(v) * rCap * plis(a, b, v);
     return new THREE.Vector3(a * k * W(v) * s, y ?? v * HC, b * k * (b > 0 ? Df(v) : Db(v)) * s);
   };
   // le corps : une boîte subdivisée, posée sur la super-ellipse ; ses faces du haut et du bas deviennent le dôme et le fond
-  const geo = new THREE.BoxGeometry(1, 1, 1, 26, 34, 18);
+  const geo = new THREE.BoxGeometry(1, 1, 1, 32, 44, 22);
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const [a, yy, b] = [pos.getX(i) * 2, pos.getY(i) + 0.5, pos.getZ(i) * 2];
@@ -2798,47 +2863,83 @@ function sacMantis() {
   geo.computeVertexNormals();
   const sac = new THREE.Group();
   sac.add(ombres(new THREE.Mesh(geo, nylon)));
-  // un point juste devant la face avant (pour y poser les zips, les coutures, le logo)
+
+  // un point juste devant la face avant, et la normale de la face en ce point
   const devant = (a, v, ecart = 0.0025) => {
     const p0 = point(a, 1, v);
     const p1 = point(a + 0.01, 1, v);
     const p2 = point(a, 1, v + 0.01);
     const nrm = new THREE.Vector3().crossVectors(p1.clone().sub(p0), p2.clone().sub(p0)).normalize();
     if (nrm.z < 0) nrm.negate();
-    return { p: p0.clone().addScaledVector(nrm, ecart), n: nrm };
+    return { p: p0.clone().addScaledVector(nrm, ecart), n: nrm, a, v };
   };
-  const suivre = (cles, rayon, materiau, ecart = 0.0025) => {
-    const courbe = new THREE.CatmullRomCurve3(cles.map(([a, v]) => devant(a, v).p));
-    const pts = courbe.getSpacedPoints(60).map((q) => {
-      // chaque point est reposé sur la face, à l'écart voulu
-      const a = Math.max(-0.99, Math.min(0.99, q.x / (W(q.y / HC) * reduc(q.y / HC) * 0.97)));
-      return devant(a, Math.max(0.01, Math.min(0.99, q.y / HC)), ecart).p;
-    });
-    return ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 90, rayon, 6), materiau));
+  // une ligne tracée sur la face avant (a en travers, v en hauteur), à l'écart voulu de la face
+  const surFace = (cles, ecart, nb = 80) =>
+    new THREE.CatmullRomCurve3(cles.map(([a, v]) => new THREE.Vector3(a, v, 0)))
+      .getSpacedPoints(nb)
+      .map((q) => devant(THREE.MathUtils.clamp(q.x, -0.99, 0.99), THREE.MathUtils.clamp(q.y, 0.005, 0.995), ecart));
+  // un ruban posé à plat sur la face, le long de cette ligne
+  const rubanFace = (cles, materiau, largeur, epaisseur, ecart) => {
+    const pts = surFace(cles, ecart + epaisseur / 2);
+    const nb = pts.length - 1;
+    return bande(
+      pts.map((q) => q.p),
+      materiau,
+      { largeur, epaisseur, segments: 90, cotes: 8, axe: (t, p, tg) => new THREE.Vector3().crossVectors(pts[Math.round(t * nb)].n, tg) },
+    );
   };
-  // les deux zips de la poche avant : le long des côtés, puis en courbe vers le bas du milieu ; leur ruban, leurs dents
+  // une petite pièce (centrée) posée à plat sur la face, son « haut » tourné vers `haut`
+  const piece = (l, h, p, materiau, r = 0.002) => ombres(new THREE.Mesh(new RoundedBoxGeometry(l, h, p, 2, Math.min(r, l / 2.05, h / 2.05, p / 2.05)), materiau));
+  const poser = (objet, { p, n: nrm }, haut = new THREE.Vector3(0, 1, 0)) => {
+    const y = haut.clone().addScaledVector(nrm, -haut.dot(nrm)).normalize();
+    const x = new THREE.Vector3().crossVectors(y, nrm);
+    objet.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, nrm));
+    objet.position.copy(p);
+    return objet;
+  };
+
+  // le passepoil : il fait le tour de la face avant (b = 1) et du dos (b = −1), à l'endroit où ils rejoignent les côtés
+  for (const b of [1, -1]) {
+    const pts = [];
+    for (let i = 0; i <= 24; i++) pts.push(point(-1, b, 0.025 + (0.975 * i) / 24));
+    for (let i = 1; i < 16; i++) pts.push(point(-1 + (2 * i) / 16, b, 1));
+    for (let i = 24; i >= 0; i--) pts.push(point(1, b, 0.025 + (0.975 * i) / 24));
+    for (let i = 15; i >= 1; i--) pts.push(point(-1 + (2 * i) / 16, b, 0.025));
+    sac.add(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 320, 0.0024, 6, true), nylonSombre)));
+  }
+
+  // les deux zips de la poche avant : le long des côtés, puis en courbe vers le bas du milieu. Un ruban enduit, la
+  // chaîne au milieu, un arrêt cousu en bas ; en haut, le garage, le curseur, son cordon et sa tirette qui pend
   for (const s of [-1, 1]) {
     const cles = [[0.7, 0.86], [0.86, 0.72], [0.88, 0.5], [0.84, 0.32], [0.66, 0.2], [0.42, 0.13], [0.22, 0.11]].map(([a, v]) => [s * a, v]);
-    sac.add(suivre(cles, 0.0055, nylonSombre, 0.0015));
-    sac.add(suivre(cles, 0.0022, m.uni('#121116'), 0.005));
-    // la tirette : le curseur et son cordon à embout
-    const t = devant(s * 0.7, 0.86, 0.006);
-    sac.add(boite([0.012, 0.018, 0.006], m.uni('#18171c'), [t.p.x, t.p.y - 0.012, t.p.z], { r: 0.002 }));
-    sac.add(tube([[t.p.x, t.p.y - 0.012, t.p.z + 0.002], [t.p.x + s * 0.008, t.p.y - 0.03, t.p.z + 0.006], [t.p.x + s * 0.006, t.p.y - 0.045, t.p.z + 0.004]], 0.0018, m.uni('#18171c'), 10));
-    sac.add(cylindre(0.007, 0.012, m.uni('#18171c'), [t.p.x + s * 0.006, t.p.y - 0.058, t.p.z + 0.004], { segments: 8 }));
+    sac.add(rubanFace(cles, zipEnduit, 0.015, 0.0014, 0.0004));
+    sac.add(rubanFace(cles, plastique, 0.0034, 0.0012, 0.0016));
+    const chemin = surFace(cles, 0.0018);
+    const le = (i) => chemin[(i + chemin.length) % chemin.length];
+    const sens = (i, j) => le(i).p.clone().sub(le(j).p); // de j vers i
+    sac.add(poser(piece(0.018, 0.006, 0.0028, nylonSombre, 0.0012), le(-1), sens(-1, -3))); // l'arrêt du bas
+    sac.add(poser(piece(0.017, 0.01, 0.004, nylonSombre, 0.002), le(0), sens(0, 2))); // le garage du haut
+    // le curseur, juste sous le garage, puis la tirette qui pend droit
+    const curseur = devant(le(5).a, le(5).v, 0.004);
+    sac.add(poser(piece(0.012, 0.019, 0.0055, plastique, 0.002), curseur, sens(2, 6)));
+    const tirette = devant(curseur.a + s * 0.035, curseur.v - 0.135, 0.0034);
+    sac.add(poser(piece(0.011, 0.034, 0.0042, plastique, 0.002), tirette));
+    const [c0, c1] = [devant(curseur.a, curseur.v - 0.022, 0.006), devant(tirette.a, tirette.v + 0.037, 0.0045)];
+    const mi = c0.p.clone().lerp(c1.p, 0.5).addScaledVector(c0.n, 0.003);
+    sac.add(tube([c0.p.toArray(), mi.toArray(), c1.p.toArray()], 0.0013, plastique, 10));
   }
   // la couture du rabat du haut
-  sac.add(suivre([-0.85, -0.5, 0, 0.5, 0.85].map((a) => [a, 0.9 - 0.02 * (1 - a * a)]), 0.0012, nylonSombre, 0.001));
+  sac.add(rubanFace([-0.85, -0.5, 0, 0.5, 0.85].map((a) => [a, 0.9 - 0.02 * (1 - a * a)]), nylonSombre, 0.0032, 0.0011, 0.0002));
   // le logo brodé, un peu au-dessus du milieu de la poche
   {
     const { p, n: nrm } = devant(0, 0.77, 0.0012);
-    const [lw, lh] = [0.066, 0.066 * (530 / 828)];
-    const plan = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh), m.uni('#2c2b33'));
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(0.066, 0.066 * (530 / 828)), m.uni('#2c2b33'));
     plan.name = 'logo-arcteryx';
     plan.position.copy(p);
     plan.lookAt(p.clone().add(nrm));
     sac.add(plan);
   }
+
   // la poignée, sur le dessus, un peu vers le dos : une sangle plate en boucle basse, cousue au dôme par deux pattes
   // (la hauteur du dôme en (x, z) se calcule comme le corps : la super-ellipse réduite du haut)
   const surDome = (x, z) => {
@@ -2847,39 +2948,110 @@ function sacMantis() {
     return HC + 0.05 * (1 - Math.min(1, mm) ** 2);
   };
   const zP = -0.012;
-  const [yG, yD] = [surDome(-0.032, zP), surDome(0.032, zP)];
-  const yMilieu = surDome(0, zP);
-  sac.add(tube([[-0.032, yG + 0.002, zP], [-0.026, yMilieu + 0.014, zP], [0, yMilieu + 0.02, zP], [0.026, yMilieu + 0.014, zP], [0.032, yD + 0.002, zP]], 0.0045, sangle, 30));
-  for (const [x, y] of [[-0.034, yG], [0.034, yD]]) sac.add(boite([0.018, 0.005, 0.024], sangle, [x, y - 0.003, zP], { r: 0.002, rot: [0, 0, x > 0 ? -0.35 : 0.35] }));
-  // les poches latérales en maille
+  const [yG, yD, yM] = [surDome(-0.036, zP), surDome(0.036, zP), surDome(0, zP)];
+  sac.add(
+    bande(
+      [[-0.038, yG - 0.003, zP], [-0.031, yM + 0.01, zP], [-0.014, yM + 0.021, zP], [0.014, yM + 0.021, zP], [0.031, yM + 0.01, zP], [0.038, yD - 0.003, zP]],
+      sangle,
+      { largeur: 0.024, epaisseur: 0.0055, axe: new THREE.Vector3(0, 0, 1), segments: 30 },
+    ),
+  );
+  for (const [x, y] of [[-0.036, yG], [0.036, yD]]) sac.add(boite([0.02, 0.005, 0.026], sangle, [x, y - 0.003, zP], { r: 0.002, rot: [0, 0, x > 0 ? -0.35 : 0.35] }));
+
+  // les poches latérales en maille élastique : elles épousent le flanc, cousues devant, derrière et en bas, gonflées
+  // au milieu, leur bord du haut un peu plus haut vers le dos, froncé par l'élastique et bordé d'un ourlet
   for (const s of [-1, 1]) {
-    const pl = point(s, 0, 0.2);
-    sac.add(tissu([0.018, 0.13, 0.11], maille, [pl.x - s * 0.002, 0.03, -0.005], { r: 0.008, froissement: 0.003, graine: 3 + s }));
-  }
-  // le dos : le panneau rembourré en maille, les bretelles, la sangle de poitrine, le petit logo
-  const zDos = -Db() - 0.006;
-  sac.add(boite([0.2, 0.3, 0.014], maille, [0, 0.05, zDos], { r: 0.006 })); // (il s'arrête sous le dôme du haut)
-  for (const s of [-1, 1]) {
-    const pts = [[s * 0.045, H - 0.085], [s * 0.06, H - 0.15], [s * 0.08, H - 0.24], [s * 0.097, 0.16], [s * 0.11, 0.06]];
-    for (let k = 0; k < pts.length - 1; k++) {
-      const [x0, y0] = pts[k];
-      const [x1, y1] = pts[k + 1];
-      sac.add(barrePlate([x0, y0, zDos - 0.02], [x1, y1, zDos - 0.02], [0.016, 0.052], nylon, 0.007));
+    const [nu, nw] = [26, 16];
+    const vHaut = (u) => 0.4 - 0.08 * u;
+    const surCote = (u, w) => {
+      const [b, v] = [-0.75 + 1.53 * u, 0.02 + (vHaut(u) - 0.02) * w];
+      const p0 = point(s, b, v);
+      const nrm = new THREE.Vector3().crossVectors(point(s, b + 0.01, v).sub(p0), point(s, b, v + 0.01).sub(p0)).normalize();
+      if (nrm.x * s < 0) nrm.negate();
+      const gonfle = 0.016 * Math.sin(PI * u) ** 0.6 * Math.sin(0.9 * PI * w) + 0.0014 * Math.sin(u * 2 * PI * 10) * w ** 6;
+      return p0.addScaledVector(nrm, 0.0015 + gonfle);
+    };
+    const sommets = [];
+    const index = [];
+    for (let j = 0; j <= nw; j++) for (let i = 0; i <= nu; i++) sommets.push(...surCote(i / nu, j / nw).toArray());
+    for (let j = 0; j < nw; j++) {
+      for (let i = 0; i < nu; i++) {
+        const a = j * (nu + 1) + i;
+        index.push(a, a + 1, a + nu + 1, a + 1, a + nu + 2, a + nu + 1);
+      }
     }
-    sac.add(barrePlate([s * 0.115, 0.06, zDos - 0.018], [s * 0.125, 0.02, zDos - 0.012], [0.006, 0.025], sangle, 0.002)); // l'attache basse
-    sac.add(tube([[s * 0.128, 0.025, zDos - 0.01], [s * 0.15, 0.015, zDos + 0.02], [s * 0.16, 0.004, zDos + 0.06]], 0.003, sangle, 12)); // la sangle qui pend
-    sac.add(boite([0.022, 0.012, 0.006], m.uni('#18171c'), [s * 0.085, H - 0.23, zDos - 0.034], { r: 0.002 })); // la boucle de poitrine
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(sommets, 3));
+    g.setIndex(index);
+    g.computeVertexNormals();
+    sac.add(ombres(new THREE.Mesh(g, maillePoche)));
+    const ourlet = Array.from({ length: 41 }, (_, i) => surCote(i / 40, 1));
+    sac.add(ombres(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ourlet), 80, 0.0028, 6), sangle)));
   }
-  sac.add(boite([0.15, 0.016, 0.004], sangle, [0, H - 0.226, zDos - 0.032], { r: 0.001 })); // la sangle de poitrine
+
+  // le dos : deux coussins en maille de part et d'autre de l'armature (au milieu, l'écart entre eux), le renfort lombaire
+  for (const s of [-1, 1]) sac.add(tissu([0.092, 0.24, 0.018], maille, [s * 0.054, 0.085, -Db() - 0.009], { r: 0.008, froissement: 0.0012, graine: 7 + s, divisions: [8, 14, 3] }));
+  sac.add(tissu([0.214, 0.055, 0.02], maille, [0, 0.025, -Db() - 0.01], { r: 0.009, froissement: 0.001, graine: 5, divisions: [14, 4, 3] }));
+  // la surface sur laquelle reposent bretelles et sangles, selon la hauteur : le dos du sac, ou les coussins
+  const zAppui = (y) => {
+    const coussin = y > 0.085 && y < 0.325 ? -Db() - 0.018 : y > 0.025 && y < 0.08 ? -Db() - 0.02 : 0;
+    return Math.min(-Db() * reduc(Math.min(1, y / HC)), coussin);
+  };
+  // les bretelles en S, plus larges et plus épaisses au milieu, cousues en haut sous l'empiècement
+  const largeurBretelle = (t) => 0.042 + 0.022 * Math.sin(PI * Math.min(1, t * 1.1));
+  const epaisseurBretelle = (t) => 0.006 + 0.01 * Math.sin(PI * Math.min(1, t * 1.15));
+  const dansLePlan = (t, p, tg) => new THREE.Vector3().crossVectors(tg, new THREE.Vector3(0, 0, 1));
+  const traceBretelle = [[0.03, 0.408], [0.042, 0.385], [0.055, 0.35], [0.07, 0.3], [0.085, 0.24], [0.097, 0.18], [0.105, 0.125], [0.108, 0.095]];
+  const xBretelle = (y) => {
+    // l'abscisse de la bretelle à la hauteur y (interpolée sur son tracé)
+    for (let i = 0; i < traceBretelle.length - 1; i++) {
+      const [[x0, y0], [x1, y1]] = [traceBretelle[i], traceBretelle[i + 1]];
+      if (y <= y0 && y >= y1) return x0 + ((x1 - x0) * (y - y0)) / (y1 - y0);
+    }
+    return traceBretelle.at(-1)[0];
+  };
+  const ySternum = 0.29;
+  for (const s of [-1, 1]) {
+    const nb = traceBretelle.length - 1;
+    const pts = traceBretelle.map(([x, y], i) => [s * x, y, zAppui(y) - epaisseurBretelle(i / nb) / 2 - 0.0005]);
+    sac.add(bande(pts, nylon, { largeur: largeurBretelle, epaisseur: epaisseurBretelle, axe: dansLePlan, segments: 48 }));
+    // en bas : la sangle de réglage, sa boucle, l'attache au coin du sac, et le bout qui pend jusqu'au sol
+    const zB = zAppui(0.05) - 0.0012;
+    sac.add(bande([[s * 0.108, 0.1, zAppui(0.1) - 0.003], [s * 0.111, 0.075, zB], [s * 0.118, 0.045, zB], [s * 0.123, 0.02, zAppui(0.02) - 0.0012]], sangle, { largeur: 0.02, epaisseur: 0.0018, axe: dansLePlan, segments: 20, cotes: 8 }));
+    const boucle = piece(0.026, 0.016, 0.005, plastique, 0.0015);
+    boucle.position.set(s * 0.112, 0.072, zB - 0.003);
+    boucle.rotation.z = s * 0.08;
+    sac.add(boucle);
+    const attache = piece(0.024, 0.02, 0.003, sangle, 0.001);
+    attache.position.set(s * 0.123, 0.022, zAppui(0.022) - 0.0015);
+    sac.add(attache);
+    sac.add(bande([[s * 0.113, 0.066, zB - 0.006], [s * 0.117, 0.04, zB - 0.009], [s * 0.124, 0.016, zB - 0.016], [s * 0.134, 0.004, zB - 0.032]], sangle, { largeur: 0.019, epaisseur: 0.0016, axe: dansLePlan, segments: 16, cotes: 8 }));
+  }
+  // la sangle de poitrine, tendue d'une bretelle à l'autre par-dessus, et son clip au milieu
   {
-    const plan = new THREE.Mesh(new THREE.PlaneGeometry(0.04, 0.04 * (530 / 828)), m.uni('#3a3942'));
-    plan.name = 'logo-arcteryx';
-    plan.position.set(0, H - 0.075, zDos - 0.0075);
-    plan.rotation.y = PI;
-    sac.add(plan);
+    const z = zAppui(ySternum) - epaisseurBretelle(0.45) - 0.0022;
+    const x = xBretelle(ySternum) + 0.006;
+    sac.add(bande([[-x, ySternum, z], [x, ySternum, z]], sangle, { largeur: 0.013, epaisseur: 0.0016, axe: new THREE.Vector3(0, 1, 0), segments: 4, cotes: 8 }));
+    const clip = piece(0.03, 0.017, 0.007, plastique, 0.0025);
+    clip.position.set(0, ySternum, z - 0.002);
+    sac.add(clip);
   }
+  // l'empiècement du haut du dos, qui couvre le départ des bretelles, et le petit logo brodé dessus
+  {
+    const empiecement = new THREE.Group();
+    empiecement.position.set(0, 0.398, -Db() * reduc(0.398 / HC) - 0.0045);
+    empiecement.rotation.x = 0.38; // il suit le dos qui s'arrondit vers le dôme
+    empiecement.add(piece(0.082, 0.044, 0.007, nylon, 0.003));
+    const plan = new THREE.Mesh(new THREE.PlaneGeometry(0.036, 0.036 * (530 / 828)), m.uni('#3a3942'));
+    plan.name = 'logo-arcteryx-dos'; // un nom à lui : deux nœuds du même nom sont renommés au chargement
+    plan.position.z = -0.0043;
+    plan.rotation.y = PI;
+    empiecement.add(plan);
+    sac.add(empiecement);
+  }
+
   // posé : le dos (bretelles comprises) au-dessus du pivot, penché de 9° en arrière
-  const dos = zDos - 0.03;
+  const dos = -Db() - 0.036;
   sac.position.z = -dos;
   const penche = new THREE.Group();
   penche.rotation.x = -0.16;

@@ -89,6 +89,7 @@ export function creerHabillage({ reve }) {
   matsEcrans['imprime-drapeau'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/drapeau-servir-le-peuple.jpg'), roughness: 0.68 });
   // le logo Arc'teryx brodé du sac à dos : le fil doré, détouré (le reste du décalque est transparent)
   matsEcrans['logo-arcteryx'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/logo-arcteryx.png'), transparent: true, alphaTest: 0.35, roughness: 0.45, metalness: 0.2, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  matsEcrans['logo-arcteryx-dos'] = matsEcrans['logo-arcteryx']; // le petit, brodé en haut du dos
   // et le tapis de souris du bureau bas : son image imprimée, mate
   // la serviette du Season's Greetings de TWICE, sous la tasse : son imprimé, sur une éponge mate
   matsEcrans['imprime-serviette'] = new THREE.MeshStandardMaterial({ map: textures.image('/textures/serviette-twice.jpg'), roughness: 1 });
