@@ -245,6 +245,11 @@ export const sons = {
       souffle({ duree: 0.05, type: 'lowpass', freq: gauche ? 700 : 600, freqFin: 200, gain: 0.07, attaque: 0.003 });
     };
   })(),
+  dash() {
+    if (!pret()) return;
+    souffle({ duree: 0.32, freq: 2600, freqFin: 520, q: 0.7, gain: 0.08, attaque: 0.008 });
+    ton({ duree: 0.12, freq: 180, freqFin: 120, gain: 0.05 });
+  },
   glisser() {
     if (!pret()) return;
     souffle({ duree: 0.6, freq: 1400, freqFin: 500, q: 0.9, gain: 0.06, attaque: 0.02 });

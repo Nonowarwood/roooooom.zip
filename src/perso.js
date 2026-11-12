@@ -4,39 +4,59 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { chemin } from './textures.js';
 import { sons } from './sons.js';
 
-// Mode secret : un tout petit bonhomme qu'on promène dans la chambre, à la troisième personne, avec un
-// déplacement inspiré de Deadlock : le bonhomme reste au centre de l'écran, la souris oriente la caméra,
-// et les touches sont RELATIVES À LA CAMÉRA (Z/↑ avance vers où l'on regarde, Q/D se décale, S recule).
-// Il garde son élan : il accélère, fait des demi-tours vifs, et en l'air il conserve la vitesse d'un sprint,
-// d'une glissade ou d'un dash (on infléchit le saut sans le freiner). Il sprinte (Maj), glisse (Ctrl ou C
-// pendant qu'il court, ou juste avant d'atterrir), s'accroupit (Ctrl ou C tenu, et tout seul quand il n'a
-// pas la place de se relever, au bout d'une glissade sous un meuble). Espace saute d'autant plus haut qu'on
-// le tient ; un second appui en l'air fait un double saut qui réoriente l'élan avec un petit dash. Le saut
-// pardonne : il part encore juste après avoir quitté un rebord, un appui juste avant d'atterrir est gardé, et
-// il se hisse sur un rebord qu'il a presque atteint. E agit sur ce qui est devant lui (porte, lumières,
-// store, calendrier…), Échap sort. On y entre par trois clics rapides sur un des petits avions du mobile
-// (voir main.js). Un clic dans la scène capte la souris ; Échap la rend, un second Échap quitte.
-// Sur téléphone : un joystick pour bouger (poussé jusqu'au bord, il sprinte), un glissé du doigt pour
-// regarder, et les boutons « Agir » et « Saut » (tenu = plus haut).
+// Mode secret : un tout petit bonhomme qu'on promène dans la chambre, à la troisième personne, avec le système
+// de déplacement de Deadlock, ramené à sa taille. Le bonhomme reste au centre de l'écran, la souris oriente la
+// caméra, et les touches sont RELATIVES À LA CAMÉRA (Z/↑ avance vers où l'on regarde, Q/D se décale, S recule).
+//   - L'endurance : 3 charges, regagnées une à une (une toutes les 4,5 s), affichées en bas de l'écran.
+//   - Maj : le dash, dans la direction visée (devant soi si on ne vise rien) : une charge. Plus court mais plus
+//     rapide en l'air, où il file à l'horizontale.
+//   - Espace pendant un dash au sol (les barres sont bleues) : le dash-jump, un saut long et plat qui garde la
+//     vitesse du dash ; une charge de plus.
+//   - Ctrl (ou C) tenu : la glissade, qui ne part qu'au-dessus d'une certaine vitesse (en pratique : pendant ou
+//     après un dash, ou en retombant d'un dash-jump) ; un dash qui finit en glissade ne coûte rien de plus. Lent,
+//     Ctrl tenu l'accroupit (et il reste accroupi tout seul s'il n'a pas la place de se relever).
+//   - Espace : sauter (gratuit) ; en l'air, le double saut (une charge) ; contre un mur en s'en éloignant, le saut
+//     de mur (le premier de chaque vol est gratuit et ne prend pas le double saut, les suivants coûtent une
+//     demi-charge). En retombant contre un mur qu'on pousse, il glisse le long, freiné.
+//   - Il se hisse tout seul sur un rebord presque atteint (gratuit). Le saut pardonne : il part encore juste après
+//     avoir quitté un rebord, et un appui juste avant d'atterrir est gardé.
+// E agit sur ce qui est devant lui (porte, lumières, store, calendrier…), Échap sort. On y entre par trois clics
+// rapides sur un des petits avions du mobile (voir main.js). Un clic dans la scène capte la souris ; Échap la rend,
+// un second Échap quitte. Sur téléphone : un joystick pour bouger, un glissé du doigt pour regarder, et les
+// boutons « Agir », « Saut », « Dash » et « Glisse » (tenu).
 // Le personnage vit dans le repère de la pièce (x ouest→est, z nord→sud).
 //
 // Le modèle est « Frutiger aero character v2 » (public/models/perso.glb), un bonhomme vert brillant sans
 // squelette : le dandinement, l'inclinaison et l'écrasement sont faits ici, en code.
 
 // ↓↓↓ À RÉGLER ↓↓↓
-// Hauteur maximale d'un saut (Espace tenu), en mètres. Pour monter dessus : la chaise (0,45), le lit (0,6), le
-// bureau (0,75) et la commode (1,0) demandent un saut d'au moins leur hauteur, moins le rebord (REBORD).
-const HAUTEUR_SAUT = 1.15;
-const SAUT_BREF = 0.7; // un appui très bref sur Espace monte à cette part de la hauteur maximale
-const DOUBLE_SAUT = 0.8; // le second saut, en l'air, monte de cette part de la hauteur du premier
-const DASH_AIR = 1.6; // m/s ajoutés dans la direction visée par le double saut
-const GRAVITE = 9.8; // m/s² à la montée : moins = des sauts plus longs et plus flottants
-const CHUTE = 1.55; // la pesanteur est multipliée par ceci quand il retombe : un saut vif plutôt que flottant
-const VITESSE = 1.1; // m/s à pied
-const SPRINT = 1.75; // facteur de vitesse avec Maj
+// Les valeurs de Deadlock (deadlock.wiki) sont pour des héros d'environ 1,9 m ; lui en fait 0,3. Les distances et
+// les vitesses sont donc multipliées par ECHELLE ; les durées et les coûts ne changent pas.
+const ECHELLE = 0.3 / 1.9;
+const ENDURANCE = 3; // charges (la plupart des héros en ont 3)
+const RECHARGE = 4.5; // secondes pour regagner une charge, une à la fois
+const DASH_SOL = 10 * ECHELLE; // distance d'un dash au sol (10 m dans Deadlock)
+const DASH_EN_L_AIR = 8 * ECHELLE; // en l'air (8 m) : plus court…
+const VITESSE_DASH = 14 * ECHELLE; // m/s au sol (13,9 à 14,7 selon les héros)…
+const VITESSE_DASH_AIR = VITESSE_DASH * 1.2; // …et plus rapide en l'air
+const SEUIL_GLISSADE = 9.6 * ECHELLE; // une glissade ne part qu'au-dessus de cette vitesse (9,6 m/s)
+// La vitesse de course n'est pas publiée : elle est réglée sous le seuil de glissade (on ne glisse pas d'une
+// simple course, il faut un dash), sprint hors combat compris (il n'y a jamais de combat ici).
+const COURSE = 1.3; // m/s
+const FROTTEMENT_GLISSADE = 0.7; // la glissade ralentit doucement : plus petit = plus loin
 const ACCROUPI = 0.5; // facteur de vitesse accroupi
-const GLISSADE = 2.9; // m/s au départ d'une glissade (plus s'il allait déjà plus vite)
-const DUREE_GLISSADE = 0.85; // secondes
+// Hauteur d'un saut, en mètres, à SA taille et non à l'échelle (sinon il ne monterait sur rien) : la chaise
+// (0,45), le lit (0,6), le bureau (0,75) et la commode (1,0) demandent un saut d'au moins leur hauteur, moins
+// le rebord (REBORD).
+const HAUTEUR_SAUT = 1.15;
+const DOUBLE_SAUT = 0.8; // le double saut monte de cette part de la hauteur du premier
+const SAUT_DASH = 0.7; // le dash-jump, plus plat…
+const ELAN_DASH_SAUT = 1.1; // …garde la vitesse du dash et la pousse un peu
+const SAUT_MUR = 0.85; // le saut de mur, part de la hauteur d'un saut
+const POUSSEE_MUR = 1.3; // m/s : le mur le repousse d'autant
+const GLISSE_MUR = 0.5; // m/s : sa chute est limitée à ceci quand il glisse le long d'un mur
+const GRAVITE = 9.8; // m/s²
+const CHUTE = 1; // la pesanteur est multipliée par ceci à la descente (1 : la même qu'à la montée)
 const ACCELERATION = 11; // plus c'est grand, plus il démarre et s'arrête vite au sol
 const DEMI_TOUR = 1.8; // l'accélération est multipliée par ceci quand il repart dans l'autre sens
 const CONTROLE_AIR = 4.5; // m/s² : à quel point on infléchit un saut (l'élan, lui, se garde)
@@ -199,19 +219,49 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     return { x: dx, z: dz, alt: 0 };
   }
 
+  // le mur le plus proche de son corps (un bord de la pièce, ou le flanc d'un meuble à hauteur de son corps), à moins
+  // de `portee` de sa surface : la normale qui en sort vers lui, et la distance
+  function murProche(portee) {
+    let meilleur = null;
+    let d0 = RAYON + portee;
+    const garder = (cx, cz) => {
+      const d = Math.hypot(pos.x - cx, pos.z - cz);
+      if (d > 1e-6 && d < d0) {
+        d0 = d;
+        meilleur = { nx: (pos.x - cx) / d, nz: (pos.z - cz) / d, d };
+      }
+    };
+    for (let i = 0, j = contour.length - 1; i < contour.length; j = i++) {
+      const [ax, az] = contour[j];
+      const [bx, bz] = contour[i];
+      const [ex, ez] = [bx - ax, bz - az];
+      const t = Math.max(0, Math.min(1, ((pos.x - ax) * ex + (pos.z - az) * ez) / (ex * ex + ez * ez)));
+      garder(ax + t * ex, az + t * ez);
+    }
+    for (const s of solides) {
+      if (s.haut <= alt + MARCHE || s.bas >= alt + CORPS) continue;
+      garder(THREE.MathUtils.clamp(pos.x, s.x0, s.x1), THREE.MathUtils.clamp(pos.z, s.z0, s.z1));
+    }
+    return meilleur;
+  }
+
   // --- Interface et commandes ---
   const el = {
     aide: document.getElementById('perso-aide'),
     action: document.getElementById('perso-action'),
+    endurance: document.getElementById('perso-endurance'),
     quitter: document.getElementById('perso-quitter'),
     debloquer: document.getElementById('perso-debloquer'),
     stick: document.getElementById('perso-stick'),
     pomme: document.getElementById('perso-pomme'),
     agir: document.getElementById('perso-agir'),
     saut: document.getElementById('perso-saut'),
+    dash: document.getElementById('perso-dash'),
+    accroupi: document.getElementById('perso-accroupi'),
   };
+  const boutonsTactiles = [el.stick, el.agir, el.saut, el.dash, el.accroupi];
   const touches = matchMedia('(pointer: coarse)').matches;
-  // sur Mac, Ctrl + une lettre n'est pas un raccourci du navigateur : on peut tenir Ctrl (accroupi) en bougeant
+  // sur Mac, Ctrl + une lettre n'est pas un raccourci du navigateur : on peut tenir Ctrl (glisser, s'accroupir) en bougeant
   const mac = /Mac/.test(navigator.platform);
   const touche = new Set();
   const stick = { x: 0, y: 0 }; // -1…1, haut = avancer
@@ -221,16 +271,20 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
   let enAir = false;
   let airLisse = 0; // 0 au sol, 1 en l'air (lissé, pour l'étirement)
   let atterri = 1; // chronomètre de l'écrasement à l'arrivée (1 = terminé)
+  let endurance = ENDURANCE; // charges d'endurance (avec la part de celle qui se recharge)
   let demandeSaut = 0; // temps restant pendant lequel un appui sur Espace attend de pouvoir partir
-  let sautTenu = false; // Espace (ou le bouton « Saut ») encore enfoncé : le saut monte jusqu'en haut
   let tolerance = 0; // temps restant pendant lequel il peut encore sauter après avoir quitté le sol
   let doubleFait = false; // le double saut n'a lieu qu'une fois par vol
-  let glisseEn = 0; // temps restant de la glissade
-  let glisseAuSol = false; // glissade demandée en l'air : elle part à l'atterrissage
+  let mursSautes = 0; // sauts de mur depuis qu'il a quitté le sol (le premier est gratuit)
+  let veutDash = false;
+  let dashEn = 0; // temps restant du dash en cours
+  let dashAir = false; // dash parti en l'air
+  let vitesseDash = 0;
+  const dirDash = new THREE.Vector2();
+  let enGlissade = false;
+  let contreMur = false; // il glisse le long d'un mur en retombant
   let bas = false; // accroupi (ou en glissade) : son corps est moitié moins haut
-  let sprinte = false;
   let foulee = 0; // distance parcourue depuis le dernier bruit de pas
-  let veutGlisser = false;
   let coince = 0; // depuis combien de temps il est dans un meuble
   let sansProgres = 0; // depuis combien de temps il pousse sans avancer
   let squat = 1; // 1 debout, ~0,5 accroupi ou en glissade (lissé)
@@ -271,19 +325,20 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     if (cible.auClic) cible.auClic();
     else if (cible.interrupteur) basculer(cible.interrupteur);
   }
-  const presserSaut = () => {
-    demandeSaut = MEMOIRE;
-    sautTenu = true;
-  };
-  const relacherSaut = () => (sautTenu = false);
+  const presserSaut = () => (demandeSaut = MEMOIRE);
+  const presserDash = () => (veutDash = true);
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (!actif || e.metaKey || e.altKey || (e.ctrlKey && k !== 'control' && !mac)) return;
     if (k === 'escape') return desactiver();
+    if (k === 'shift') {
+      e.preventDefault();
+      if (!e.repeat) presserDash();
+      return;
+    }
     if (k === 'control' || k === 'c') {
       e.preventDefault();
       touche.add(k);
-      if (!e.repeat) veutGlisser = true;
       return;
     }
     if (k === ' ') {
@@ -301,28 +356,43 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
       if (!e.repeat) agir();
       return;
     }
-    if (k === 'shift' || Object.values(NOMS_TOUCHES).some((l) => l.includes(k))) {
+    if (Object.values(NOMS_TOUCHES).some((l) => l.includes(k))) {
       e.preventDefault();
       touche.add(k);
     }
   });
-  window.addEventListener('keyup', (e) => {
-    const k = e.key.toLowerCase();
-    if (k === ' ') relacherSaut();
-    touche.delete(k);
-  });
-  window.addEventListener('blur', () => {
-    touche.clear();
-    relacherSaut();
-  });
+  window.addEventListener('keyup', (e) => touche.delete(e.key.toLowerCase()));
+  window.addEventListener('blur', () => touche.clear());
   el.quitter.addEventListener('click', () => desactiver());
   el.debloquer.addEventListener('click', () => debloquer());
   el.agir.addEventListener('click', agir);
-  // le bouton « Saut » : tenu, le saut monte plus haut
   el.saut.addEventListener('pointerdown', presserSaut);
-  for (const fin of ['pointerup', 'pointercancel', 'pointerleave']) el.saut.addEventListener(fin, relacherSaut);
+  el.dash.addEventListener('pointerdown', presserDash);
+  // le bouton « Glisse » se tient, comme Ctrl
+  el.accroupi.addEventListener('pointerdown', () => touche.add('c'));
+  for (const fin of ['pointerup', 'pointercancel', 'pointerleave']) el.accroupi.addEventListener(fin, () => touche.delete('c'));
   // les boutons ne gardent pas le focus : Espace ne doit pas les « cliquer » à la place du saut
-  for (const b of [el.quitter, el.debloquer, el.agir, el.saut]) b.addEventListener('pointerdown', (e) => e.preventDefault());
+  for (const b of [el.quitter, el.debloquer, el.agir, el.saut, el.dash, el.accroupi]) b.addEventListener('pointerdown', (e) => e.preventDefault());
+
+  // l'endurance : une barre par charge, qui se remplit ; bleues pendant un dash au sol (Espace donne alors un
+  // dash-jump), rouges un instant quand il en manque
+  const barres = Array.from({ length: ENDURANCE }, () => {
+    const b = document.createElement('span');
+    b.append(document.createElement('i'));
+    el.endurance.append(b);
+    return b;
+  });
+  let rougeJusqua = 0;
+  const manque = () => (rougeJusqua = performance.now() + 350);
+  function majEndurance() {
+    barres.forEach((b, i) => {
+      const f = THREE.MathUtils.clamp(endurance - i, 0, 1);
+      b.firstChild.style.transform = `scaleX(${f.toFixed(3)})`;
+      b.classList.toggle('pleine', f >= 1);
+    });
+    el.endurance.classList.toggle('dash', dashEn > 0 && !dashAir);
+    el.endurance.classList.toggle('vide', performance.now() < rougeJusqua);
+  }
 
   // la souris oriente la caméra (un clic dans la scène la capte) ; sans souris captée ou au doigt, on glisse ;
   // la molette change la distance
@@ -373,11 +443,11 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     { passive: false },
   );
   function texteAide() {
-    const commun = 'Maj : sprint · Espace : sauter (tenu = plus haut, 2× = double saut) · Ctrl : glisser en courant, s’accroupir sinon · E : agir · R : débloquer';
+    const commun = 'Maj : dash (+ Espace pendant le dash : saut long) · Espace : sauter, 2× en l’air, contre un mur en s’en éloignant · Ctrl tenu : glisser après un dash, s’accroupir sinon · E : agir · R : débloquer';
     el.aide.textContent = verrou
       ? `ZQSD : bouger · Souris : caméra · ${commun} · Échap : libérer la souris`
       : touches
-        ? 'Joystick : bouger (au bord = sprint) · Glisse le doigt : regarder · Saut tenu = plus haut'
+        ? 'Joystick : bouger · Glisse le doigt : regarder · Dash puis Saut : saut long · Glisse (tenu) après un dash'
         : `Clique dans la scène pour piloter la caméra à la souris · ZQSD : bouger · ${commun} · Échap : quitter`;
   }
 
@@ -416,8 +486,8 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     vy = 0;
     enAir = false;
     vit.set(0, 0);
-    demandeSaut = tolerance = glisseEn = 0;
-    doubleFait = glisseAuSol = veutGlisser = bas = false;
+    demandeSaut = tolerance = dashEn = mursSautes = 0;
+    doubleFait = veutDash = enGlissade = contreMur = bas = false;
     CORPS = CORPS_DEBOUT;
     decalage.set(0, 0, 0);
     coince = sansProgres = 0;
@@ -445,7 +515,7 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     pos.set(x, 0, z);
     alt = 0;
     arreter();
-    sautTenu = false;
+    endurance = ENDURANCE;
     squat = 1;
     roulis = 0;
     tangage = 0.3;
@@ -458,22 +528,21 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     perso.rotation.y = cap;
     perso.visible = true;
     texteAide();
-    el.aide.hidden = false;
-    el.quitter.hidden = false;
-    el.debloquer.hidden = false;
-    if (touches) el.stick.hidden = el.agir.hidden = el.saut.hidden = false;
+    el.aide.hidden = el.quitter.hidden = el.debloquer.hidden = el.endurance.hidden = false;
+    if (touches) for (const b of boutonsTactiles) b.hidden = false;
+    majEndurance();
     el.aide.classList.remove('estompee');
-    setTimeout(() => el.aide.classList.add('estompee'), 7000);
+    setTimeout(() => el.aide.classList.add('estompee'), 9000);
   }
   function desactiver() {
     if (!actif) return;
     actif = false;
     touche.clear();
-    sautTenu = false;
     stick.x = stick.y = 0;
     document.body.classList.remove('perso');
     perso.visible = false;
-    el.aide.hidden = el.quitter.hidden = el.debloquer.hidden = el.stick.hidden = el.agir.hidden = el.saut.hidden = el.action.hidden = true;
+    el.aide.hidden = el.quitter.hidden = el.debloquer.hidden = el.endurance.hidden = el.action.hidden = true;
+    for (const b of boutonsTactiles) b.hidden = true;
     controls.enabled = true;
     controls.minDistance = minDistanceAvant;
     controls.maxPolarAngle = maxPolaireAvant;
@@ -571,35 +640,73 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
 
   // --- Les gestes ---
   const angle = (a) => THREE.MathUtils.euclideanModulo(a + Math.PI, Math.PI * 2) - Math.PI; // ramené entre -π et π
+  // fait tourner un vecteur (x, z) vers la direction (dx, dz), d'au plus `max` radians, sans changer sa longueur
+  const tournerVers = (v, dx, dz, max) => {
+    const a = Math.atan2(v.x, v.y);
+    const b = a + THREE.MathUtils.clamp(angle(Math.atan2(dx, dz) - a), -max, max);
+    const l = v.length();
+    v.set(Math.sin(b) * l, Math.cos(b) * l);
+  };
 
-  function glisser() {
-    if (glisseEn > 0 || vit.length() <= 0.7) return;
-    glisseEn = DUREE_GLISSADE;
-    bas = true;
-    CORPS = CORPS_BAS;
-    sons.glisser();
-    vit.setLength(Math.max(GLISSADE, vit.length()));
+  // le dash : une charge ; dans la direction visée, ou devant la caméra si on ne vise rien
+  function lancerDash(dirX, dirZ, intention, fx, fz) {
+    if (endurance < 1) return manque();
+    endurance -= 1;
+    enGlissade = false;
+    dashAir = enAir;
+    vitesseDash = dashAir ? VITESSE_DASH_AIR : VITESSE_DASH;
+    dashEn = (dashAir ? DASH_EN_L_AIR : DASH_SOL) / vitesseDash;
+    if (intention > 0.1) dirDash.set(dirX / intention, dirZ / intention);
+    else dirDash.set(fx, fz);
+    if (dashAir) vy = 0; // en l'air, il file à l'horizontale
+    sons.dash();
   }
 
-  function sauter(double, dirX, dirZ, intention) {
-    demandeSaut = tolerance = glisseEn = 0;
+  // un saut depuis le sol ; pendant un dash au sol, c'est le dash-jump (une charge de plus, s'il en reste)
+  function sauterDuSol() {
+    demandeSaut = tolerance = 0;
     enAir = true;
-    if (!double) {
-      vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT);
-      sons.saut(false);
+    enGlissade = false;
+    if (dashEn > 0 && !dashAir && endurance >= 1) {
+      endurance -= 1;
+      dashEn = 0;
+      vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT * SAUT_DASH);
+      vit.set(dirDash.x, dirDash.y).multiplyScalar(vitesseDash * ELAN_DASH_SAUT);
+      sons.saut(true);
+      atterri = 0;
       return;
     }
+    dashEn = 0; // un saut simple arrête le dash, mais garde sa vitesse
+    vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT);
+    sons.saut(false);
+  }
+
+  // le double saut, en l'air : une charge ; il réoriente à moitié l'élan vers la direction visée
+  function doubleSaut(dirX, dirZ, intention) {
+    endurance -= 1;
+    demandeSaut = dashEn = 0;
     doubleFait = true;
     vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT * DOUBLE_SAUT);
-    sons.saut(true);
-    atterri = 0; // un petit coup d'écrasement, comme une impulsion
     if (intention > 0.1) {
-      // l'élan se réoriente en grande partie vers la direction visée, et le dash s'y ajoute
-      const [ux, uz] = [dirX / intention, dirZ / intention];
       const v = vit.length();
-      vit.x += (ux * v - vit.x) * 0.75 + ux * DASH_AIR;
-      vit.y += (uz * v - vit.y) * 0.75 + uz * DASH_AIR;
+      vit.x += ((dirX / intention) * v - vit.x) * 0.5;
+      vit.y += ((dirZ / intention) * v - vit.y) * 0.5;
     }
+    sons.saut(true);
+    atterri = 0;
+  }
+
+  // le saut de mur : repoussé par le mur, il garde la vitesse qu'il avait le long du mur
+  function sauterDuMur(mur) {
+    if (mursSautes > 0) endurance -= 0.5;
+    mursSautes++;
+    demandeSaut = dashEn = 0;
+    vy = Math.sqrt(2 * GRAVITE * HAUTEUR_SAUT * SAUT_MUR);
+    const contre = vit.x * mur.nx + vit.y * mur.nz;
+    vit.x = (vit.x - contre * mur.nx) * 0.9 + mur.nx * POUSSEE_MUR;
+    vit.y = (vit.y - contre * mur.nz) * 0.9 + mur.nz * POUSSEE_MUR;
+    sons.saut(true);
+    atterri = 0;
   }
 
   // il avance de (mx, mz) s'il le peut ; sinon jusqu'au contact de l'obstacle (pas d'arrêt à quelques
@@ -636,60 +743,67 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     enAir = false;
     vy = 0;
     doubleFait = false;
+    mursSautes = 0;
+    dashEn = 0;
     atterri = 0;
     sons.pas();
-    if (glisseAuSol) {
-      glisseAuSol = false;
-      glisser();
-    }
     return true;
   }
 
   // un pas de physique, de durée h
-  function physique(h, dirX, dirZ, intention, sprintTenu, accroupiTenu) {
-    // accroupi : en glissade, quand on tient Ctrl ou C au sol, ou s'il n'a pas la place de se relever
-    bas = glisseEn > 0 || (!enAir && (accroupiTenu || bute(pos.x, pos.z, alt, CORPS_DEBOUT)));
-    CORPS = bas ? CORPS_BAS : CORPS_DEBOUT;
-    sprinte = sprintTenu && intention > 0.1 && !enAir && glisseEn <= 0 && !bas;
-
-    // glissade : Ctrl ou C pendant qu'il court ; demandée en l'air, elle part à l'atterrissage
-    if (veutGlisser) {
-      veutGlisser = false;
-      if (enAir) glisseAuSol = true;
-      else glisser();
+  function physique(h, dirX, dirZ, intention, fx, fz, accroupiTenu) {
+    // l'endurance se recharge, une charge après l'autre
+    endurance = Math.min(ENDURANCE, endurance + h / RECHARGE);
+    if (veutDash) {
+      veutDash = false;
+      if (dashEn <= 0) lancerDash(dirX, dirZ, intention, fx, fz);
     }
 
-    // vitesse horizontale, avec son inertie
-    if (glisseEn > 0) {
-      // en glissade : elle s'éteint toute seule ; on la fait tourner un peu, et tirer en arrière la freine
-      glisseEn -= h;
-      vit.multiplyScalar(Math.exp(-1.6 * h));
+    // la glissade : Ctrl tenu au sol, au-dessus du seuil, ou pendant un dash au sol (qui s'y change sans rien
+    // coûter de plus) ; elle dure tant qu'on tient et qu'il lui reste de la vitesse
+    let v0 = vit.length();
+    if (accroupiTenu && !enAir && !enGlissade && (v0 > SEUIL_GLISSADE || (dashEn > 0 && !dashAir))) {
+      // un dash qui se change en glissade lui donne sa vitesse (même s'il vient de partir)
+      if (dashEn > 0) {
+        vit.set(dirDash.x, dirDash.y).multiplyScalar(vitesseDash);
+        v0 = vitesseDash;
+      }
+      dashEn = 0;
+      enGlissade = true;
+      sons.glisser();
+    }
+    if (enGlissade && (!accroupiTenu || enAir || v0 < COURSE * 0.6)) enGlissade = false;
+    // accroupi : en glissade, Ctrl tenu au sol, ou s'il n'a pas la place de se relever
+    bas = enGlissade || (!enAir && (accroupiTenu || bute(pos.x, pos.z, alt, CORPS_DEBOUT)));
+    CORPS = bas ? CORPS_BAS : CORPS_DEBOUT;
+
+    // vitesse horizontale
+    if (dashEn > 0) {
+      // le dash : une vitesse fixe, qu'on infléchit à peine
+      dashEn -= h;
+      if (intention > 0.1) tournerVers(dirDash, dirX, dirZ, 1.2 * h);
+      vit.set(dirDash.x, dirDash.y).multiplyScalar(vitesseDash);
+    } else if (enGlissade) {
+      // la glissade ralentit doucement ; on la fait tourner un peu, et tirer en arrière la freine
+      vit.multiplyScalar(Math.exp(-FROTTEMENT_GLISSADE * h));
       if (intention > 0.1) {
-        const a = Math.atan2(vit.x, vit.y);
-        const ecart = angle(Math.atan2(dirX, dirZ) - a);
-        if (Math.abs(ecart) > 2.2) vit.multiplyScalar(Math.exp(-3 * h));
-        else {
-          const b = a + THREE.MathUtils.clamp(ecart, -2.4 * h, 2.4 * h);
-          const v = vit.length();
-          vit.set(Math.sin(b) * v, Math.cos(b) * v);
-        }
+        if (Math.abs(angle(Math.atan2(dirX, dirZ) - Math.atan2(vit.x, vit.y))) > 2.2) vit.multiplyScalar(Math.exp(-3 * h));
+        else tournerVers(vit, dirX, dirZ, 1.6 * h);
       }
     } else if (enAir) {
-      // en l'air : on infléchit la trajectoire sans perdre l'élan pris au sol (sprint, glissade, dash)…
-      const v0 = vit.length();
+      // en l'air : on infléchit la trajectoire sans perdre l'élan (dash, dash-jump, glissade)…
       if (intention > 0.05) {
         vit.x += dirX * CONTROLE_AIR * h;
         vit.y += dirZ * CONTROLE_AIR * h;
-        const max = Math.max(v0, VITESSE * (sprintTenu ? SPRINT : 1));
+        const max = Math.max(v0, COURSE);
         if (vit.length() > max) vit.setLength(max);
       } else vit.multiplyScalar(Math.exp(-0.35 * h));
-      // …mais ce qui dépasse la vitesse d'un sprint s'use peu à peu
+      // …mais ce qui dépasse la course s'use peu à peu
       const v = vit.length();
-      const vMax = VITESSE * SPRINT;
-      if (v > vMax) vit.setLength(vMax + (v - vMax) * Math.exp(-1.5 * h));
+      if (v > COURSE) vit.setLength(COURSE + (v - COURSE) * Math.exp(-0.4 * h));
     } else {
       // au sol : vif, et encore plus pour repartir dans l'autre sens
-      const vitesseVisee = VITESSE * (bas ? ACCROUPI : sprinte ? SPRINT : 1);
+      const vitesseVisee = COURSE * (bas ? ACCROUPI : 1);
       let rythme = ACCELERATION * (intention > 0.05 ? 1 : 1.2);
       if (intention > 0.05 && vit.x * dirX + vit.y * dirZ < 0) rythme *= DEMI_TOUR;
       const k = 1 - Math.exp(-rythme * h);
@@ -701,37 +815,55 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
 
     // il avance un axe après l'autre : contre un obstacle il glisse le long, et perd seulement cette
     // vitesse-là ; en l'air, s'il pousse vers un rebord presque atteint, il se hisse dessus
+    const [x0, z0] = [pos.x, pos.z];
     const [mx, mz] = [vit.x * h, vit.y * h];
-    if (mx !== 0 && !avancer(mx, 0) && !(enAir && dirX * Math.sign(mx) > 0.3 && seHisser(Math.sign(mx), 0))) vit.x = 0;
-    if (mz !== 0 && !avancer(0, mz) && !(enAir && dirZ * Math.sign(mz) > 0.3 && seHisser(0, Math.sign(mz)))) vit.y = 0;
+    const pousseX = dashEn > 0 ? dirDash.x : dirX;
+    const pousseZ = dashEn > 0 ? dirDash.y : dirZ;
+    if (mx !== 0 && !avancer(mx, 0) && !(enAir && pousseX * Math.sign(mx) > 0.3 && seHisser(Math.sign(mx), 0))) vit.x = 0;
+    if (mz !== 0 && !avancer(0, mz) && !(enAir && pousseZ * Math.sign(mz) > 0.3 && seHisser(0, Math.sign(mz)))) vit.y = 0;
+    // un dash qui bute de face s'arrête
+    if (dashEn > 0 && Math.hypot(pos.x - x0, pos.z - z0) < 0.3 * vitesseDash * h) dashEn = 0;
 
-    // saut (au sol, ou juste après l'avoir quitté), puis double saut en l'air ; sous un meuble, pas de saut
+    // Espace : depuis le sol (ou juste après l'avoir quitté) ; en l'air, contre un mur en s'en éloignant, sinon le
+    // double saut ; sous un meuble, pas de saut ; faute d'endurance, l'appui attend un instant (il partira à
+    // l'atterrissage)
     if (demandeSaut > 0) {
-      if ((!enAir || tolerance > 0) && !bute(pos.x, pos.z, alt, CORPS_DEBOUT)) sauter(false, dirX, dirZ, intention);
-      else if (enAir && !doubleFait) sauter(true, dirX, dirZ, intention);
-      else demandeSaut -= h; // gardé un instant : il partira à l'atterrissage
+      const mur = enAir && intention > 0.2 ? murProche(0.06) : null;
+      if ((!enAir || tolerance > 0) && !bute(pos.x, pos.z, alt, CORPS_DEBOUT)) sauterDuSol();
+      else if (mur && (dirX * mur.nx + dirZ * mur.nz) / intention > 0.1 && (mursSautes === 0 || endurance >= 0.5)) sauterDuMur(mur);
+      else if (enAir && !doubleFait && endurance >= 1) doubleSaut(dirX, dirZ, intention);
+      else {
+        if (enAir && !doubleFait) manque();
+        demandeSaut = Math.max(0, demandeSaut - h);
+        if (enAir && !doubleFait) demandeSaut = 0; // pas d'endurance : on ne le garde pas
+      }
     }
 
-    // verticalement : à pied il suit le sol (il monte ou descend une marche, ou tombe d'un rebord) ; en l'air,
-    // la pesanteur, plus forte à la descente, et plus forte à la montée si on a lâché Espace
+    // verticalement : à pied il suit le sol (il monte ou descend une marche, ou tombe d'un rebord) ; en l'air, la
+    // pesanteur (suspendue pendant un dash en l'air), et la glissade le long d'un mur qu'il pousse en retombant
     if (!enAir) {
       tolerance = TOLERANCE;
       const sol = solSous(pos.x, pos.z, alt + MARCHE);
       if (sol < alt - MARCHE) {
         enAir = true; // plus rien sous ses pieds
         vy = 0;
-        glisseEn = 0;
+        enGlissade = false;
       } else {
         alt += (sol - alt) * (1 - Math.exp(-30 * h));
         if (Math.abs(sol - alt) < 0.002) alt = sol;
       }
     } else tolerance -= h;
+    contreMur = false;
     if (enAir) {
-      let g = GRAVITE;
-      if (vy < 0) g *= CHUTE;
-      else if (!sautTenu) g /= SAUT_BREF;
-      if (sautTenu && Math.abs(vy) < 0.5) g *= 0.7; // un rien de suspension au sommet, pour viser l'arrivée
-      vy = Math.max(vy - g * h, -8);
+      if (dashEn > 0 && dashAir) vy = 0;
+      else vy = Math.max(vy - GRAVITE * (vy < 0 ? CHUTE : 1) * h, -8);
+      if (vy < 0 && intention > 0.2) {
+        const mur = murProche(0.015);
+        if (mur && -(dirX * mur.nx + dirZ * mur.nz) / intention > 0.3) {
+          contreMur = true;
+          vy = Math.max(vy, -GLISSE_MUR);
+        }
+      }
       let neuve = alt + vy * h;
       if (vy > 0) {
         // il se cogne la tête contre le dessous d'un meuble ou le plafond
@@ -752,13 +884,11 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
           neuve = sol;
           enAir = false;
           doubleFait = false;
+          mursSautes = 0;
+          if (dashAir) dashEn = 0;
           if (vy < -2) sons.atterrir(); // pas pour une petite chute
           vy = 0;
           atterri = 0; // petit écrasement à l'arrivée
-          if (glisseAuSol) {
-            glisseAuSol = false;
-            glisser();
-          }
         }
       }
       alt = Math.max(0, neuve);
@@ -777,18 +907,18 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     const [fx, fz] = [Math.sin(capCamera), Math.cos(capCamera)];
     const [dirX, dirZ] = [fx * iz - fz * ix, fz * iz + fx * ix]; // devant = (fx, fz), à droite = (-fz, fx)
     const intention = Math.hypot(dirX, dirZ);
-    const sprintTenu = touche.has('shift') || Math.hypot(stick.x, stick.y) > 0.92;
     const accroupiTenu = touche.has('control') || touche.has('c');
 
     const pasPhysique = Math.max(1, Math.ceil(dt / PAS_PHYSIQUE));
-    for (let i = 0; i < pasPhysique; i++) physique(dt / pasPhysique, dirX, dirZ, intention, sprintTenu, accroupiTenu);
+    for (let i = 0; i < pasPhysique; i++) physique(dt / pasPhysique, dirX, dirZ, intention, fx, fz, accroupiTenu);
+    majEndurance();
 
     const vitH = vit.length();
-    // il se tourne vers où il va, et se penche un peu dans le virage
+    // il se tourne vers où il va (contre un mur, il lui fait face), et se penche un peu dans le virage
     const capAvant = cap;
-    if (vitH > 0.15) cap += angle(Math.atan2(vit.x, vit.y) - cap) * (1 - Math.exp(-14 * dt));
+    if (vitH > 0.15) cap += angle(Math.atan2(vit.x, vit.y) - cap) * (1 - Math.exp(-(dashEn > 0 ? 22 : 14) * dt));
     const virage = dt > 0 ? (cap - capAvant) / dt : 0;
-    const roulisVoulu = THREE.MathUtils.clamp(-virage * 0.045, -0.28, 0.28) * Math.min(1, vitH / VITESSE) * (enAir ? 0.4 : 1);
+    const roulisVoulu = THREE.MathUtils.clamp(-virage * 0.045, -0.28, 0.28) * Math.min(1, vitH / COURSE) * (enAir ? 0.4 : 1);
     roulis += (roulisVoulu - roulis) * (1 - Math.exp(-10 * dt));
 
     // coincé dans un meuble (une boîte de collision approximative, un atterrissage de travers) : au bout d'un
@@ -800,8 +930,8 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     // il pousse sans avancer : on lui rappelle la touche R
     sansProgres = intention > 0.4 && vitH < 0.08 && !enAir ? sansProgres + dt : 0;
 
-    // démarche : il se dandine au rythme des pas, se penche en courant, se couche en glissant
-    const enMarche = vitH > 0.2 && !enAir && glisseEn <= 0 ? 1 : 0;
+    // démarche : il se dandine au rythme des pas, se penche en courant et encore plus en dash, se couche en glissant
+    const enMarche = vitH > 0.2 && !enAir && !enGlissade && dashEn <= 0 ? 1 : 0;
     // un bruit de pas tous les 35 cm parcourus au sol (plus espacés accroupi)
     if (enMarche) {
       foulee += vitH * dt;
@@ -813,23 +943,23 @@ export function creerPerso({ renderer, racine, camera, controls, interactions, c
     allure += (enMarche - allure) * (1 - Math.exp(-12 * dt));
     phase += vitH * dt * (bas ? 34 : 26);
     corps.rotation.z = Math.sin(phase) * allure * (bas ? 0.1 : 0.16) + roulis;
-    const penche = (sprinte ? 0.2 : 0.1) * allure - (glisseEn > 0 ? 0.5 : 0);
+    const penche = 0.12 * allure + (dashEn > 0 ? 0.35 : 0) - (enGlissade ? 0.5 : 0) + (contreMur ? -0.15 : 0);
     corps.rotation.x += (penche - corps.rotation.x) * (1 - Math.exp(-14 * dt));
     corps.position.y = Math.abs(Math.sin(phase)) * 0.012 * allure;
-    // il s'étire en montant, s'écrase en retombant, en glissant ou accroupi
+    // il s'étire en montant et pendant un dash, s'écrase en retombant, en glissant ou accroupi
     airLisse += ((enAir ? 1 : 0) - airLisse) * (1 - Math.exp(-16 * dt));
     atterri = Math.min(1, atterri + dt / 0.16);
     squat += ((bas ? 0.55 : 1) - squat) * (1 - Math.exp(-18 * dt));
     const ecrase = Math.sin(Math.PI * atterri) * 0.18 * (atterri < 1 ? 1 : 0);
-    const etire = airLisse * 0.1 * THREE.MathUtils.clamp(Math.abs(vy) / 3, 0, 1);
+    const etire = airLisse * 0.1 * THREE.MathUtils.clamp(Math.abs(vy) / 3, 0, 1) + (dashEn > 0 ? 0.06 : 0);
     const large = 1 + ecrase * 0.6 - etire * 0.4 + (1 - squat) * 0.35;
     perso.scale.set(large, (1 - ecrase + etire) * squat, large);
     decalage.multiplyScalar(Math.exp(-22 * dt));
     perso.position.set(pos.x + decalage.x, alt + decalage.y, pos.z + decalage.z);
     perso.rotation.y = cap;
 
-    // la vue s'élargit avec la vitesse (sprint, dash), et un peu plus en glissade
-    fovVoulu = 62 + 8 * THREE.MathUtils.clamp((vitH - 1.2) / 0.7, 0, 1) + (glisseEn > 0 ? 5 : 0);
+    // la vue s'élargit avec la vitesse (de la course au dash), et un peu plus en glissade
+    fovVoulu = 62 + 10 * THREE.MathUtils.clamp((vitH - COURSE) / (VITESSE_DASH - COURSE), 0, 1) + (enGlissade ? 4 : 0);
     suivreCamera(dt);
 
     delaiCible -= dt;

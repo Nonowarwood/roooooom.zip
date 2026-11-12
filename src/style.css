@@ -613,12 +613,14 @@ body.perso .fiche { display: none; }
 .soleil-heures { font-size: 12px; opacity: 0.8; white-space: nowrap; font-variant-numeric: tabular-nums; text-shadow: 0 1px 6px #0006; }
 
 /* --- Mode secret : le petit bonhomme --- */
-.perso-quitter[hidden], .perso-debloquer[hidden], .perso-aide[hidden], .perso-action[hidden], .perso-stick[hidden], .perso-agir[hidden], .perso-saut[hidden] { display: none; }
+.perso-quitter[hidden], .perso-debloquer[hidden], .perso-aide[hidden], .perso-action[hidden], .perso-endurance[hidden], .perso-stick[hidden], .perso-agir[hidden], .perso-saut[hidden], .perso-dash[hidden], .perso-accroupi[hidden] { display: none; }
 body.perso .vues, body.perso .commandes { display: none; }
 .perso-quitter,
 .perso-debloquer,
 .perso-agir,
-.perso-saut {
+.perso-saut,
+.perso-dash,
+.perso-accroupi {
   position: absolute;
   z-index: 11;
   color: #fff;
@@ -685,6 +687,24 @@ body.perso .vues, body.perso .commandes { display: none; }
 .perso-agir { right: 28px; bottom: calc(52px + env(safe-area-inset-bottom)); padding: 18px 24px; border-radius: 50%; opacity: 0.6; }
 .perso-saut { right: 110px; bottom: calc(40px + env(safe-area-inset-bottom)); padding: 18px 20px; border-radius: 50%; background: var(--prune); }
 .perso-agir.pret { opacity: 1; background: var(--prune); }
+.perso-dash { right: 40px; bottom: calc(138px + env(safe-area-inset-bottom)); padding: 16px 16px; border-radius: 50%; }
+.perso-accroupi { right: 132px; bottom: calc(118px + env(safe-area-inset-bottom)); padding: 14px 12px; border-radius: 50%; font-size: 12px; }
+/* l'endurance : une barre par charge, qui se remplit ; bleues pendant un dash (Espace = saut long), rouges quand il en manque */
+.perso-endurance {
+  position: absolute;
+  z-index: 11;
+  left: 50%;
+  bottom: calc(126px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  pointer-events: none;
+}
+.perso-endurance span { width: 26px; height: 6px; border-radius: 3px; background: #30213999; box-shadow: 0 1px 6px #0006; overflow: hidden; }
+.perso-endurance i { display: block; height: 100%; background: #ffffffa0; transform-origin: left; }
+.perso-endurance span.pleine i { background: #fff; }
+.perso-endurance.dash i, .perso-endurance.dash span.pleine i { background: #7fd3ff; }
+.perso-endurance.vide span { background: #c0446a99; }
 
 /* mouvements réduits (réglage du système) : pas d'animations d'interface, juste les changements d'état */
 @media (prefers-reduced-motion: reduce) {
